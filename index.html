@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Radar personal de señales de mercado." />
+  <title>Radar de Mercados</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230d2b38'/%3E%3Cpath d='M16 16 26 8M16 16 8 25' stroke='%236ee7d8' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23f8c66e'/%3E%3C/svg%3E" />
+  <style>
+    :root { color-scheme: dark; --bg:#07171e; --panel:#0d2933; --line:#1d4652; --text:#eaf5f4; --muted:#a5c2c6; --teal:#6ee7d8; --amber:#f8c66e; --red:#fb8b8b; }
+    * { box-sizing:border-box } body { margin:0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:radial-gradient(circle at 75% -20%,#164957 0,transparent 36%),var(--bg); color:var(--text); }
+    main { max-width:1240px; margin:auto; padding:32px 22px 56px; } header { display:flex; align-items:start; justify-content:space-between; gap:24px; margin-bottom:28px; }
+    h1 { font-size:clamp(1.8rem,4vw,2.7rem); margin:0 0 7px; letter-spacing:-.04em } p { color:var(--muted); margin:0; line-height:1.5 } .stamp { border:1px solid var(--line); border-radius:999px; padding:9px 13px; color:var(--muted); white-space:nowrap; font-size:.86rem }
+    .notice { padding:14px 16px; border-left:3px solid var(--amber); background:#102b31; color:#d9e9e9; margin-bottom:22px; border-radius:0 10px 10px 0; font-size:.94rem }
+    .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:16px }.card { background:linear-gradient(145deg,rgba(18,53,64,.92),rgba(9,32,41,.94)); border:1px solid var(--line); border-radius:16px; padding:20px; min-width:0 }.span4{grid-column:span 4}.span6{grid-column:span 6}.span12{grid-column:span 12}
+    .label { color:var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.09em; margin-bottom:12px}.value { font-size:2rem; font-weight:720; letter-spacing:-.04em }.unit { font-size:1rem; color:var(--muted); font-weight:500 }.change { color:var(--teal); font-size:.9rem; margin-top:9px }.source { color:var(--muted); font-size:.79rem; margin-top:14px }
+    h2 { font-size:1.05rem; margin:0 0 14px }.signals { width:100%; border-collapse:collapse; font-size:.92rem }.signals th,.signals td { text-align:left; padding:13px 8px; border-bottom:1px solid var(--line) }.signals th { color:var(--muted); font-weight:600; font-size:.76rem; text-transform:uppercase; letter-spacing:.06em }.status { display:inline-flex; align-items:center; gap:7px; color:var(--text) }.dot { width:8px;height:8px;border-radius:50%;background:var(--teal) }.dot.amber{background:var(--amber)} .dot.red{background:var(--red)}
+    .portfolio { display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap }.button { background:var(--teal); color:#062128; padding:10px 14px; border-radius:9px; font-weight:700; text-decoration:none; border:0; cursor:pointer; font-size:.9rem }.button:hover{filter:brightness(1.08)} .portfolio-result{display:none;margin-top:16px;width:100%;padding:13px;background:#09232d;border:1px solid var(--line);border-radius:10px}.portfolio-result.show{display:block} footer { color:var(--muted); font-size:.78rem; margin-top:20px; line-height:1.5 }
+    @media(max-width:760px){ header{display:block}.stamp{display:inline-block;margin-top:15px}.span4,.span6{grid-column:span 12}.signals th:nth-child(3),.signals td:nth-child(3){display:none} main{padding:24px 16px} }
+  </style>
+</head>
+<body>
+<main>
+  <header><div><h1>Radar de Mercados</h1><p>Seguimiento personal de las señales que están detrás del índice.</p></div><div class="stamp" id="updated">Actualizado: preparando datos…</div></header>
+  <div class="notice">Lectura, no predicción: una sola señal no confirma una crisis. Observa el conjunto y su tendencia.</div>
+  <section class="grid" aria-label="Indicadores principales">
+    <article class="card span4"><div class="label">Volatilidad · VIX</div><div class="value" id="vix">—</div><div class="change" id="vixDetail">Dato de cierre</div><div class="source">Fuente: Cboe / mercado</div></article>
+    <article class="card span4"><div class="label">Crédito · High Yield OAS</div><div class="value" id="oas">—</div><div class="change" id="oasDetail">Diferencial sobre Treasury</div><div class="source">Fuente: ICE BofA vía FRED</div></article>
+    <article class="card span4"><div class="label">Treasury · 10 años</div><div class="value" id="tenYear">—</div><div class="change" id="tenYearDetail">Rendimiento diario</div><div class="source">Fuente: U.S. Treasury / FRED</div></article>
+    <article class="card span4"><div class="label">Energía · Diésel</div><div class="value" id="diesel">—</div><div class="change" id="dieselDetail">Actualización semanal</div><div class="source">Fuente: EIA vía FRED</div></article>
+    <article class="card span12"><h2>Gráficos de tendencia</h2><p>Elige la escala: diario para movimientos recientes, semanal para la tendencia de meses y mensual para el contexto histórico.</p><p class="source">Esta sección se activará con el actualizador diario gratuito de GitHub; incluirá VIX, crédito, Treasury y diésel.</p></article>
+    <article class="card span6"><h2>Señales a vigilar</h2><table class="signals"><thead><tr><th>Señal</th><th>Lectura</th><th>Por qué importa</th></tr></thead><tbody>
+      <tr><td><span class="status"><i class="dot" id="creditDot"></i>Crédito</span></td><td id="creditState">Cargando</td><td>Un OAS que se amplía refleja mayor prima por riesgo.</td></tr>
+      <tr><td><span class="status"><i class="dot amber"></i>Financiación</span></td><td>SOFR y repo</td><td>Compara el coste de efectivo garantizado con otros tipos overnight.</td></tr>
+      <tr><td><span class="status"><i class="dot amber"></i>Liquidez</span></td><td>RRP, TGA y reservas</td><td>Revisar semanalmente, no como dato intradía.</td></tr>
+      <tr><td><span class="status"><i class="dot amber"></i>Energía</span></td><td>Diésel</td><td>Señal física de coste e inflación; actualización semanal.</td></tr>
+    </tbody></table></article>
+    <article class="card span6"><h2>Mi cartera Folionet</h2><div class="portfolio"><div><p>Importa un extracto CSV descargado de Folionet para ver tus posiciones. El archivo se lee únicamente en este navegador y no se envía a ningún lugar.</p><p class="source">Nunca ingreses tu contraseña ni claves de acceso.</p></div><button class="button" id="importBtn">Importar extracto CSV</button><input id="fileInput" type="file" accept=".csv,text/csv" hidden></div><div class="portfolio-result" id="portfolioResult"></div></article>
+    <article class="card span12"><h2>Ritmo de revisión</h2><table class="signals"><thead><tr><th>Diario</th><th>Semanal</th><th>Qué buscar</th></tr></thead><tbody><tr><td>VIX, High Yield OAS, Treasury 10Y, SOFR/Repo</td><td>Reservas, balance Fed, TGA/RRP, precio de diésel</td><td>Movimientos simultáneos y persistentes, no una cifra aislada.</td></tr></tbody></table></article>
+  </section>
+  <footer>Las cifras de esta pantalla se consultan al abrirla y pueden tener retraso según la fuente. No es asesoramiento financiero ni una instrucción de compra o venta.</footer>
+</main>
+<script>
+  const latest = async id => { const r = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=${id}&file_type=json&api_key=`); return r };
+  const set = (id,value,detail='')=>{ document.getElementById(id).innerHTML=value; if(detail) document.getElementById(id+'Detail').textContent=detail };
+  const fmt = (n,suffix='') => Number.isFinite(n) ? `${n.toFixed(2)}<span class="unit">${suffix}</span>` : 'No disponible';
+  async function loadYahoo(){ try{ const response=await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?range=5d&interval=1d'); const data=await response.json(); const rs=data.chart.result[0]; const closes=rs.indicators.quote[0].close.filter(Boolean); const current=closes.at(-1), previous=closes.at(-2); set('vix',fmt(current,''), previous?`${(current-previous>=0?'+':'')}${(current-previous).toFixed(2)} frente al cierre anterior`:'Dato de cierre'); }catch(e){ set('vix','Consulta tu broker','VIX puede requerir licencia o retraso'); } }
+  async function loadFred(){ try{ const data=await fetch('data/market.json').then(r=>{if(!r.ok)throw Error();return r.json()}); const last=k=>data.series[k].points.at(-1)?.value; const oas=last('credit'), y10=last('treasury10y'), diesel=last('diesel'); set('oas',fmt(oas,'%'),`${(oas*100).toFixed(0)} puntos básicos`); set('tenYear',fmt(y10,'%'),'Rendimiento de cierre'); set('diesel',fmt(diesel,' USD/gal'),'Dato semanal'); document.getElementById('creditState').textContent=oas>=5?'Tensión elevada':oas>=4?'Atención':'Sin tensión destacada'; document.getElementById('creditDot').className='dot '+(oas>=5?'red':oas>=4?'amber':''); document.getElementById('updated').textContent='Datos actualizados: '+new Intl.DateTimeFormat('es-VE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(data.updated_at)); }catch(e){ set('oas','Pendiente'); set('tenYear','Pendiente'); set('diesel','Pendiente'); document.getElementById('creditState').textContent='Actualizador aún no ejecutado'; } }
+  document.getElementById('updated').textContent='Consultando datos: '+new Intl.DateTimeFormat('es-VE',{dateStyle:'medium',timeStyle:'short'}).format(new Date());
+  const fileInput=document.getElementById('fileInput'), portfolioResult=document.getElementById('portfolioResult');
+  document.getElementById('importBtn').addEventListener('click',()=>fileInput.click());
+  fileInput.addEventListener('change', async event=>{ const file=event.target.files[0]; if(!file)return; const text=await file.text(); const rows=text.trim().split(/\r?\n/); const header=(rows.shift()||'').split(',').map(v=>v.trim().toLowerCase()); const tickerIndex=header.findIndex(v=>/symbol|ticker|instrument|security/.test(v)); const quantityIndex=header.findIndex(v=>/quantity|shares|cantidad|acciones/.test(v)); const cashIndex=header.findIndex(v=>/cash|efectivo/.test(v)); let positions=0, units=0, cash='—'; rows.forEach(line=>{const cells=line.split(',').map(v=>v.trim()); if(tickerIndex>=0&&cells[tickerIndex])positions++; if(quantityIndex>=0)units+=Number(cells[quantityIndex].replace(/[$,]/g,''))||0; if(cashIndex>=0&&cells[cashIndex])cash=cells[cashIndex]}); portfolioResult.innerHTML=`<strong>Extracto leído localmente</strong><br><span class="source">${positions?`${positions} posiciones detectadas · ${units.toLocaleString('es-VE')} unidades`:'No se reconocieron columnas de posiciones.'}${cash!=='—'?` · Efectivo: ${cash}`:''}</span>`; portfolioResult.classList.add('show'); });
+  loadYahoo(); loadFred();
+</script>
+</body></html>
