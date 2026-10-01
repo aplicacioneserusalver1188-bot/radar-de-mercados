@@ -8,7 +8,7 @@ def series(series_id):
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
     with urllib.request.urlopen(url, timeout=30) as response:
         rows = list(csv.DictReader(io.TextIOWrapper(response, encoding="utf-8")))
-    clean = [{"date": r["observation_date"], "value": float(r[series_id])} for r in rows if r.get(series_id) not in (None, ".", "")]
+    clean = [{"date": r.get("observation_date") or r.get("DATE"), "value": float(r[series_id])} for r in rows if r.get(series_id) not in (None, ".", "")]
     return clean[-520:]
 
 def main():
@@ -18,6 +18,7 @@ def main():
         ("treasury10y", "DGS10", "Treasury 10 años", "daily"),
         ("sofr", "SOFR", "SOFR", "daily"),
         ("diesel", "GASDESW", "Diésel minorista EE. UU.", "weekly"),
+        ("rrp", "RRPONTSYD", "RRP overnight", "daily"),
     ]:
         try:
             data["series"][key] = {"label": label, "frequency": frequency, "points": series(fred_id)}
