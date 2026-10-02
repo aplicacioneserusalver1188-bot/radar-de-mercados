@@ -54,4 +54,30 @@ new MutationObserver(fichasBotones).observe($('charts'),{childList:true});new Mu
 /* Aclaración educativa del ON RRP, con vocabulario técnico y propósito económico. */
 const explicacionRrp=Array.from(document.querySelectorAll('#guide p')).find(p=>p.textContent.includes('Acuerdos de recompra inversa a un día'));
 if(explicacionRrp)explicacionRrp.outerHTML='<div class="callout"><h3>Acuerdo de recompra inversa nocturno (Overnight Reverse Repurchase Agreement, ON RRP)</h3><p><b>Qué es y para qué sirve:</b> es una herramienta de política monetaria utilizada por la Reserva Federal de Estados Unidos para gestionar temporalmente la liquidez del sistema financiero y ayudar a controlar las tasas de interés de corto plazo.</p><p><b>Cómo funciona:</b> al cierre del Día 1, una institución financiera elegible entrega efectivo a la Reserva Federal. Como garantía, la Reserva Federal vende temporalmente valores, normalmente títulos del Tesoro, y acuerda recomprarlos el siguiente día hábil. En el Día 2 recompra los valores y paga el interés previamente fijado, la tasa ON RRP.</p><p><b>Lectura económica:</b> esta operación puede absorber efectivo durante la noche y ofrecer una alternativa segura a participantes elegibles. La tasa ON RRP contribuye a establecer un piso para ciertas tasas de muy corto plazo; no es una regla absoluta para todos los préstamos privados. El indicador se interpreta junto con las reservas bancarias, la Cuenta General del Tesoro y las condiciones de crédito.</p></div>';
+</script><style>
+/* Velocímetro: escala uniforme, con marcas exteriores cada diez puntos. */
+.gauge.gauge-dial{width:min(300px,100%);height:190px;overflow:visible;margin:4px auto 0;position:relative}.gauge-dial svg{display:block;width:100%;height:180px;overflow:visible}.gauge-dial .gauge-arc{fill:none;stroke:url(#gaugeGradient);stroke-width:24;stroke-linecap:butt}.gauge-dial .gauge-tick{stroke:var(--t);stroke-width:2;stroke-linecap:round}.gauge-dial .gauge-tick.major{stroke-width:3}.gauge-dial .gauge-number{fill:var(--t);font-size:12px;font-weight:800;text-anchor:middle;dominant-baseline:middle}.gauge-dial .gauge-pointer{stroke:var(--t);stroke-width:4;stroke-linecap:round}.gauge-dial .gauge-hub{fill:var(--t);stroke:var(--p);stroke-width:3}.gauge-dial .gauge-value{z-index:3;bottom:28px;font-size:2.15rem;color:var(--t);pointer-events:none}.gauge-dial .gauge-value small{font-size:.86rem}.gauge-caption{margin-top:-1px}
+</style><script>
+/* Reconstruye el radar como un velocímetro: 0–100, marcas cada 10 y texto fuera del arco. */
+const contenedorDial=document.querySelector('.gauge');
+if(contenedorDial){
+  const punto=(valor,radio)=>{const ang=(180-valor*1.8)*Math.PI/180;return [150+radio*Math.cos(ang),150-radio*Math.sin(ang)]};
+  let marcas='';
+  for(let valor=0;valor<=100;valor+=10){
+    const mayor=valor%20===0,[x1,y1]=punto(valor,133),[x2,y2]=punto(valor,mayor?117:121),[tx,ty]=punto(valor,148);
+    marcas+=`<line class="gauge-tick ${mayor?'major':''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/><text class="gauge-number" x="${tx}" y="${ty}">${valor}</text>`;
+  }
+  contenedorDial.className='gauge gauge-dial';
+  contenedorDial.setAttribute('aria-label','Velocímetro de atención de cero a cien');
+  contenedorDial.innerHTML=`<svg viewBox="0 0 300 180" role="img" aria-label="Escala de atención de 0 a 100"><defs><linearGradient id="gaugeGradient" x1="0%" x2="100%"><stop offset="0%" stop-color="#16a34a"/><stop offset="48%" stop-color="#eab308"/><stop offset="100%" stop-color="#dc2626"/></linearGradient></defs><path class="gauge-arc" d="M30 150 A120 120 0 0 1 270 150"/>${marcas}<g id="needle" transform="rotate(-90 150 150)"><line class="gauge-pointer" x1="150" y1="150" x2="150" y2="58"/><circle class="gauge-hub" cx="150" cy="150" r="8"/></g></svg><div id="score" class="gauge-value">—<small>/100</small></div>`;
+}
+const calcularVelocimetro=overall;
+overall=function(){
+  calcularVelocimetro();
+  const giro=(($('needle').style.transform||'').match(/-?\d+(?:\.\d+)?/)||[0])[0];
+  const valor=Math.max(0,Math.min(100,Math.round((Number(giro)+90)/1.8)));
+  $('needle').setAttribute('transform',`rotate(${Number(giro)} 150 150)`);
+  $('needle').style.transform='';
+  $('score').innerHTML=valor+'<small>/100</small>';
+};
 </script></body></html>
