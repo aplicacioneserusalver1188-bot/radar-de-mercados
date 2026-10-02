@@ -66,6 +66,7 @@ Carpeta de trabajo preparada para subir:
 - Se reconstruyó el radar de atención como velocímetro de 0 a 100, con marcas cada 10 puntos y números por fuera del arco.
 - Se añadieron al actualizador y al tablero: sentimiento del consumidor, empleo no agrícola y condiciones financieras nacionales.
 - Se mejoró la explicación del ON RRP con una descripción técnica de su propósito, funcionamiento y límites de interpretación.
+- Las doce tarjetas se separaron en dos pestañas de seis: **Panorama principal** y **Liquidez y economía**.
 
 ## Próximos pendientes sugeridos
 
@@ -81,4 +82,3 @@ Carpeta de trabajo preparada para subir:
 - Usar solo fuentes públicas o conexiones locales de lectura, si en el futuro se justifican.
 - No presentar el radar como asesoría financiera.
 - Explicar siempre cada sigla: nombre en español primero y nombre técnico en inglés entre paréntesis.
-
