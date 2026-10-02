@@ -251,4 +251,75 @@ lecturaNoPrediccion.innerHTML='<article class="card"><p class="ey">Uso responsab
 guia.insertAdjacentElement('afterend',lecturaNoPrediccion);
 navegacionPrincipal.innerHTML='<button class="tab main-view" type="button" data-main-view="dash" aria-selected="true">TABLERO</button><button class="tab main-view" type="button" data-main-view="leer" aria-selected="false">CÓMO LEER EL RADAR</button><button class="tab main-view" type="button" data-main-view="lectura" aria-selected="false">LECTURA, NO PREDICCIÓN</button>';
 document.querySelectorAll('.main-view').forEach(b=>b.onclick=()=>{const vista=b.dataset.mainView;$('dash').hidden=vista!=='dash';guia.hidden=vista!=='leer';lecturaNoPrediccion.hidden=vista!=='lectura';document.querySelectorAll('.main-view').forEach(x=>x.setAttribute('aria-selected',x===b));scrollTo({top:0,behavior:'smooth'})});
+</script><style>
+.radar-summary #rtitle{margin-bottom:8px}.radar-summary #rtext{text-align:justify;line-height:1.65;margin-top:0!important}.radar-summary .break{gap:7px;margin-top:16px}.dashboard .head h2{text-transform:uppercase;letter-spacing:.045em}
+</style><script>
+/* Presentación más limpia de la lectura central y de los semáforos. */
+const actualizarLecturaCentral=overall;
+overall=function(){
+  actualizarLecturaCentral();
+  const texto=$('rtext');
+  texto.textContent=texto.textContent.replace('Las lecturas que más requieren contexto ahora son ','Lecturas prioritarias para revisar ahora: ').replace(' El resultado orienta la revisión; no predice mercados.','');
+  $('break').querySelectorAll('.traffic').forEach(x=>{x.textContent=x.textContent.replace(' tranquilo',' Tranquilo').replace(' en atención',' En atención').replace(' con atención elevada',' Con atención elevada')});
+};
+</script><script>
+/* Precisión educativa: nombres completos y consistentes en el ejemplo de liquidez. */
+const ejemploLiquidez = Array.from(document.querySelectorAll('#guide .example')).find((elemento) =>
+  elemento.textContent.includes('si sube el saldo de la Cuenta General del Tesoro')
+);
+if (ejemploLiquidez) {
+  ejemploLiquidez.innerHTML = '<b>Ejemplo:</b> si sube el saldo de la <b>Cuenta General del Tesoro</b> y, al mismo tiempo, bajan las <b>Reservas Bancarias</b>, conviene observar la evolución del <b>Acuerdo de Recompra Inversa Nocturno (ON RRP)</b> y del <b>Crédito</b>. Es una señal para observar, no una confirmación de crisis.';
+}
+</script><script>
+/* Lectura escalonada y clara del Semáforo de Radar de Atención. */
+const semaforoRadar = Array.from(document.querySelectorAll('#guide article.card')).find((articulo) =>
+  articulo.querySelector('h2')?.textContent.includes('Semáforos y radar de atención')
+);
+if (semaforoRadar) {
+  semaforoRadar.innerHTML = '<h2>4. Semáforo de Radar de Atención</h2><p>Cada tarjeta recibe una luz verde, amarilla o roja con una explicación corta. Son umbrales educativos y modificables; no son un sistema de inversión ni una alerta automática de crisis.</p><p>El Radar agrega las 12 señales para ayudar a decidir qué revisar primero.</p><p>De 0 a 29 indica Entorno Tranquilo.</p><p>De 30 a 59 indica Entorno de Atención.</p><p>De 60 a 100 indica Tensión Elevada.</p>';
+}
+</script><style>
+  .institution{margin:0;padding:0}.institution+.institution{border-top:1px solid var(--line);margin-top:18px;padding-top:18px}
+  .source-list{columns:2;column-gap:30px}.source-list li{break-inside:avoid;margin:0 0 12px}@media(max-width:760px){.source-list{columns:1}}
+</style><script>
+/* Fuentes completas, instituciones separadas y lectura responsable más clara. */
+const guiaFuentes = Array.from(document.querySelectorAll('#guide article.card')).find((articulo) => articulo.querySelector('h2')?.textContent === 'Fuentes y frecuencia');
+if (guiaFuentes) {
+  guiaFuentes.innerHTML = `<h2>Fuentes y frecuencia</h2>
+    <p>Cada indicador conserva la frecuencia con que se publica. Los botones del tablero cambian el período de lectura; no convierten un dato mensual en diario.</p>
+    <ul class="source-list">
+      <li><a href="https://fred.stlouisfed.org/series/VIXCLS" target="_blank" rel="noopener">Índice de Volatilidad (VIX)</a> · diario · Cboe, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/BAMLH0A0HYM2" target="_blank" rel="noopener">Diferencial de Bonos de Alto Rendimiento (High Yield OAS)</a> · diario · ICE BofA, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/DGS10" target="_blank" rel="noopener">Rendimiento del Tesoro a 10 Años</a> · diario · Departamento del Tesoro, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/CPIAUCSL" target="_blank" rel="noopener">Índice de Precios al Consumidor (CPI)</a> · mensual · BLS, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/GASDESW" target="_blank" rel="noopener">Diésel Minorista de EE. UU.</a> · semanal · EIA, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/RRPONTSYD" target="_blank" rel="noopener">Acuerdo de Recompra Inversa Nocturno (ON RRP)</a> · diario · Reserva Federal de Nueva York, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/WTREGEN" target="_blank" rel="noopener">Cuenta General del Tesoro (TGA)</a> · semanal · Departamento del Tesoro, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/WRESBAL" target="_blank" rel="noopener">Reservas Bancarias</a> · semanal · Reserva Federal, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/ICSA" target="_blank" rel="noopener">Solicitudes Iniciales de Desempleo</a> · semanal · Departamento de Trabajo, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/UMCSENT" target="_blank" rel="noopener">Sentimiento del Consumidor</a> · mensual · Universidad de Míchigan, distribuido por FRED.</li>
+      <li><a href="https://fred.stlouisfed.org/series/PAYEMS" target="_blank" rel="noopener">Variación del Empleo no Agrícola (Nonfarm Payrolls)</a> · mensual · BLS, distribuido por FRED.</li>
+      <li><a href="https://www.chicagofed.org/research/data/nfci/current-data" target="_blank" rel="noopener">Índice Nacional de Condiciones Financieras (NFCI)</a> · semanal · Reserva Federal de Chicago.</li>
+    </ul>
+    <div class="callout"><b>Índice de Miedo y Codicia:</b> es una fuente externa de CNN que se desea incorporar, pero todavía no forma parte de los indicadores numéricos: su proveedor no ofrece una descarga automatizada estable para este tablero. El VIX continúa siendo la lectura de volatilidad disponible.</div>
+    <div class="callout"><b>Importante:</b> las publicaciones pueden tener retrasos y revisiones. El tablero muestra la última observación pública disponible.</div>`;
+}
+const guiaInstituciones = Array.from(document.querySelectorAll('#guide article.card')).find((articulo) => articulo.querySelector('h2')?.textContent.includes('Instituciones y fuentes'));
+if (guiaInstituciones) {
+  guiaInstituciones.innerHTML = `<h2>Instituciones y fuentes: quién hace qué</h2>
+    <section class="institution"><p><b>Sistema de la Reserva Federal (Federal Reserve System, Fed)</b></p><p>Gestiona la política monetaria y supervisa partes del sistema bancario. Publica, entre otras series, las Reservas Bancarias.</p></section>
+    <section class="institution"><p><b>Departamento del Tesoro de Estados Unidos (U.S. Department of the Treasury)</b></p><p>Administra las finanzas federales, emite deuda pública y mantiene la Cuenta General del Tesoro.</p></section>
+    <section class="institution"><p><b>Oficina de Estadísticas Laborales (Bureau of Labor Statistics, BLS)</b></p><p>Publica inflación, empleo no agrícola, salarios y otras estadísticas laborales.</p></section>
+    <section class="institution"><p><b>Oficina de Análisis Económico (Bureau of Economic Analysis, BEA)</b></p><p>Publica PIB, consumo, ingresos y cuentas nacionales. Es fuente educativa relevante, aunque no alimenta una tarjeta actual.</p></section>
+    <section class="institution"><p><b>Administración de Información Energética de Estados Unidos (U.S. Energy Information Administration, EIA)</b></p><p>Publica estadísticas energéticas, incluido el diésel minorista.</p></section>
+    <section class="institution"><p><b>Reserva Federal de Chicago (Federal Reserve Bank of Chicago)</b></p><p>Publica el Índice Nacional de Condiciones Financieras.</p></section>
+    <section class="institution"><p><b>Universidad de Míchigan (University of Michigan)</b></p><p>Elabora el índice de Sentimiento del Consumidor.</p></section>
+    <section class="institution"><p><b>Cboe</b></p><p>Mantiene la metodología del Índice de Volatilidad VIX. No es una institución gubernamental.</p></section>
+    <section class="institution"><p><b>FRED (Federal Reserve Economic Data)</b></p><p>Es el portal de la Reserva Federal de San Luis que distribuye muchas de las series públicas utilizadas; no produce todas esas estadísticas.</p></section>
+    <div class="callout"><b>Nota:</b> los responsables institucionales pueden cambiar. Esta ficha explica las funciones de cada organismo y no depende de un nombre personal.</div>`;
+}
+if (typeof lecturaNoPrediccion !== 'undefined') {
+  const lecturaPrincipal = lecturaNoPrediccion.querySelector('article.card');
+  if (lecturaPrincipal) lecturaPrincipal.innerHTML = '<p class="ey">Uso responsable</p><h2>Lectura, no predicción</h2><p>Una señal aislada no confirma una crisis, una recesión ni una oportunidad de inversión.</p><p>El tablero reúne información pública para observar cambios y preguntas relevantes, no para anticipar con certeza lo que ocurrirá.</p><div class="callout"><b>Qué mirar:</b> la dirección de cada gráfico, la rapidez del movimiento, la duración y si otras señales cuentan una historia parecida.</div>';
+}
 </script></body></html>
