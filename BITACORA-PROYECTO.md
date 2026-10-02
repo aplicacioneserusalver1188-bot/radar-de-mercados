@@ -67,6 +67,10 @@ Carpeta de trabajo preparada para subir:
 - Se añadieron al actualizador y al tablero: sentimiento del consumidor, empleo no agrícola y condiciones financieras nacionales.
 - Se mejoró la explicación del ON RRP con una descripción técnica de su propósito, funcionamiento y límites de interpretación.
 - Las doce tarjetas se separaron en dos pestañas de seis: **Panorama principal** y **Liquidez y economía**.
+- El radar de atención y la orientación de uso se muestran como dos rectángulos superiores; las seis señales de la pestaña activa aparecen debajo, a todo lo ancho.
+- La cabecera superior se refinó en tres rectángulos: velocímetro, lectura central con semáforos y orientación de uso.
+- La guía se separó en tres secciones: cómo leer el radar, fuentes y frecuencia, e instituciones y fuentes.
+- La cabecera usa el título centrado **RADAR DE MERCADOS** y las pestañas están en mayúsculas; se añadió la pestaña educativa **LECTURA, NO PREDICCIÓN**.
 
 ## Próximos pendientes sugeridos
 
