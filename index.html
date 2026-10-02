@@ -195,4 +195,23 @@ filtrarIndicadores=function(){
   if(tituloSenales)tituloSenales.textContent='Señales a vigilar · '+nombre;
   if(textoSenales)textoSenales.textContent='Las seis señales correspondientes a los gráficos que estás consultando arriba.';
 };
+</script><style>
+.radar{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}.radar-block{display:flex;flex-direction:column}.radar-score .gauge{margin:auto}.radar-score .radar-reading{margin-top:4px}.radar-summary{justify-content:center}.radar-summary .break{margin-top:auto}@media(max-width:900px){.radar{grid-template-columns:1fr}}
+</style><script>
+/* Divide la cabecera en velocímetro, lectura central y orientación. */
+const radarTres=document.querySelector('.radar');
+const lecturaCentral=document.querySelector('.radar-reading');
+if(radarTres&&lecturaCentral&&!radarTres.querySelector('.radar-summary')){
+  const resumen=document.createElement('section');
+  resumen.className='radar-block radar-summary';
+  resumen.append(lecturaCentral);
+  radarTres.insertBefore(resumen,radarTres.children[1]);
+}
+</script><script>
+/* Orden final de la cabecera: atención, velocímetro, orientación. */
+const cabeceraRadar=document.querySelector('.radar');
+const atencionRadar=cabeceraRadar?.querySelector('.radar-summary');
+const velocimetroRadar=cabeceraRadar?.querySelector('.radar-score');
+const ayudaRadar=cabeceraRadar?.querySelector('.radar-context');
+if(cabeceraRadar&&atencionRadar&&velocimetroRadar&&ayudaRadar)cabeceraRadar.append(atencionRadar,velocimetroRadar,ayudaRadar);
 </script></body></html>
