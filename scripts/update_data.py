@@ -15,6 +15,7 @@ def main():
     data = {"updated_at": datetime.now(timezone.utc).isoformat(), "series": {}}
     for key, fred_id, label, frequency in [
         ("vix", "VIXCLS", "VIX", "daily"),
+        ("inflation", "CPIAUCSL", "Índice de precios al consumidor", "monthly"),
         ("credit", "BAMLH0A0HYM2", "High Yield OAS", "daily"),
         ("treasury10y", "DGS10", "Treasury 10 años", "daily"),
         ("sofr", "SOFR", "SOFR", "daily"),
