@@ -19,6 +19,8 @@ def main():
         ("sofr", "SOFR", "SOFR", "daily"),
         ("diesel", "GASDESW", "Diésel minorista EE. UU.", "weekly"),
         ("rrp", "RRPONTSYD", "RRP overnight", "daily"),
+        ("tga", "WTREGEN", "Treasury General Account", "weekly"),
+        ("reserves", "WRESBAL", "Reservas bancarias", "weekly"),
     ]:
         try:
             data["series"][key] = {"label": label, "frequency": frequency, "points": series(fred_id)}
