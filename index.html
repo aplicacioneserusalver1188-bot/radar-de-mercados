@@ -137,8 +137,12 @@ overall=function(){
 const dibujarDoce=draw;
 draw=function(){
   dibujarDoce();
+  const explicacionHogares=Array.from($('charts').querySelectorAll('.chart')).find(c=>c.querySelector('h3')?.textContent==='Hogares: precios y confianza');
+  if(explicacionHogares)explicacionHogares.remove();
   if(!market.series?.payrolls||!market.series?.nfci)return;
   $('charts').insertAdjacentHTML('beforeend',chart('payrolls')+chart('nfci'));
+  const consumidor=Array.from($('charts').querySelectorAll('.chart')).find(c=>c.querySelector('h3')?.textContent.includes('Sentimiento del consumidor'));
+  if(consumidor&&!consumidor.querySelector('.household-note'))consumidor.insertAdjacentHTML('beforeend','<p class="note household-note">Compárala con la inflación: precios altos y confianza bajando pueden señalar presión sobre los hogares; no prueban una causa única.</p>');
   fichasBotones();hover();
 };
 </script></body></html>
