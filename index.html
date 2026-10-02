@@ -166,4 +166,33 @@ function filtrarIndicadores(){
 document.querySelectorAll('.indicator-page').forEach(b=>b.onclick=()=>{paginaIndicadores=b.dataset.page;document.querySelectorAll('.indicator-page').forEach(x=>x.setAttribute('aria-selected',x===b));filtrarIndicadores()});
 const dibujarConPestanas=draw;
 draw=function(){dibujarConPestanas();filtrarIndicadores()};
+</script><style>
+.radar-block{min-width:0;background:var(--p2);border:1px solid var(--l);border-radius:15px;padding:18px}.radar-score{text-align:center}.radar-score .break{justify-content:center}.radar-reading{text-align:left;margin-top:4px}.radar-reading h2{font-size:1.08rem}.radar-reading p{margin-top:7px!important}.radar-context h2{font-size:1.06rem;margin-bottom:8px}.radar-context p{font-size:.92rem}.radar-context p+p{margin-top:10px}@media(max-width:900px){.radar-block{padding:15px}}
+</style><script>
+/* Reorganiza la parte superior y da todo el ancho a las señales de cada pestaña. */
+const panelRadar=document.querySelector('.radar');
+const bloqueMedidor=panelRadar?.firstElementChild;
+const bloqueLectura=panelRadar?.lastElementChild;
+const tarjetaSenales=$('rows')?.closest('.card');
+const tarjetaAyuda=tarjetaSenales?.nextElementSibling;
+if(panelRadar&&bloqueMedidor&&bloqueLectura&&tarjetaAyuda){
+  bloqueMedidor.classList.add('radar-block','radar-score');
+  bloqueLectura.className='radar-reading';
+  bloqueMedidor.append(bloqueLectura);
+  const contexto=document.createElement('section');
+  contexto.className='radar-block radar-context';
+  contexto.innerHTML=tarjetaAyuda.innerHTML;
+  panelRadar.append(contexto);
+  tarjetaAyuda.remove();
+}
+if(tarjetaSenales){tarjetaSenales.classList.remove('s7');tarjetaSenales.classList.add('s12');}
+const tituloSenales=tarjetaSenales?.querySelector('h2');
+const textoSenales=tarjetaSenales?.querySelector('.head p');
+const filtrarSenalesOriginal=filtrarIndicadores;
+filtrarIndicadores=function(){
+  filtrarSenalesOriginal();
+  const nombre=paginaIndicadores==='principal'?'Panorama principal':'Liquidez y economía';
+  if(tituloSenales)tituloSenales.textContent='Señales a vigilar · '+nombre;
+  if(textoSenales)textoSenales.textContent='Las seis señales correspondientes a los gráficos que estás consultando arriba.';
+};
 </script></body></html>
