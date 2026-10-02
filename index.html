@@ -145,4 +145,25 @@ draw=function(){
   if(consumidor&&!consumidor.querySelector('.household-note'))consumidor.insertAdjacentHTML('beforeend','<p class="note household-note">Compárala con la inflación: precios altos y confianza bajando pueden señalar presión sobre los hogares; no prueban una causa única.</p>');
   fichasBotones();hover();
 };
+</script><style>
+.indicator-pages{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 15px}.indicator-pages .tab{font-weight:750}.indicator-pages .tab[aria-selected=true]{background:var(--teal);border-color:var(--teal);color:#fff}.indicator-page-note{margin:-5px 0 14px;font-size:.86rem;color:var(--m)}
+</style><script>
+/* Dos vistas de seis indicadores para leer el tablero sin sobrecarga. */
+const gruposIndicadores={
+  principal:['vix','credit','treasury10y','inflation','diesel','nfci'],
+  liquidez:['rrp','tga','reserves','claims','consumer','payrolls']
+};
+let paginaIndicadores='principal';
+const zonaGraficos=$('charts');
+zonaGraficos.insertAdjacentHTML('beforebegin','<div class="indicator-pages" role="tablist" aria-label="Grupos de indicadores"><button class="tab indicator-page" type="button" data-page="principal" aria-selected="true">Panorama principal · 6</button><button class="tab indicator-page" type="button" data-page="liquidez" aria-selected="false">Liquidez y economía · 6</button></div><p id="indicatorPageNote" class="indicator-page-note">Riesgo, crédito, tasas, precios, energía y condiciones financieras.</p>');
+const notasIndicadores={principal:'Riesgo, crédito, tasas, precios, energía y condiciones financieras.',liquidez:'Movimiento de efectivo, actividad laboral y percepción de los hogares.'};
+function filtrarIndicadores(){
+  const activos=gruposIndicadores[paginaIndicadores];
+  Array.from(zonaGraficos.querySelectorAll('.chart')).forEach(c=>{const clave=c.querySelector('.plot')?.dataset.k;c.hidden=!!clave&&!activos.includes(clave)});
+  Array.from($('rows').querySelectorAll('tr')).forEach((fila,i)=>{const claves=['vix','credit','treasury10y','inflation','diesel','rrp','tga','reserves','claims','consumer','payrolls','nfci'];fila.hidden=!activos.includes(claves[i])});
+  $('indicatorPageNote').textContent=notasIndicadores[paginaIndicadores];
+}
+document.querySelectorAll('.indicator-page').forEach(b=>b.onclick=()=>{paginaIndicadores=b.dataset.page;document.querySelectorAll('.indicator-page').forEach(x=>x.setAttribute('aria-selected',x===b));filtrarIndicadores()});
+const dibujarConPestanas=draw;
+draw=function(){dibujarConPestanas();filtrarIndicadores()};
 </script></body></html>
