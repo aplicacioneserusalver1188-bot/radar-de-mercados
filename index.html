@@ -80,4 +80,65 @@ overall=function(){
   $('needle').style.transform='';
   $('score').innerHTML=valor+'<small>/100</small>';
 };
+</script><script>
+/* Completa las doce lecturas educativas del radar. */
+M.consumer=['Sentimiento del consumidor (Consumer Sentiment)','índice'];
+M.payrolls=['Variación del empleo no agrícola (Nonfarm Payrolls)','miles de empleos netos'];
+M.nfci=['Condiciones financieras nacionales (NFCI)','índice'];
+C.consumer='#db2777';C.payrolls='#0f766e';C.nfci='#7c3aed';
+fichas.payrolls={t:'Variación del empleo no agrícola (Nonfarm Payrolls)',q:'Mide el cambio mensual del empleo asalariado no agrícola en Estados Unidos.',u:'Una cifra débil puede señalar enfriamiento laboral; debe compararse con solicitudes de desempleo, salarios y revisiones de meses anteriores.',f:'Oficina de Estadísticas Laborales de EE. UU. (BLS), vía FRED.'};
+fichas.nfci={t:'Índice Nacional de Condiciones Financieras (National Financial Conditions Index, NFCI)',q:'Resume semanalmente condiciones de riesgo, crédito y liquidez de los mercados financieros estadounidenses.',u:'Valores por encima de cero suelen indicar condiciones más restrictivas que el promedio histórico; valores negativos, condiciones más holgadas. Es contexto, no una predicción.',f:'Reserva Federal de Chicago, vía FRED.'};
+const prepararDoce=prep;
+prep=function(k,a){
+  const p=prepararDoce(k,a);
+  if(k==='payrolls')return p.slice(1).map((x,i)=>({date:x.date,value:x.value-p[i].value}));
+  return p;
+};
+const formatoDoce=f;
+f=function(v,k){return k==='payrolls'&&Number.isFinite(v)?Math.round(v).toLocaleString('es-VE'):formatoDoce(v,k)};
+const estadoDoce=state;
+state=function(k,a){
+  const z=estadoDoce(k,a),p=prep(k,a),v=p.at(-1)?.value||0;
+  if(k==='consumer'){z.s=v<55?70:v<70?42:18;z.r=v<55?'Confianza de hogares débil':v<70?'Confianza de hogares por vigilar':'Confianza de hogares relativamente firme'}
+  if(k==='payrolls'){z.s=v<50?76:v<120?46:18;z.r=v<50?'Creación de empleo débil':v<120?'Empleo creciendo con cautela':'Creación de empleo firme'}
+  if(k==='nfci'){z.s=v>=.5?76:v>=0?48:18;z.r=v>=.5?'Condiciones financieras restrictivas':v>=0?'Condiciones financieras por vigilar':'Condiciones financieras holgadas'}
+  z.t=z.s>=60?'red':z.s>=30?'yellow':'green';z.label=z.t==='red'?'Atención elevada':z.t==='yellow'?'Atención':'Tranquilo';return z;
+};
+rows=function(){
+  const a=[
+    ['Índice de volatilidad (VIX)','vix','Volatilidad esperada implícita en opciones sobre el S&P 500.'],
+    ['Diferencial de alto rendimiento (High Yield OAS)','credit','Prima adicional por prestar a empresas con más riesgo.'],
+    ['Bono del Tesoro a 10 años','treasury10y','Contexto de las tasas de largo plazo.'],
+    ['Inflación anual de precios (CPI)','inflation','Cambio de precios frente al mismo mes del año previo.'],
+    ['Diésel minorista','diesel','Coste relevante para transporte, logística y producción.'],
+    ['Acuerdo de recompra inversa nocturno (ON RRP)','rrp','Herramienta de liquidez de muy corto plazo de la Reserva Federal.'],
+    ['Cuenta General del Tesoro (TGA)','tga','Cuenta operativa principal del Tesoro de EE. UU.'],
+    ['Reservas bancarias','reserves','Saldos de instituciones depositarias en la Reserva Federal.'],
+    ['Solicitudes iniciales de desempleo','claims','Señal semanal temprana sobre el mercado laboral.'],
+    ['Sentimiento del consumidor','consumer','Cómo perciben los hogares su situación y el entorno económico.'],
+    ['Empleo no agrícola (Nonfarm Payrolls)','payrolls','Cambio mensual del empleo asalariado no agrícola.'],
+    ['Condiciones financieras nacionales (NFCI)','nfci','Resumen semanal de riesgo, crédito y liquidez.']
+  ];
+  $('rows').innerHTML=a.map(x=>{const z=state(x[1],market.series?.[x[1]]?.points||[]);return `<tr><td><span class="dot ${z.t==='green'?'':z.t}"></span><b>${x[0]}</b></td><td>${z.r}</td><td>${x[2]}</td></tr>`}).join('');
+};
+overall=function(){
+  const S=k=>state(k,market.series?.[k]?.points||[]).s;
+  const liquidez=(S('rrp')+S('tga')+S('reserves'))/3;
+  const n=Math.round(S('credit')*.18+S('vix')*.14+liquidez*.15+S('treasury10y')*.10+S('diesel')*.06+S('inflation')*.09+S('claims')*.08+S('consumer')*.06+S('payrolls')*.08+S('nfci')*.06);
+  const claves=['vix','credit','treasury10y','diesel','rrp','tga','reserves','inflation','claims','consumer','payrolls','nfci'];
+  const a=claves.map(k=>[k,state(k,market.series?.[k]?.points||[])]),c={green:0,yellow:0,red:0};a.forEach(x=>c[x[1].t]++);
+  const titulo=n>=60?'Tensión elevada':n>=30?'Atención':'Entorno tranquilo';
+  const principales=a.sort((x,y)=>y[1].s-x[1].s).slice(0,2).map(x=>M[x[0]][0]).join(' y ');
+  $('needle').setAttribute('transform',`rotate(${-90+n*1.8} 150 150)`);
+  $('score').innerHTML=n+'<small>/100</small>';$('level').textContent=titulo;$('rtitle').textContent=titulo;
+  $('rtext').textContent=`Las lecturas que más requieren contexto ahora son ${principales}. El resultado orienta la revisión; no predice mercados.`;
+  $('break').innerHTML=`<span class="traffic green">${c.green} tranquilo${c.green===1?'':'s'}</span><span class="traffic yellow">${c.yellow} en atención</span><span class="traffic red">${c.red} con atención elevada</span>`;
+};
+const dibujarDoce=draw;
+draw=function(){
+  dibujarDoce();
+  if(!market.series?.payrolls||!market.series?.nfci)return;
+  $('charts').insertAdjacentHTML('beforeend',chart('payrolls')+chart('nfci'));
+  fichasBotones();hover();
+};
 </script></body></html>
