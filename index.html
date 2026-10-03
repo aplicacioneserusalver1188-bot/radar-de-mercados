@@ -328,4 +328,44 @@ if (typeof lecturaNoPrediccion !== 'undefined') {
   .top>div:first-child{grid-column:2;max-width:820px}
   .top .actions{grid-column:3;justify-self:end;justify-content:flex-end}
   @media(max-width:760px){.top{grid-template-columns:1fr}.top>div:first-child,.top .actions{grid-column:1;justify-self:center}.top .actions{margin-top:14px;flex-wrap:wrap;justify-content:center}}
-</style></body></html>
+</style><style>
+  .urgent-review{margin-top:14px;padding:12px 13px;border:1px solid var(--l);border-left:4px solid var(--teal);border-radius:10px;background:var(--p);color:var(--t);font-size:.91rem;line-height:1.5}
+  .urgent-review.urgent{border-color:#b91c1c;border-left-color:#b91c1c;background:#fef2f2;color:#7f1d1d}
+  html[data-theme=dark] .urgent-review.urgent{background:#3b1017;color:#fecaca}
+</style><script>
+/* Alerta prudente: exige puntuación alta y coincidencia entre varias áreas. */
+const recalcularRadarUrgente = overall;
+overall = function () {
+  recalcularRadarUrgente();
+  const puntaje = (clave) => state(clave, market.series?.[clave]?.points || []).s;
+  const liquidez = (puntaje('rrp') + puntaje('tga') + puntaje('reserves')) / 3;
+  const radar = Math.round(
+    puntaje('credit') * .18 + puntaje('vix') * .14 + liquidez * .15 +
+    puntaje('treasury10y') * .10 + puntaje('diesel') * .06 + puntaje('inflation') * .09 +
+    puntaje('claims') * .08 + puntaje('consumer') * .06 + puntaje('payrolls') * .08 + puntaje('nfci') * .06
+  );
+  const areas = [
+    ['Riesgo y Crédito', Math.max(puntaje('vix'), puntaje('credit'))],
+    ['Liquidez', liquidez],
+    ['Tasas e Inflación', Math.max(puntaje('treasury10y'), puntaje('inflation'), puntaje('diesel'))],
+    ['Empleo y Condiciones Financieras', Math.max(puntaje('claims'), puntaje('consumer'), puntaje('payrolls'), puntaje('nfci'))]
+  ].filter(([, valor]) => valor >= 45).map(([nombre]) => nombre);
+  const urgente = radar >= 70 && areas.length >= 3;
+  const encabezado = urgente ? 'Atención Urgente' : radar >= 60 ? 'Tensión Elevada' : radar >= 30 ? 'Entorno de Atención' : 'Entorno Tranquilo';
+  const nivel = $('level'), titulo = $('rtitle'), lectura = $('rtext');
+  if (nivel) nivel.textContent = encabezado;
+  if (titulo) titulo.textContent = encabezado;
+  if (lectura) lectura.textContent = urgente
+    ? `El radar alcanza ${radar}/100 y hay tensión simultánea en ${areas.length} áreas: ${areas.join(', ')}. Conviene revisar las fuentes y el contexto antes de sacar conclusiones.`
+    : `El radar marca ${radar}/100. La alerta urgente requiere 70 o más y tensión simultánea en al menos tres áreas. Áreas bajo observación ahora: ${areas.length ? areas.join(', ') : 'ninguna'}.`;
+  const contenedor = document.querySelector('.radar-summary');
+  if (contenedor) {
+    let aviso = $('urgentReview');
+    if (!aviso) { aviso = document.createElement('div'); aviso.id = 'urgentReview'; aviso.className = 'urgent-review'; contenedor.append(aviso); }
+    aviso.classList.toggle('urgent', urgente);
+    aviso.innerHTML = urgente
+      ? '<b>Regla activada:</b> Atención Urgente. No es una predicción ni una instrucción financiera; es una prioridad de revisión.'
+      : '<b>Regla de Atención Urgente:</b> radar de 70/100 o más, con tensión simultánea en tres de estas áreas: Riesgo y Crédito, Liquidez, Tasas e Inflación, Empleo y Condiciones Financieras.';
+  }
+};
+</script></body></html>
