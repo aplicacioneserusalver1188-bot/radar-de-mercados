@@ -498,4 +498,27 @@ document.addEventListener('click',(evento)=>{
   const clave=boton.closest('.chart')?.querySelector('.plot')?.dataset.k;
   if(!clave)return; evento.preventDefault(); evento.stopImmediatePropagation(); abrirFichaProfesional(clave);
 },true);
+</script><style>
+/* Firma editorial del observatorio: una identidad discreta, sin desplazar el tablero. */
+.top{position:relative}.brand-identity{position:absolute;left:0;top:8px;display:flex;align-items:center;gap:10px;text-align:left;color:var(--t)}
+.brand-monogram{display:grid;place-items:center;width:31px;height:31px;border:2px solid var(--teal);font-family:Cambria,Georgia,serif;font-size:.82rem;font-weight:700;letter-spacing:-.08em;color:var(--teal)}
+.brand-copy{display:grid;gap:2px}.brand-copy strong{font-size:.69rem;letter-spacing:.075em}.brand-copy span{font-size:.66rem;line-height:1.25;color:var(--m);max-width:190px}
+.top .sub{max-width:760px}.publication-line{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin:16px 0 0;color:var(--m);font-size:.78rem}.publication-line span{display:flex;align-items:center;gap:7px}.publication-line i{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--teal)}
+@media(max-width:860px){.brand-identity{position:static;justify-content:center;margin:0 0 16px}.publication-line{gap:12px}}@media(max-width:560px){.brand-copy span{display:none}.publication-line{font-size:.72rem}}
+</style><script>
+/* El encabezado identifica el producto como un observatorio educativo, no como una página promocional. */
+const encabezadoEditorial=document.querySelector('.top');
+const bloqueTitulo=encabezadoEditorial?.querySelector('div');
+if(encabezadoEditorial&&bloqueTitulo&&!encabezadoEditorial.querySelector('.brand-identity')){
+  const firma=document.createElement('div');
+  firma.className='brand-identity';
+  firma.innerHTML='<span class="brand-monogram" aria-hidden="true">RM</span><span class="brand-copy"><strong>OBSERVATORIO RM</strong><span>Condiciones de mercado y economía</span></span>';
+  encabezadoEditorial.append(firma);
+  const subtitulo=bloqueTitulo.querySelector('.sub');
+  if(subtitulo) subtitulo.textContent='Observatorio educativo de riesgo, crédito, liquidez, precios y actividad económica.';
+  const linea=document.createElement('div');
+  linea.className='publication-line';
+  linea.innerHTML='<span><i></i>Doce indicadores públicos</span><span><i></i>Lectura de contexto</span><span><i></i>Sin recomendaciones de inversión</span>';
+  bloqueTitulo.append(linea);
+}
 </script></body></html>
