@@ -368,4 +368,50 @@ overall = function () {
       : '<b>Regla de Atención Urgente:</b> radar de 70/100 o más, con tensión simultánea en tres de estas áreas: Riesgo y Crédito, Liquidez, Tasas e Inflación, Empleo y Condiciones Financieras.';
   }
 };
+</script><style>
+/* Rediseño editorial: una superficie de análisis, no una colección de tarjetas genéricas. */
+:root{--bg:#e8eff2;--p:#ffffff;--p2:#f5f8f9;--l:#c9d7dc;--t:#102c37;--m:#58707a;--teal:#0c6972;--amber:#9a6410;--red:#b42318;--sh:none}
+html[data-theme=dark]{--bg:#0c1820;--p:#102530;--p2:#162e3a;--l:#35505b;--t:#edf5f4;--m:#a9bcc2;--teal:#65c9c3;--amber:#f2ba57;--red:#ff8f82}
+body{background:var(--bg);font-family:Arial,"Helvetica Neue",sans-serif;letter-spacing:.003em}
+main{max-width:1440px;padding:34px 34px 72px}
+.top{padding:0 0 24px!important;border-bottom:1px solid var(--l);margin-bottom:18px!important}
+.top h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(2.25rem,4.3vw,3.7rem);font-weight:700;letter-spacing:-.04em;line-height:.95;text-transform:uppercase}
+.top .ey{color:var(--teal);font-size:.72rem;letter-spacing:.08em;text-transform:none;font-weight:700}
+.top .sub{margin-top:11px;font-size:1rem}
+.button,.stamp{border-radius:3px;padding:9px 11px;font-size:.78rem;box-shadow:none}.stamp{background:transparent}
+.notice{border:1px solid var(--l);border-left:3px solid var(--amber);border-radius:3px;background:var(--p);padding:13px 16px;margin:18px 0}
+.tabs{gap:0;border-bottom:1px solid var(--l);margin:0 0 24px}.tab{border:0;border-radius:0;background:transparent;padding:12px 16px;color:var(--m);font-size:.78rem;font-weight:700;letter-spacing:.045em}.tab[aria-selected=true]{background:transparent!important;border-bottom:3px solid var(--teal)!important;color:var(--t)!important}.tab:hover{border-color:transparent;color:var(--teal)}
+.grid{gap:18px}.card{border:1px solid var(--l);border-radius:4px;box-shadow:none;background:var(--p);padding:20px}.head{padding-bottom:14px;border-bottom:1px solid var(--l);margin-bottom:14px}.head h2{font-family:Georgia,"Times New Roman",serif;font-size:1.22rem;letter-spacing:-.01em}
+.radar{gap:18px}.radar-block{border-radius:4px;background:var(--p);padding:20px}.radar-score{border-top:4px solid var(--teal)}.radar-summary{border-top:4px solid var(--amber)}.radar-context{border-top:4px solid #6b8791}.radar-context h2,.radar-summary h2{font-family:Georgia,"Times New Roman",serif}.radar-summary #rtext{text-align:left;line-height:1.68}
+.chart{border:1px solid var(--l);border-radius:3px;box-shadow:none;background:var(--p);padding:16px}.chart .ct{padding-bottom:10px;border-bottom:1px solid var(--l)}.chart h3{font-family:Georgia,"Times New Roman",serif;font-size:1.02rem;line-height:1.25}.value{font-family:Georgia,"Times New Roman",serif;font-size:2rem!important;letter-spacing:-.04em}.note{font-size:.83rem}.traffic{border-radius:2px;font-size:.68rem;font-weight:700;padding:4px 6px}.plot{margin-top:13px}.foot{border-top:1px solid var(--l);padding-top:8px;color:var(--m)}
+.indicator-pages{border-bottom:1px solid var(--l);gap:0;margin-bottom:16px}.indicator-pages .tab{padding-left:0;padding-right:22px}.indicator-page-note{font-size:.92rem;color:var(--m)}
+.signals{box-shadow:none}.signals th{background:var(--p2);font-size:.69rem;letter-spacing:.06em}.signals td{padding:13px 8px}.signals tr+tr td{border-top:1px solid var(--l)}
+.guide-page .card{max-width:1000px;margin:0 auto 18px}.guide-page h2,.reading-note h2{font-family:Georgia,"Times New Roman",serif;font-size:1.8rem;letter-spacing:-.02em}.callout{border-left:3px solid var(--teal);border-radius:0;background:var(--p2);padding:14px 16px}.example{border-left-color:var(--amber);border-radius:0}
+.urgent-review{border-radius:3px}.footer{border-top:1px solid var(--l);padding-top:18px;margin-top:28px}
+@media(max-width:760px){main{padding:24px 16px 48px}.top h1{font-size:2.35rem}.tab{padding:11px 9px;font-size:.68rem}.card,.radar-block{padding:16px}.grid{gap:12px}}
+</style><style>
+.urgent-banner{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;margin:18px 0 22px;padding:17px 20px;border:1px solid #a51c16;border-left:7px solid #a51c16;background:#fff3f2;color:#751b16}.urgent-banner[hidden]{display:none}.urgent-banner .alert-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#a51c16;color:#fff;font-size:1.35rem;font-weight:800}.urgent-banner strong{display:block;font-size:1rem;letter-spacing:.06em}.urgent-banner span{display:block;margin-top:4px;font-size:.9rem;line-height:1.45}.urgent-banner small{font-size:.78rem;text-align:right;line-height:1.4;color:#7f1d1d}@media(max-width:760px){.urgent-banner{grid-template-columns:auto 1fr}.urgent-banner small{grid-column:1/-1;text-align:left}}html[data-theme=dark] .urgent-banner{background:#38191e;border-color:#ff8f82;color:#ffe3df}html[data-theme=dark] .urgent-banner small{color:#ffd2cb}
+</style><script>
+/* Cuando la regla se activa, la alerta se ve antes de cualquier gráfico. */
+const actualizarAlertaEditorial = overall;
+overall = function () {
+  actualizarAlertaEditorial();
+  const resumenAlerta = $('urgentReview');
+  const activa = resumenAlerta?.classList.contains('urgent');
+  let franja = $('urgentBanner');
+  if (!franja) {
+    franja = document.createElement('aside');
+    franja.id = 'urgentBanner';
+    franja.className = 'urgent-banner';
+    franja.setAttribute('role','status');
+    document.querySelector('.notice')?.insertAdjacentElement('afterend', franja);
+  }
+  franja.hidden = !activa;
+  if (activa) {
+    const lectura = $('rtext')?.textContent || '';
+    const puntaje = lectura.match(/\b\d{1,3}\/100\b/)?.[0] || '70/100 o más';
+    const areas = lectura.split('áreas: ')[1]?.replace(/\.\s*Conviene[\s\S]*/, '') || 'varias áreas del tablero';
+    franja.innerHTML = `<div class="alert-mark">!</div><div><strong>ATENCIÓN URGENTE · RADAR ${puntaje}</strong><span>Coinciden señales en: ${areas}.</span></div><small>Revisar fuentes y contexto.<br>No es una instrucción financiera.</small>`;
+  }
+};
 </script></body></html>
