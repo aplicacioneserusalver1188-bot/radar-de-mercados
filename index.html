@@ -526,9 +526,25 @@ if(encabezadoEditorial&&bloqueTitulo&&!encabezadoEditorial.querySelector('.brand
 html,html[data-theme="dark"]{color-scheme:light;--bg:#dfe9ec;--p:#fbfcfc;--p2:#f1f6f7;--l:#b9cbd1;--t:#142c35;--m:#506a74;--teal:#006b73;--amber:#9a6200;--red:#ae2c25}
 html[data-theme="dark"] .urgent-banner{background:#fff3f2;border-color:#a51c16;color:#751b16}html[data-theme="dark"] .urgent-banner small{color:#7f1d1d}html[data-theme="dark"] .urgent-review.urgent{background:#fef2f2;color:#7f1d1d}
 </style><script>
-/* Se elimina el modo oscuro: aquí la legibilidad y la impresión clara son prioritarias. */
-document.documentElement.dataset.theme='light';
-localStorage.setItem('radar-theme','light');
-const controlTema=$('theme');
-if(controlTema)controlTema.remove();
+/* El tema definitivo se restablece al final, después de cargar todos los estilos. */
+</script><style>
+/* Modo oscuro funcional: superficie, texto, controles y gráficos conservan contraste alto. */
+html[data-theme="dark"]{color-scheme:dark;--bg:#0d1b20;--p:#14252b;--p2:#1a2d34;--l:#3d5961;--t:#f0f7f7;--m:#bdd0d3;--teal:#63d2ca;--amber:#f4c66a;--red:#ff9588}
+html[data-theme="dark"] body{background:#0d1b20}html[data-theme="dark"] main{background:#101f25;border-color:#36515a}html[data-theme="dark"] .notice{background:#18282e;border-color:#526a71;color:var(--t)}
+html[data-theme="dark"] .radar-score{background:#14252b}html[data-theme="dark"] .radar-summary{background:#1c2929}html[data-theme="dark"] .radar-context{background:#16272e}html[data-theme="dark"] .chart[data-rank="context"]{background:#122228;border-color:#3a555d}
+html[data-theme="dark"] .signals th{background:#21363d}html[data-theme="dark"] .signals tr:hover td{background:#1a2e35}html[data-theme="dark"] .fact-example{background:#2d2617;color:var(--t)}html[data-theme="dark"] dialog{background:#14252b;border-color:#466069}
+html[data-theme="dark"] .urgent-banner{background:#3b1e20;border-color:#ff9588;color:#ffe8e4}html[data-theme="dark"] .urgent-banner small{color:#ffd2cb}html[data-theme="dark"] .urgent-review.urgent{background:#3b1e20;color:#ffe8e4}
+</style><script>
+/* El usuario puede elegir el fondo; ambos temas se muestran con contraste comprobable. */
+const accionesCabecera=document.querySelector('.top .actions');
+let botonTema=$('theme');
+if(!botonTema&&accionesCabecera){botonTema=document.createElement('button');botonTema.id='theme';botonTema.type='button';botonTema.className='button';accionesCabecera.prepend(botonTema)}
+function aplicarTemaLegible(valor){
+  const tema=valor==='dark'?'dark':'light';
+  document.documentElement.dataset.theme=tema;
+  localStorage.setItem('radar-theme',tema);
+  if(botonTema)botonTema.textContent=tema==='dark'?'Usar fondo claro':'Usar fondo oscuro';
+}
+aplicarTemaLegible(localStorage.getItem('radar-theme')||'light');
+if(botonTema)botonTema.onclick=()=>aplicarTemaLegible(document.documentElement.dataset.theme==='light'?'dark':'light');
 </script></body></html>
