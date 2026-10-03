@@ -521,4 +521,14 @@ if(encabezadoEditorial&&bloqueTitulo&&!encabezadoEditorial.querySelector('.brand
   linea.innerHTML='<span><i></i>Doce indicadores públicos</span><span><i></i>Lectura de contexto</span><span><i></i>Sin recomendaciones de inversión</span>';
   bloqueTitulo.append(linea);
 }
+</script><style>
+/* El tablero se publica con una sola superficie clara y contrastada. */
+html,html[data-theme="dark"]{color-scheme:light;--bg:#dfe9ec;--p:#fbfcfc;--p2:#f1f6f7;--l:#b9cbd1;--t:#142c35;--m:#506a74;--teal:#006b73;--amber:#9a6200;--red:#ae2c25}
+html[data-theme="dark"] .urgent-banner{background:#fff3f2;border-color:#a51c16;color:#751b16}html[data-theme="dark"] .urgent-banner small{color:#7f1d1d}html[data-theme="dark"] .urgent-review.urgent{background:#fef2f2;color:#7f1d1d}
+</style><script>
+/* Se elimina el modo oscuro: aquí la legibilidad y la impresión clara son prioritarias. */
+document.documentElement.dataset.theme='light';
+localStorage.setItem('radar-theme','light');
+const controlTema=$('theme');
+if(controlTema)controlTema.remove();
 </script></body></html>
