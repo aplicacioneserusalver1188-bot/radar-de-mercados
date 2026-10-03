@@ -414,4 +414,43 @@ overall = function () {
     franja.innerHTML = `<div class="alert-mark">!</div><div><strong>ATENCIÓN URGENTE · RADAR ${puntaje}</strong><span>Coinciden señales en: ${areas}.</span></div><small>Revisar fuentes y contexto.<br>No es una instrucción financiera.</small>`;
   }
 };
+</script><style>
+/* Fase 2: jerarquía de lectura. Las tres señales principales dominan;
+   las otras tres aportan contexto sin competir visualmente. */
+.charts{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
+.chart[data-rank="lead"]{background:var(--p);border-top:4px solid var(--teal);padding:18px 18px 16px}
+.chart[data-rank="lead"] .plot{height:184px}
+.chart[data-rank="lead"] .value{font-size:2.28rem!important}
+.chart[data-rank="context"]{background:transparent;border-color:var(--l);padding:15px 16px 13px}
+.chart[data-rank="context"] .plot{height:128px}
+.chart[data-rank="context"] .value{font-size:1.78rem!important}
+.chart[data-rank="context"] .ct{border-bottom-style:dashed}
+.chart[data-rank="context"] .foot{font-size:.66rem}
+.chart[data-rank="context"] .note{min-height:2.4em}
+.chart[data-rank="lead"] h3{font-size:1.12rem}
+.chart[data-rank="context"] h3{font-size:.96rem}
+.chart[data-rank="lead"] .traffic{font-size:.71rem}
+.charts::after{content:"";grid-column:1/-1;height:0;order:99}
+.indicator-page-note{border-left:3px solid var(--teal);padding:5px 0 5px 11px;margin:4px 0 18px;font-size:.9rem;max-width:760px}
+.signals .traffic{vertical-align:middle;margin-right:7px}
+@media(max-width:900px){.charts{grid-template-columns:repeat(2,minmax(0,1fr))}.chart[data-rank="lead"] .plot{height:166px}}
+@media(max-width:620px){.charts{grid-template-columns:1fr}.chart[data-rank="lead"] .plot{height:176px}.chart[data-rank="context"] .plot{height:145px}}
+</style><script>
+/* La estructura se aplica tras cada actualización de datos o cambio de período. */
+const dibujarJerarquiaProfesional = draw;
+draw = function () {
+  dibujarJerarquiaProfesional();
+  const principales = new Set(['vix','credit','treasury10y','rrp','tga','reserves']);
+  const tablero = $('charts');
+  if (!tablero) return;
+  Array.from(tablero.querySelectorAll('.chart')).forEach((tarjeta) => {
+    const clave = tarjeta.querySelector('.plot')?.dataset.k;
+    if (!clave) {
+      /* La tarjeta Hogares: precios y confianza era una nota sin dato ni gráfico. */
+      tarjeta.remove();
+      return;
+    }
+    tarjeta.dataset.rank = principales.has(clave) ? 'lead' : 'context';
+  });
+};
 </script></body></html>
