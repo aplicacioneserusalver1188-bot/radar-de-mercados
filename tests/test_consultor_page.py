@@ -14,4 +14,10 @@ class ConsultorPageTest(unittest.TestCase):
         build = (ROOT / "scripts" / "build_review.py").read_text(encoding="utf-8")
         self.assertIn('"consultor.html"', build)
 
+    def test_worker_keeps_wolfram_secret_server_side(self):
+        worker = (ROOT / "worker" / "template.mjs").read_text(encoding="utf-8")
+        self.assertIn("env.WOLFRAM_APP_ID", worker)
+        self.assertIn('path !== "/api/wolfram"', worker)
+        self.assertNotIn("WOLFRAM_APP_ID=", worker)
+
 if __name__ == "__main__": unittest.main()
