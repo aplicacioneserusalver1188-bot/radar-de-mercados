@@ -27,7 +27,7 @@ function secFact(facts, names) {
   for (const name of names) {
     const entries = facts?.["us-gaap"]?.[name]?.units?.USD;
     if (!entries) continue;
-    const selected = entries.filter((item) => item.form === "10-K" || item.form === "10-Q").sort((a, b) => String(b.filed).localeCompare(String(a.filed)))[0];
+    const selected = entries.filter((item) => item.form === "10-K" || item.form === "10-Q").sort((a, b) => String(b.end).localeCompare(String(a.end)) || String(b.filed).localeCompare(String(a.filed)))[0];
     if (selected) return { label: facts["us-gaap"][name].label || name, value: selected.val, end: selected.end, filed: selected.filed, form: selected.form, fiscalYear: selected.fy, fiscalPeriod: selected.fp };
   }
   return null;
@@ -37,19 +37,19 @@ async function secCompany(env, ticker) {
   const match = Object.values(registry).find((item) => item.ticker === ticker);
   if (!match) return { error: "La SEC no asocia este símbolo con un emisor estadounidense.", ticker };
   const cik = String(match.cik_str).padStart(10, "0");
-  const [submissions, facts] = await Promise.all([
-    cachedSec(`submissions:${cik}`, () => secJson(env, `https://data.sec.gov/submissions/CIK${cik}.json`)),
-    cachedSec(`facts:${cik}`, () => secJson(env, `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`))
-  ]);
+  const submissions = await cachedSec(`submissions:${cik}`, () => secJson(env, `https://data.sec.gov/submissions/CIK${cik}.json`));
+  let facts = { facts: {} };
+  try { facts = await cachedSec(`facts:${cik}`, () => secJson(env, `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`)); } catch (error) { if (!String(error.message).includes("HTTP 404")) throw error; }
   const recent = submissions?.filings?.recent || {}, forms = ["10-K", "10-Q", "8-K"];
   const filings = (recent.form || []).map((form, index) => ({ form, filingDate: recent.filingDate?.[index], reportDate: recent.reportDate?.[index], accession: recent.accessionNumber?.[index], document: recent.primaryDocument?.[index], description: recent.primaryDocDescription?.[index] })).filter((item) => forms.includes(item.form)).slice(0, 8).map((item) => ({ ...item, url: item.accession && item.document ? `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${item.accession.replaceAll("-", "")}/${item.document}` : null }));
   return { ticker, cik, name: submissions.name || match.title, sic: submissions.sicDescription || null, updated: submissions.filingDate || null, filings, fundamentals: { revenue: secFact(facts.facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"]), netIncome: secFact(facts.facts, ["NetIncomeLoss"]), assets: secFact(facts.facts, ["Assets"]), liabilities: secFact(facts.facts, ["Liabilities"]), equity: secFact(facts.facts, ["StockholdersEquity"]) } };
 }
 async function binanceQuote(symbol) {
-  const response = await fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${encodeURIComponent(symbol)}`);
+  let source = "Binance Spot 24h", response = await fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${encodeURIComponent(symbol)}`);
+  if (!response.ok && symbol === "BTCUSDT") { source = "Binance.US Spot 24h"; response = await fetch("https://api.binance.us/api/v3/ticker/24hr?symbol=BTCUSD"); }
   if (!response.ok) throw new Error(`Binance devolvió HTTP ${response.status}.`);
   const quote = await response.json();
-  return { symbol: quote.symbol, price: quote.lastPrice, change: quote.priceChange, changePercent: quote.priceChangePercent, volume: quote.volume, quoteVolume: quote.quoteVolume, openTime: quote.openTime, closeTime: quote.closeTime, source: "Binance Spot 24h" };
+  return { symbol: quote.symbol, price: quote.lastPrice, change: quote.priceChange, changePercent: quote.priceChangePercent, volume: quote.volume, quoteVolume: quote.quoteVolume, openTime: quote.openTime, closeTime: quote.closeTime, source };
 }
 function monthKey() { return new Date().toISOString().slice(0, 7); }
 function monthlyCap(env) { const value = Number.parseInt(env.WOLFRAM_MONTHLY_CAP || "", 10); return Number.isSafeInteger(value) && value > 0 ? value : null; }
