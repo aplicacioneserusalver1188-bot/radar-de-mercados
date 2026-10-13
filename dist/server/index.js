@@ -38,13 +38,13 @@ function annualFactSeries(facts, names) {
     if (!entries) continue;
     const years = new Map();
     for (const item of entries) {
-      if (item.form !== "10-K" || !item.fy || !item.start || !item.end) continue;
-      const days = (Date.parse(item.end) - Date.parse(item.start)) / 86400000;
-      if (days < 300 || days > 400 || !Number.isFinite(item.val)) continue;
-      const previous = years.get(String(item.fy));
-      if (!previous || String(item.filed) > String(previous.filed)) years.set(String(item.fy), item);
+      if (item.form !== "10-K" || !item.end || !Number.isFinite(item.val)) continue;
+      const days = item.start ? (Date.parse(item.end) - Date.parse(item.start)) / 86400000 : null;
+      if (days !== null && (days < 300 || days > 400)) continue;
+      const previous = years.get(String(item.end));
+      if (!previous || String(item.filed) > String(previous.filed)) years.set(String(item.end), item);
     }
-    const values = [...years.values()].sort((a, b) => String(a.fy).localeCompare(String(b.fy))).slice(-5).map((item) => ({ fiscalYear: item.fy, end: item.end, filed: item.filed, value: item.val, form: item.form, label: facts["us-gaap"][name].label || name }));
+    const values = [...years.values()].sort((a, b) => String(a.end).localeCompare(String(b.end))).slice(-5).map((item) => ({ fiscalYear: String(item.end).slice(0, 4), end: item.end, filed: item.filed, value: item.val, form: item.form, label: facts["us-gaap"][name].label || name }));
     if (values.length) return values;
   }
   return [];
@@ -73,8 +73,8 @@ async function secCompany(env, ticker) {
   let facts = { facts: {} };
   try { facts = await cachedSec(`facts:${cik}`, () => secJson(env, `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`)); } catch (error) { if (!String(error.message).includes("HTTP 404")) throw error; }
   const recent = submissions?.filings?.recent || {}, forms = ["10-K", "10-Q", "8-K"];
-  const filings = (recent.form || []).map((form, index) => ({ form, filingDate: recent.filingDate?.[index], reportDate: recent.reportDate?.[index], accession: recent.accessionNumber?.[index], document: recent.primaryDocument?.[index], description: recent.primaryDocDescription?.[index] })).filter((item) => forms.includes(item.form)).slice(0, 8).map((item) => ({ ...item, url: item.accession && item.document ? `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${item.accession.replaceAll("-", "")}/${item.document}` : null }));
-  const annual = filings.find((item) => item.form === "10-K");
+  const allFilings = (recent.form || []).map((form, index) => ({ form, filingDate: recent.filingDate?.[index], reportDate: recent.reportDate?.[index], accession: recent.accessionNumber?.[index], document: recent.primaryDocument?.[index], description: recent.primaryDocDescription?.[index] })).filter((item) => forms.includes(item.form)).map((item) => ({ ...item, url: item.accession && item.document ? `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${item.accession.replaceAll("-", "")}/${item.document}` : null }));
+  const annual = allFilings.find((item) => item.form === "10-K"), filings = allFilings.slice(0, 8);
   const narrative = await filingNarrative(env, annual);
   const sector = submissions.sicDescription || null, bank = /bank|savings|credit/i.test(sector || "");
   return { ticker, cik, name: submissions.name || match.title, sic: sector, isBank: bank, updated: submissions.filingDate || null, filings, annual, narrative, series: makeFundamentalSeries(facts.facts), fundamentals: { revenue: secFact(facts.facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"]), netIncome: secFact(facts.facts, ["NetIncomeLoss"]), assets: secFact(facts.facts, ["Assets"]), liabilities: secFact(facts.facts, ["Liabilities"]), equity: secFact(facts.facts, ["StockholdersEquity"]) } };
