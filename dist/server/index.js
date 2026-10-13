@@ -39,7 +39,7 @@ function annualFactSeries(facts, names, annualFilings, isFlow = true) {
     for (const name of names) {
       const entries = facts?.["us-gaap"]?.[name]?.units?.USD || [];
       const match = entries.find((item) => {
-        if (item.accn !== filing.accession || item.form !== "10-K" || !Number.isFinite(item.val)) return false;
+        if (item.accn !== filing.accession || item.form !== "10-K" || item.end !== filing.reportDate || !Number.isFinite(item.val)) return false;
         if (!isFlow) return true;
         if (!item.start || !item.end) return false;
         const days = (Date.parse(item.end) - Date.parse(item.start)) / 86400000;
