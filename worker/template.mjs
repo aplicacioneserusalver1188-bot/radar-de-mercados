@@ -2,6 +2,7 @@ const indexPage = __INDEX_PAGE__;
 const consultorPage = __CONSULTOR_PAGE__;
 const marketData = __MARKET_DATA__;
 const bursts = new Map();
+let usageStoreReady;
 const htmlHeaders = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'self'; connect-src 'self' https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src https://www.cmegroup.com" };
 
 function burstLimited(ip) {
@@ -12,9 +13,15 @@ function burstLimited(ip) {
 function json(value, status = 200) { return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } }); }
 function monthKey() { return new Date().toISOString().slice(0, 7); }
 function monthlyCap(env) { const value = Number.parseInt(env.WOLFRAM_MONTHLY_CAP || "", 10); return Number.isSafeInteger(value) && value > 0 ? value : null; }
+async function ensureUsageStore(env) {
+  if (!env.DB) return;
+  usageStoreReady ||= env.DB.prepare("CREATE TABLE IF NOT EXISTS wolfram_usage_monthly (month_key TEXT PRIMARY KEY, calls_used INTEGER NOT NULL DEFAULT 0)").run();
+  await usageStoreReady;
+}
 async function usage(env, increment = false) {
   const month = monthKey();
   if (!env.DB) return { month, used: null, cap: monthlyCap(env), persistent: false };
+  await ensureUsageStore(env);
   if (increment) {
     const row = await env.DB.prepare("INSERT INTO wolfram_usage_monthly (month_key, calls_used) VALUES (?, 1) ON CONFLICT(month_key) DO UPDATE SET calls_used = calls_used + 1 RETURNING calls_used").bind(month).first();
     return { month, used: row.calls_used, cap: monthlyCap(env), persistent: true };
