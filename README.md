@@ -41,6 +41,12 @@ Para comprobar una actualización en cualquier momento: en GitHub, abrir **Actio
 3. Esperar aproximadamente un minuto para que GitHub Pages publique la versión nueva.
 4. Recargar la página con `Ctrl + F5` si el navegador muestra una versión anterior.
 
+## Integraciones ampliadas y revisión independiente
+
+Los conectores de SEC EDGAR, FRED API, Yahoo Finance y Wolfram|Alpha viven en [`integrations/`](integrations/README.md). Son opcionales, de solo lectura y no se ejecutan en GitHub Actions: así el tablero público conserva su comportamiento, no incorpora credenciales y no redistribuye cotizaciones de Yahoo.
+
+Para producir una copia web independiente de revisión, ejecutar `python scripts/build_review.py`. Genera `dist/` con el mismo tablero y el último `data/market.json`, sin modificar GitHub Pages.
+
 ## Estado actual
 
 - Gráficos con vistas diaria, semanal, mensual y de un año.
