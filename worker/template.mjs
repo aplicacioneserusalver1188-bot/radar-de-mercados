@@ -44,6 +44,22 @@ async function secCompany(env, ticker) {
   const filings = (recent.form || []).map((form, index) => ({ form, filingDate: recent.filingDate?.[index], reportDate: recent.reportDate?.[index], accession: recent.accessionNumber?.[index], document: recent.primaryDocument?.[index], description: recent.primaryDocDescription?.[index] })).filter((item) => forms.includes(item.form)).slice(0, 8).map((item) => ({ ...item, url: item.accession && item.document ? `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${item.accession.replaceAll("-", "")}/${item.document}` : null }));
   return { ticker, cik, name: submissions.name || match.title, sic: submissions.sicDescription || null, updated: submissions.filingDate || null, filings, fundamentals: { revenue: secFact(facts.facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"]), netIncome: secFact(facts.facts, ["NetIncomeLoss"]), assets: secFact(facts.facts, ["Assets"]), liabilities: secFact(facts.facts, ["Liabilities"]), equity: secFact(facts.facts, ["StockholdersEquity"]) } };
 }
+function tradingViewExchange(exchange) {
+  const value = String(exchange || "").toUpperCase();
+  if (value.includes("NASDAQ")) return "NASDAQ";
+  if (value.includes("NYSE AMERICAN") || value.includes("NYSE ARCA") || value === "AMEX") return "AMEX";
+  if (value === "NYSE") return "NYSE";
+  if (value.includes("CBOE")) return "CBOE";
+  return null;
+}
+async function secTradingViewSymbol(env, ticker) {
+  const directory = await cachedSec("ticker-exchanges", () => secJson(env, "https://www.sec.gov/files/company_tickers_exchange.json"));
+  const fields = directory.fields || [], tickerIndex = fields.indexOf("ticker"), exchangeIndex = fields.indexOf("exchange");
+  const row = (directory.data || []).find((item) => String(item[tickerIndex] || "").toUpperCase() === ticker);
+  const exchange = row && tradingViewExchange(row[exchangeIndex]);
+  if (!exchange) return { ticker, error: "La asociación de bolsa no está disponible en el directorio oficial de la SEC." };
+  return { ticker, exchange, symbol: `${exchange}:${ticker}`, source: "SEC company_tickers_exchange.json" };
+}
 async function binanceQuote(symbol) {
   let source = "Binance Spot 24h", response = await fetch(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${encodeURIComponent(symbol)}`);
   if (!response.ok && symbol === "BTCUSDT") { source = "Binance.US Spot 24h"; response = await fetch("https://api.binance.us/api/v3/ticker/24hr?symbol=BTCUSD"); }
@@ -82,6 +98,12 @@ export default { async fetch(request, env) {
     if (!/^[A-Z0-9.\-]{1,12}$/.test(ticker)) return json({ error: "Símbolo inválido." }, 400);
     if (burstLimited(request.headers.get("cf-connecting-ip") || "anonymous")) return json({ error: "Demasiadas solicitudes seguidas. Espere un minuto." }, 429);
     try { return json(await secCompany(env, ticker)); } catch (error) { return json({ error: error.message || "No se pudo consultar SEC EDGAR." }, 502); }
+  }
+  if (path === "/api/tradingview-symbol") {
+    if (request.method !== "GET") return json({ error: "Método no permitido." }, 405);
+    const ticker = (url.searchParams.get("ticker") || "").toUpperCase();
+    if (!/^[A-Z0-9.\-]{1,12}$/.test(ticker)) return json({ error: "Símbolo inválido." }, 400);
+    try { return json(await secTradingViewSymbol(env, ticker)); } catch (error) { return json({ ticker, error: error.message || "No se pudo resolver la bolsa." }, 502); }
   }
   if (path === "/api/binance") {
     if (request.method !== "GET") return json({ error: "Método no permitido." }, 405);
