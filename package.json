@@ -1,0 +1,8 @@
+{
+  "name": "observatorio-rm-review-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build_worker.mjs"
+  }
+}
