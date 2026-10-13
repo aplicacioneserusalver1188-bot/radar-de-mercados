@@ -11,6 +11,7 @@ def main():
     (DIST / "data").mkdir(parents=True)
     (DIST / ".openai").mkdir()
     shutil.copy2(ROOT / "index.html", DIST / "index.html")
+    shutil.copy2(ROOT / "consultor.html", DIST / "consultor.html")
     shutil.copy2(ROOT / "data" / "market.json", DIST / "data" / "market.json")
     shutil.copy2(ROOT / ".openai" / "hosting.json", DIST / ".openai" / "hosting.json")
 
