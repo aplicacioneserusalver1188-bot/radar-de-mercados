@@ -4,7 +4,7 @@ const marketData = __MARKET_DATA__;
 const bursts = new Map();
 const secCache = new Map();
 let usageStoreReady;
-const htmlHeaders = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'self'; connect-src 'self' https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://s3.tradingview.com; img-src 'self' data: https://s3.tradingview.com https://www.tradingview.com; frame-src https://www.cmegroup.com https://www.tradingview.com https://s.tradingview.com" };
+const htmlHeaders = { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'self'; connect-src 'self' https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://s3.tradingview.com; img-src 'self' data: https://s3.tradingview.com https://www.tradingview.com; frame-src https://www.cmegroup.com https://www.tradingview.com https://s.tradingview.com https://tradingview-widget.com" };
 
 function burstLimited(ip) {
   const now = Date.now(), previous = (bursts.get(ip) || []).filter((t) => now - t < 60000);
