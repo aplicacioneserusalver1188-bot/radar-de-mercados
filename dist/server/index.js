@@ -32,22 +32,24 @@ function secFact(facts, names) {
   }
   return null;
 }
-function annualFactSeries(facts, names) {
-  for (const name of names) {
-    const entries = facts?.["us-gaap"]?.[name]?.units?.USD;
-    if (!entries) continue;
-    const years = new Map();
-    for (const item of entries) {
-      if (item.form !== "10-K" || !item.end || !Number.isFinite(item.val)) continue;
-      const days = item.start ? (Date.parse(item.end) - Date.parse(item.start)) / 86400000 : null;
-      if (days !== null && (days < 300 || days > 400)) continue;
-      const previous = years.get(String(item.end));
-      if (!previous || String(item.filed) > String(previous.filed)) years.set(String(item.end), item);
+function annualFactSeries(facts, names, annualFilings, isFlow = true) {
+  const result = [];
+  for (const filing of annualFilings) {
+    let selected = null;
+    for (const name of names) {
+      const entries = facts?.["us-gaap"]?.[name]?.units?.USD || [];
+      const match = entries.find((item) => {
+        if (item.accn !== filing.accession || item.form !== "10-K" || !Number.isFinite(item.val)) return false;
+        if (!isFlow) return true;
+        if (!item.start || !item.end) return false;
+        const days = (Date.parse(item.end) - Date.parse(item.start)) / 86400000;
+        return days >= 300 && days <= 400;
+      });
+      if (match) { selected = { ...match, label: facts["us-gaap"][name].label || name }; break; }
     }
-    const values = [...years.values()].sort((a, b) => String(a.end).localeCompare(String(b.end))).slice(-5).map((item) => ({ fiscalYear: String(item.end).slice(0, 4), end: item.end, filed: item.filed, value: item.val, form: item.form, label: facts["us-gaap"][name].label || name }));
-    if (values.length) return values;
+    if (selected) result.push({ fiscalYear: String(filing.reportDate || selected.end).slice(0, 4), end: filing.reportDate || selected.end, filed: filing.filingDate, value: selected.val, form: "10-K", accession: filing.accession, label: selected.label });
   }
-  return [];
+  return result.sort((a, b) => String(a.end).localeCompare(String(b.end))).slice(-5);
 }
 function cleanFilingText(value) { return String(value || "").replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim(); }
 function filingSection(text, start, end) { const from = text.search(start); if (from < 0) return null; const tail = text.slice(from), stop = tail.search(end), excerpt = (stop > 0 ? tail.slice(0, stop) : tail).replace(/^.{0,100}?ITEM\s+[0-9]+[A-Z]?\.?\s*/i, "").trim(); return excerpt.slice(0, 1100) || null; }
@@ -63,7 +65,7 @@ async function filingNarrative(env, filing) {
     return { available: true, filingDate: filing.filingDate, reportDate: filing.reportDate, url: filing.url, business: filingSection(text, /\bITEM\s+1\.?\s+BUSINESS\b/i, /\bITEM\s+1A\.?\s+RISK\s+FACTORS\b/i), risks: filingSection(text, /\bITEM\s+1A\.?\s+RISK\s+FACTORS\b/i, /\bITEM\s+1B\b|\bITEM\s+2\.?/i), discussion: filingSection(text, /\bITEM\s+7\.?\s+MANAGEMENT.{0,120}DISCUSSION/i, /\bITEM\s+7A\.?|\bITEM\s+8\.?/i) };
   } catch (error) { return { available: false, error: error.message || "No se pudo leer el informe anual." }; }
 }
-function makeFundamentalSeries(facts) { return { revenue: annualFactSeries(facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"]), netIncome: annualFactSeries(facts, ["NetIncomeLoss"]), assets: annualFactSeries(facts, ["Assets"]), liabilities: annualFactSeries(facts, ["Liabilities"]), equity: annualFactSeries(facts, ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"]), operatingCashFlow: annualFactSeries(facts, ["NetCashProvidedByUsedInOperatingActivities"]), capitalExpenditures: annualFactSeries(facts, ["PaymentsToAcquirePropertyPlantAndEquipment"]), grossProfit: annualFactSeries(facts, ["GrossProfit"]), operatingIncome: annualFactSeries(facts, ["OperatingIncomeLoss"]), eps: annualFactSeries(facts, ["EarningsPerShareDiluted"]), netInterestIncome: annualFactSeries(facts, ["InterestIncomeExpenseNet"]) }; }
+function makeFundamentalSeries(facts, annualFilings) { return { revenue: annualFactSeries(facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"], annualFilings), netIncome: annualFactSeries(facts, ["NetIncomeLoss"], annualFilings), assets: annualFactSeries(facts, ["Assets"], annualFilings, false), liabilities: annualFactSeries(facts, ["Liabilities"], annualFilings, false), equity: annualFactSeries(facts, ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"], annualFilings, false), operatingCashFlow: annualFactSeries(facts, ["NetCashProvidedByUsedInOperatingActivities"], annualFilings), capitalExpenditures: annualFactSeries(facts, ["PaymentsToAcquirePropertyPlantAndEquipment"], annualFilings), grossProfit: annualFactSeries(facts, ["GrossProfit"], annualFilings), operatingIncome: annualFactSeries(facts, ["OperatingIncomeLoss"], annualFilings), eps: annualFactSeries(facts, ["EarningsPerShareDiluted"], annualFilings), netInterestIncome: annualFactSeries(facts, ["InterestIncomeExpenseNet"], annualFilings) }; }
 async function secCompany(env, ticker) {
   const registry = await cachedSec("tickers", () => secJson(env, "https://www.sec.gov/files/company_tickers.json"));
   const match = Object.values(registry).find((item) => item.ticker === ticker);
@@ -74,10 +76,10 @@ async function secCompany(env, ticker) {
   try { facts = await cachedSec(`facts:${cik}`, () => secJson(env, `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`)); } catch (error) { if (!String(error.message).includes("HTTP 404")) throw error; }
   const recent = submissions?.filings?.recent || {}, forms = ["10-K", "10-Q", "8-K"];
   const allFilings = (recent.form || []).map((form, index) => ({ form, filingDate: recent.filingDate?.[index], reportDate: recent.reportDate?.[index], accession: recent.accessionNumber?.[index], document: recent.primaryDocument?.[index], description: recent.primaryDocDescription?.[index] })).filter((item) => forms.includes(item.form)).map((item) => ({ ...item, url: item.accession && item.document ? `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${item.accession.replaceAll("-", "")}/${item.document}` : null }));
-  const annual = allFilings.find((item) => item.form === "10-K"), filings = allFilings.slice(0, 8);
+  const annualFilings = allFilings.filter((item) => item.form === "10-K").slice(0, 5), annual = annualFilings[0], filings = allFilings.slice(0, 8);
   const narrative = await filingNarrative(env, annual);
   const sector = submissions.sicDescription || null, bank = /bank|savings|credit/i.test(sector || "");
-  return { ticker, cik, name: submissions.name || match.title, sic: sector, isBank: bank, updated: submissions.filingDate || null, filings, annual, narrative, series: makeFundamentalSeries(facts.facts), fundamentals: { revenue: secFact(facts.facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"]), netIncome: secFact(facts.facts, ["NetIncomeLoss"]), assets: secFact(facts.facts, ["Assets"]), liabilities: secFact(facts.facts, ["Liabilities"]), equity: secFact(facts.facts, ["StockholdersEquity"]) } };
+  return { ticker, cik, name: submissions.name || match.title, sic: sector, isBank: bank, updated: submissions.filingDate || null, filings, annual, narrative, series: makeFundamentalSeries(facts.facts, annualFilings), fundamentals: { revenue: secFact(facts.facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"]), netIncome: secFact(facts.facts, ["NetIncomeLoss"]), assets: secFact(facts.facts, ["Assets"]), liabilities: secFact(facts.facts, ["Liabilities"]), equity: secFact(facts.facts, ["StockholdersEquity"]) } };
 }
 function tradingViewExchange(exchange) {
   const value = String(exchange || "").toUpperCase();
