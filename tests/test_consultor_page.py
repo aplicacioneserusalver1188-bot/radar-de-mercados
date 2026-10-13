@@ -22,4 +22,13 @@ class ConsultorPageTest(unittest.TestCase):
         self.assertIn("wolfram_usage_monthly", worker)
         self.assertNotIn("WOLFRAM_APP_ID=", worker)
 
+    def test_worker_exposes_only_server_side_sec_and_binance_routes(self):
+        worker = (ROOT / "worker" / "template.mjs").read_text(encoding="utf-8")
+        page = (ROOT / "consultor.html").read_text(encoding="utf-8")
+        self.assertIn('path === "/api/sec"', worker)
+        self.assertIn('env.SEC_USER_AGENT', worker)
+        self.assertIn('data-api.binance.vision', worker)
+        self.assertNotIn('SEC_USER_AGENT', page)
+        self.assertIn('/api/binance', page)
+
 if __name__ == "__main__": unittest.main()
