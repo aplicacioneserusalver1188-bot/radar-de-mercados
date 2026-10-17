@@ -58,11 +58,11 @@ function cleanFilingText(value) {
     .replace(/&#39;|&apos;/gi,"'").replace(/[ \t\r\f]+/g," ").replace(/\n\s*\n+/g,"\n").trim();
 }
 const FILING_HEADINGS = [
-  {key:"business",re:/\bITEM\s+1\s*\.?\s*BUSINESS\b/gi},
-  {key:"risks",re:/\bITEM\s+1A\s*\.?\s*RISK\s+FACTORS\b/gi},
-  {key:"discussion",re:/\bITEM\s+7\s*\.?\s*MANAGEMENT.{0,120}?DISCUSSION\s+AND\s+ANALYSIS\b/gi},
-  {key:"discussionEnd",re:/\bITEM\s+7A\s*\.?\s*QUANTITATIVE|\bITEM\s+8\s*\.?\s*FINANCIAL/gi},
-  {key:"risksEnd",re:/\bITEM\s+1B\s*\.?\s*UNRESOLVED|\bITEM\s+1C\s*\.?\s*CYBERSECURITY|\bITEM\s+2\s*\.?\s*PROPERTIES/gi}
+  {key:"business",re:/^\s*ITEM\s+1\s*\.?\s*BUSINESS\s*$/gim},
+  {key:"risks",re:/^\s*ITEM\s+1A\s*\.?\s*RISK\s+FACTORS\s*$/gim},
+  {key:"discussion",re:/^\s*ITEM\s+7\s*\.?\s*MANAGEMENT.{0,120}?DISCUSSION\s+AND\s+ANALYSIS\s*$/gim},
+  {key:"discussionEnd",re:/^\s*ITEM\s+7A\s*\.?\s*QUANTITATIVE[^\n]*$|^\s*ITEM\s+8\s*\.?\s*FINANCIAL[^\n]*$/gim},
+  {key:"risksEnd",re:/^\s*ITEM\s+1B\s*\.?\s*UNRESOLVED[^\n]*$|^\s*ITEM\s+1C\s*\.?\s*CYBERSECURITY[^\n]*$|^\s*ITEM\s+2\s*\.?\s*PROPERTIES[^\n]*$/gim}
 ];
 function filingSections(text) {
   const positions={};
@@ -104,7 +104,7 @@ async function filingNarrative(env,filing) {
     const annotate=(key,name)=>sections[key]?{...sections[key],name,url:filing.url}:null;
     const business=annotate("business","Item 1. Business"),risks=annotate("risks","Item 1A. Risk Factors"),discussion=annotate("discussion","Item 7. MD&A");
     const evidence={
-      customers:filingEvidence(discussion||business,[/customer.{0,100}(concentrat|account|represent)/i,/receivable.{0,100}customer/i,/customer.{0,100}\d{1,2}%/i]),
+      customers:[...filingEvidence(discussion,[/concentration of revenue/i,/direct customer.{0,120}(revenue|sales)/i,/customer.{0,100}\d{1,2}%/i]),...filingEvidence(risks,[/customer.{0,100}concentrat/i,/customer.{0,100}revenue/i])],
       segments:filingEvidence(discussion||business,[/compute.{0,40}networking/i,/graphics.{0,60}revenue/i,/data center.{0,80}revenue/i]),
       supply:filingEvidence(risks||discussion,[/supply.{0,80}(constraint|capacity|chain)/i,/inventory.{0,80}(risk|commitment)/i,/purchase.{0,50}commitment/i]),
       exportControls:filingEvidence(risks||discussion,[/export.{0,40}(control|restriction)/i,/\bH20\b/i])
