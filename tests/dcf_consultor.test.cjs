@@ -32,3 +32,15 @@ test("DCF annual SEC inputs are traceable",()=>{
  assert.ok(html.includes("10-K SEC"));
  assert.ok(html.includes("sourceYear=latest(s.operatingCashFlow)"));
 });
+
+test("NVIDIA investor brief includes sourced segment distinction and risks",()=>{
+ assert.match(html,/function nvdaInvestorBrief\(/);
+ assert.match(html,/Compute &amp; Networking/);
+ assert.match(html,/Data Center: USD 193\.737 millones/);
+ assert.match(html,/concentración en clientes/);
+ assert.match(html,/nvdaInvestorBrief\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
+});
+test("executive scope does not deny the illustrative DCF",()=>{
+ assert.doesNotMatch(html,/no es valoración ni recomendación/);
+ assert.match(html,/incluye una valoración DCF ilustrativa/);
+});
