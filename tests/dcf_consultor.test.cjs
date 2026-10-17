@@ -29,11 +29,7 @@ test("consultor uses matching annual CFO and CapEx periods",()=>{
  assert.match(html,/cfo\.fiscalYear===capex\.fiscalYear&&cfo\.end===capex\.end/);
 });
 
-test("DCF per-share report is gated on verified SEC data",()=>{
- assert.ok(html.includes("const complete=[cash,investments,debtCurrent,debtNoncurrent,shares].every(same)"));
- assert.ok(html.includes("equity/shares.value"));
- assert.ok(html.includes("Valor por acción no disponible"));
-});
+test("unsupported bridge is excluded",()=>{assert.ok(html.includes("se omite el puente experimental"));assert.ok(!html.includes("equity/shares.value"));});
 test("DCF annual SEC inputs are traceable",()=>{
  assert.ok(html.includes("10-K SEC"));
  assert.ok(html.includes("sourceYear=latest(s.operatingCashFlow)"));
