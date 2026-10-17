@@ -19,7 +19,7 @@ function annualByYear(values){return new Map((values||[]).map(x=>[String(x.fisca
 function secExcerpt(title,text){return text?`<details><summary><b>${h(title)}</b> · extracto observado del 10-K</summary><p>${h(text)}</p></details>`:`<p class="hint"><b>${h(title)}:</b> no se pudo extraer esta sección del documento HTML; usa el enlace al 10-K.</p>`}
 
 function dcfModel(base,assumptions){
- const {fcf,growth,discount,terminal,years=5}=assumptions;
+ const {growth,discount,terminal,years=5}=assumptions;const fcf=base;
  if(![fcf,growth,discount,terminal].every(Number.isFinite)||fcf<=0||discount<=terminal||discount<=0||years<1) return null;
  const rows=[];let value=fcf,pv=0;
  for(let year=1;year<=years;year++){value*=1+growth;const discounted=value/(1+discount)**year;pv+=discounted;rows.push({year,fcf:value,pv:discounted})}
