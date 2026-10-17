@@ -29,3 +29,22 @@ test("official NVIDIA FY2026 segment figures reconcile (SEC 10-K benchmark)",()=
  assert.equal(benchmark.computeNetworking+benchmark.graphics,benchmark.revenue);
  assert.ok(benchmark.dataCenter<=benchmark.revenue);
 });
+
+test("NVIDIA 2026 real heading and risk excerpts (SEC 10-K)",()=>{
+ const html=[
+  p("Item 1. Business"),
+  p("NVIDIA pioneered accelerated computing to help solve the most challenging computational problems. ".repeat(30)),
+  p("Item 1A. Risk Factors"),
+  p("Long manufacturing lead times and uncertain supply and capacity availability. ".repeat(35)),
+  p("A significant amount of our revenue stems from a limited number of partners and distributors."),
+  p("Item 1B. Unresolved Staff Comments"),
+  p("Item 7. Management's Discussion and Analysis of Financial Condition and Results of Operations"),
+  p("Revenue for fiscal year 2026 was $215.9 billion, up 65% from a year ago. ".repeat(40)),
+  p("Our two operating segments are Compute & Networking and Graphics."),
+  p("Item 7A. Quantitative and Qualitative Disclosures About Market Risk")
+ ].join("");
+ const parsed=c.filingSections(c.cleanFilingText(html));
+ assert.ok(parsed.business?.body.includes("NVIDIA pioneered"));
+ assert.ok(parsed.risks?.body.includes("manufacturing lead times"));
+ assert.ok(parsed.discussion?.body.includes("Revenue for fiscal year 2026"));
+});
