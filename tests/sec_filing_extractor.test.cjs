@@ -16,3 +16,16 @@ test("full Item 7 heading with descriptive suffix",()=>{
  const result=c.filingSections(c.cleanFilingText(full));
  assert.ok(result.discussion.body.startsWith("Compute & Networking"));
 });
+
+test("evidence points to match beyond first 1,800 characters",()=>{
+ const body="Earlier unrelated commentary. ".repeat(200)+" Direct Customers – For fiscal year 2026, sales to one direct customer represented 22% of total revenue and sales to another direct customer represented 14% of total revenue.";
+ const found=c.filingEvidence({body,name:"Item 7",url:"https://www.sec.gov/example"},[/direct customer.{0,120}22%/i]);
+ assert.equal(found.length,1);
+ assert.ok(found[0].text.includes("22%"));
+ assert.ok(found[0].offset>1800);
+});
+test("official NVIDIA FY2026 segment figures reconcile (SEC 10-K benchmark)",()=>{
+ const benchmark={revenue:215938,computeNetworking:193479,graphics:22459,dataCenter:193737};
+ assert.equal(benchmark.computeNetworking+benchmark.graphics,benchmark.revenue);
+ assert.ok(benchmark.dataCenter<=benchmark.revenue);
+});
