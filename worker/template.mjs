@@ -60,7 +60,7 @@ function cleanFilingText(value) {
 const FILING_HEADINGS = [
   {key:"business",re:/^\s*ITEM\s+1\s*\.?\s*BUSINESS\s*$/gim},
   {key:"risks",re:/^\s*ITEM\s+1A\s*\.?\s*RISK\s+FACTORS\s*$/gim},
-  {key:"discussion",re:/^\s*ITEM\s+7\s*\.?\s*MANAGEMENT.{0,120}?DISCUSSION\s+AND\s+ANALYSIS\s*$/gim},
+  {key:"discussion",re:/^[ \t]*ITEM\s+7\s*\.?\s*MANAGEMENT[^\n]{0,180}?DISCUSSION\s+AND\s+ANALYSIS[^\n]{0,180}$/gim},
   {key:"discussionEnd",re:/^\s*ITEM\s+7A\s*\.?\s*QUANTITATIVE[^\n]*$|^\s*ITEM\s+8\s*\.?\s*FINANCIAL[^\n]*$/gim},
   {key:"risksEnd",re:/^\s*ITEM\s+1B\s*\.?\s*UNRESOLVED[^\n]*$|^\s*ITEM\s+1C\s*\.?\s*CYBERSECURITY[^\n]*$|^\s*ITEM\s+2\s*\.?\s*PROPERTIES[^\n]*$/gim}
 ];
