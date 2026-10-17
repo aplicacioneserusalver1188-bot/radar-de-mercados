@@ -5,6 +5,8 @@ on:
       - dev/observatorio-rm-fuentes-20261013
     paths:
       - 'worker/template.mjs'
+      - 'consultor.html'
+      - 'tests/dcf_consultor.test.cjs'
       - 'tests/sec_filing_extractor.test.cjs'
       - 'tests/sec_financial_series.test.cjs'
       - 'tests/sec_live_smoke.cjs'
