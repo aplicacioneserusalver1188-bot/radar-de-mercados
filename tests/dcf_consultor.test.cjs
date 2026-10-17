@@ -56,3 +56,11 @@ test("DCF sensitivity matrix varies growth and discount with fixed terminal rate
  assert.match(html,/const rates=\[\.09,\.11,\.13\],growthRates=\[\.10,\.16,\.22\],terminal=\.03/);
  assert.match(html,/dcfSensitivity\(fcf\)/);
 });
+
+test("FCFE model refuses missing debt financing facts and does not double adjust cash/debt",()=>{
+ assert.match(html,/function fcfeAlternative\(s,fcf\)/);
+ assert.match(html,/fcf\+proceeds\.value-Math\.abs\(repayments\.value\)/);
+ assert.match(html,/La ausencia de una etiqueta XBRL no se interpreta como cero/);
+ assert.match(html,/no se vuelve a sumar efectivo ni restar deuda/);
+ assert.match(html,/fcfeAlternative\(s,fcf\)/);
+});
