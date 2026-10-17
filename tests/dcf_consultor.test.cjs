@@ -78,3 +78,10 @@ test("Microsoft FY2026 analysis identifies actual businesses and SEC source",()=
  assert.match(html,/msft-20260630\.htm/);
  assert.match(html,/microsoftInvestorAnalysis\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
 });
+
+test("generic SEC investor diagnosis does not invent company-specific business claims",()=>{
+ assert.match(html,/function generalInvestorAnalysis\(/);
+ assert.match(html,/El extracto Business no se recuperó automáticamente/);
+ assert.match(html,/no se afirma conocer segmentos, clientes o ventajas competitivas particulares/);
+ assert.match(html,/generalInvestorAnalysis\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
+});
