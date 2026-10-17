@@ -65,8 +65,12 @@ const FILING_HEADINGS = [
   {key:"risksEnd",re:/^\s*ITEM\s+1B\s*\.?\s*UNRESOLVED[^\n]*$|^\s*ITEM\s+1C\s*\.?\s*CYBERSECURITY[^\n]*$|^\s*ITEM\s+2\s*\.?\s*PROPERTIES[^\n]*$/gim}
 ];
 function filingSections(text) {
+  // Match headings only at line starts, and prefer the last complete section after the TOC.
+  // Reject heading candidates that are embedded inside narrative sentences.
   const positions={};
-  for(const {key,re} of FILING_HEADINGS) positions[key]=[...text.matchAll(re)].map(m=>({at:m.index,after:m.index+m[0].length}));
+  for(const {key,re} of FILING_HEADINGS) {
+    positions[key]=[...text.matchAll(re)].map(m=>({at:m.index,after:m.index+m[0].length}));
+  }
   const result={};
   for(const [key,ends] of [["business",["risks"]],["risks",["risksEnd","discussion"]],["discussion",["discussionEnd"]]]) {
     const candidates=[];
@@ -76,7 +80,6 @@ function filingSections(text) {
       const body=text.slice(heading.after,following.at).trim();
       if(body.length>=1200) candidates.push({body,length:body.length});
     }
-    // Later headings normally belong to the body; early matches are often the table of contents.
     result[key]=candidates[candidates.length-1]||null;
   }
   return result;
