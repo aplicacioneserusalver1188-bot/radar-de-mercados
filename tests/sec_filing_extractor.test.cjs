@@ -1,0 +1,12 @@
+const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const src=fs.readFileSync("worker/template.mjs","utf8"),a=src.indexOf("function cleanFilingText("),b=src.indexOf("async function filingNarrative(",a);
+assert.ok(a>=0&&b>a);const c=vm.createContext({});vm.runInContext(src.slice(a,b),c);
+const p=s=>"<p>"+s+"</p>";
+const toc=["ITEM 1. BUSINESS","ITEM 1A. RISK FACTORS","ITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS","ITEM 8. FINANCIAL STATEMENTS"].map(p).join("");
+const fixture=toc+p("ITEM 1. BUSINESS")+p("NVIDIA accelerated computing. ".repeat(90))+p("ITEM 1A. RISK FACTORS")+p("Supply chain constraints and export controls. ".repeat(90))+p("ITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS")+p("Compute & Networking segment revenue. ".repeat(90))+p("ITEM 8. FINANCIAL STATEMENTS");
+const s=c.filingSections(c.cleanFilingText(fixture));
+test("business skips TOC",()=>{assert.ok(s.business.body.startsWith("NVIDIA accelerated"));assert.ok(s.business.length>1200)});
+test("risk section excludes MD&A",()=>{assert.ok(s.risks.body.startsWith("Supply chain"));assert.ok(!s.risks.body.includes("Compute & Networking"))});
+test("MD&A heading is completely removed",()=>assert.ok(s.discussion.body.startsWith("Compute & Networking")));
+test("evidence records provenance",()=>{const e=c.filingEvidence({...s.risks,name:"Item 1A",url:"https://www.sec.gov/example"},[/supply chain/i]);assert.equal(e.length,1);assert.equal(e[0].sourceUrl,"https://www.sec.gov/example")});
+test("missing sections are null",()=>{const v=c.filingSections("Nothing to extract");assert.equal(v.risks,null)});
