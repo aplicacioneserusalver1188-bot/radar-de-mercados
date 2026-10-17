@@ -6,6 +6,8 @@ on:
     paths:
       - 'worker/template.mjs'
       - 'tests/sec_filing_extractor.test.cjs'
+      - 'tests/sec_financial_series.test.cjs'
+      - 'tests/sec_live_smoke.cjs'
       - 'package.json'
       - '.github/workflows/sec-extractor-validation.yml'
   workflow_dispatch:

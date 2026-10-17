@@ -32,12 +32,12 @@ function secFact(facts, names) {
   }
   return null;
 }
-function annualFactSeries(facts, names, annualFilings, isFlow = true) {
+function annualFactSeries(facts, names, annualFilings, isFlow = true, unit = "USD") {
   const result = [];
   for (const filing of annualFilings) {
     let selected = null;
     for (const name of names) {
-      const entries = facts?.["us-gaap"]?.[name]?.units?.USD || [];
+      const entries = facts?.["us-gaap"]?.[name]?.units?.[unit] || [];
       const match = entries.find((item) => {
         if (item.accn !== filing.accession || item.form !== "10-K" || item.end !== filing.reportDate || !Number.isFinite(item.val)) return false;
         if (!isFlow) return true;
@@ -45,9 +45,9 @@ function annualFactSeries(facts, names, annualFilings, isFlow = true) {
         const days = (Date.parse(item.end) - Date.parse(item.start)) / 86400000;
         return days >= 300 && days <= 400;
       });
-      if (match) { selected = { ...match, label: facts["us-gaap"][name].label || name }; break; }
+      if (match) { selected = { ...match, label: facts["us-gaap"][name].label || name, concept: name }; break; }
     }
-    if (selected) result.push({ fiscalYear: String(filing.reportDate || selected.end).slice(0, 4), end: filing.reportDate || selected.end, filed: filing.filingDate, value: selected.val, form: "10-K", accession: filing.accession, label: selected.label });
+    if (selected) result.push({ fiscalYear: String(filing.reportDate || selected.end).slice(0, 4), end: filing.reportDate || selected.end, filed: filing.filingDate, value: selected.val, form: "10-K", accession: filing.accession, label: selected.label, unit, concept: selected.concept, sourceUrl: filing.url || null });
   }
   return result.sort((a, b) => String(a.end).localeCompare(String(b.end))).slice(-5);
 }
@@ -124,7 +124,7 @@ async function filingNarrative(env,filing) {
     };
   } catch(error) {return {available:false,error:error.message||"No se pudo leer el informe anual."};}
 }
-function makeFundamentalSeries(facts, annualFilings) { return { revenue: annualFactSeries(facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"], annualFilings), netIncome: annualFactSeries(facts, ["NetIncomeLoss"], annualFilings), assets: annualFactSeries(facts, ["Assets"], annualFilings, false), liabilities: annualFactSeries(facts, ["Liabilities"], annualFilings, false), equity: annualFactSeries(facts, ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"], annualFilings, false), operatingCashFlow: annualFactSeries(facts, ["NetCashProvidedByUsedInOperatingActivities"], annualFilings), capitalExpenditures: annualFactSeries(facts, ["PaymentsToAcquirePropertyPlantAndEquipment"], annualFilings), grossProfit: annualFactSeries(facts, ["GrossProfit"], annualFilings), operatingIncome: annualFactSeries(facts, ["OperatingIncomeLoss"], annualFilings), eps: annualFactSeries(facts, ["EarningsPerShareDiluted"], annualFilings), netInterestIncome: annualFactSeries(facts, ["InterestIncomeExpenseNet"], annualFilings) }; }
+function makeFundamentalSeries(facts, annualFilings) { return { revenue: annualFactSeries(facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"], annualFilings), netIncome: annualFactSeries(facts, ["NetIncomeLoss"], annualFilings), assets: annualFactSeries(facts, ["Assets"], annualFilings, false), liabilities: annualFactSeries(facts, ["Liabilities"], annualFilings, false), equity: annualFactSeries(facts, ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"], annualFilings, false), operatingCashFlow: annualFactSeries(facts, ["NetCashProvidedByUsedInOperatingActivities"], annualFilings), capitalExpenditures: annualFactSeries(facts, ["PaymentsToAcquirePropertyPlantAndEquipment"], annualFilings), grossProfit: annualFactSeries(facts, ["GrossProfit"], annualFilings), operatingIncome: annualFactSeries(facts, ["OperatingIncomeLoss"], annualFilings), eps: annualFactSeries(facts, ["EarningsPerShareDiluted"], annualFilings, true, "USD/shares"), netInterestIncome: annualFactSeries(facts, ["InterestIncomeExpenseNet"], annualFilings) }; }
 async function secCompany(env, ticker) {
   const registry = await cachedSec("tickers", () => secJson(env, "https://www.sec.gov/files/company_tickers.json"));
   const match = Object.values(registry).find((item) => item.ticker === ticker);
