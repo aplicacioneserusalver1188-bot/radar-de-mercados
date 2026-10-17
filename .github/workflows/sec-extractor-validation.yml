@@ -20,3 +20,17 @@ jobs:
           node-version: '22'
       - run: npm test
       - run: npm run build
+
+  live-sec-smoke:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate NVIDIA real 10-K (requires SEC_USER_AGENT secret)
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: node tests/sec_live_smoke.cjs
