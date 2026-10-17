@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build_worker.mjs"
+    "build": "node scripts/build_worker.mjs",
+    "test": "node --test tests/sec_filing_extractor.test.cjs"
   }
 }
