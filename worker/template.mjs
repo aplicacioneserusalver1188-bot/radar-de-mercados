@@ -124,7 +124,35 @@ async function filingNarrative(env,filing) {
     };
   } catch(error) {return {available:false,error:error.message||"No se pudo leer el informe anual."};}
 }
-function makeFundamentalSeries(facts, annualFilings) { return { revenue: annualFactSeries(facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"], annualFilings), netIncome: annualFactSeries(facts, ["NetIncomeLoss"], annualFilings), assets: annualFactSeries(facts, ["Assets"], annualFilings, false), liabilities: annualFactSeries(facts, ["Liabilities"], annualFilings, false), equity: annualFactSeries(facts, ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"], annualFilings, false), operatingCashFlow: annualFactSeries(facts, ["NetCashProvidedByUsedInOperatingActivities"], annualFilings), capitalExpenditures: annualFactSeries(facts, ["PaymentsToAcquirePropertyPlantAndEquipment"], annualFilings), grossProfit: annualFactSeries(facts, ["GrossProfit"], annualFilings), operatingIncome: annualFactSeries(facts, ["OperatingIncomeLoss"], annualFilings), eps: annualFactSeries(facts, ["EarningsPerShareDiluted"], annualFilings, true, "USD/shares"), cash: annualFactSeries(facts, ["CashAndCashEquivalentsAtCarryingValue"], annualFilings, false), shortTermInvestments: annualFactSeries(facts, ["ShortTermInvestments", "MarketableSecuritiesCurrent"], annualFilings, false), debtCurrent: annualFactSeries(facts, ["LongTermDebtCurrent", "ShortTermBorrowings"], annualFilings, false), debtNoncurrent: annualFactSeries(facts, ["LongTermDebtNoncurrent"], annualFilings, false), dilutedShares: annualFactSeries(facts, ["WeightedAverageNumberOfDilutedSharesOutstanding"], annualFilings, true, "shares"), netInterestIncome: annualFactSeries(facts, ["InterestIncomeExpenseNet"], annualFilings) }; }
+function makeFundamentalSeries(facts, annualFilings) { return { revenue: annualFactSeries(facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"], annualFilings), netIncome: annualFactSeries(facts, ["NetIncomeLoss"], annualFilings), assets: annualFactSeries(facts, ["Assets"], annualFilings, false), liabilities: annualFactSeries(facts, ["Liabilities"], annualFilings, false), equity: annualFactSeries(facts, ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"], annualFilings, false), operatingCashFlow: annualFactSeries(facts, ["NetCashProvidedByUsedInOperatingActivities"], annualFilings), capitalExpenditures: annualFactSeries(facts, ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"], annualFilings), grossProfit: annualFactSeries(facts, ["GrossProfit"], annualFilings), operatingIncome: annualFactSeries(facts, ["OperatingIncomeLoss"], annualFilings), eps: annualFactSeries(facts, ["EarningsPerShareDiluted"], annualFilings, true, "USD/shares"), cash: annualFactSeries(facts, ["CashAndCashEquivalentsAtCarryingValue"], annualFilings, false), shortTermInvestments: annualFactSeries(facts, ["ShortTermInvestments", "MarketableSecuritiesCurrent"], annualFilings, false), debtCurrent: annualFactSeries(facts, ["LongTermDebtCurrent", "ShortTermBorrowings"], annualFilings, false), debtNoncurrent: annualFactSeries(facts, ["LongTermDebtNoncurrent"], annualFilings, false), dilutedShares: annualFactSeries(facts, ["WeightedAverageNumberOfDilutedSharesOutstanding"], annualFilings, true, "shares"), netInterestIncome: annualFactSeries(facts, ["InterestIncomeExpenseNet"], annualFilings) }; }
+function nvidiaInlineInvestments(html, filing) {
+  // NVIDIA's consolidated current-investment total uses an issuer extension
+  // absent from companyfacts. Never substitute debt securities alone.
+  const attribute = (tag, name) => tag.match(new RegExp('\\b' + name + '="([^"]+)"', 'i'))?.[1];
+  const contexts = new Set();
+  for (const match of html.matchAll(/<xbrli:context\b([^>]*)>([\s\S]*?)<\/xbrli:context>/gi)) {
+    const body = match[2];
+    if (/<(?:\w+:)?(?:segment|scenario|explicitMember|typedMember)\b/i.test(body)) continue;
+    if (!/<xbrli:identifier\b[^>]*>0*1045810<\/xbrli:identifier>/i.test(body)) continue;
+    if (body.match(/<xbrli:instant>([^<]+)<\/xbrli:instant>/i)?.[1] === filing.reportDate) contexts.add(attribute(match[1], 'id'));
+  }
+  const units = new Set();
+  for (const match of html.matchAll(/<xbrli:unit\b([^>]*)>([\s\S]*?)<\/xbrli:unit>/gi)) {
+    if (/^\s*<xbrli:measure>iso4217:USD<\/xbrli:measure>\s*$/i.test(match[2])) units.add(attribute(match[1], 'id'));
+  }
+  const values = [];
+  for (const match of html.matchAll(/<ix:nonFraction\b([^>]*)>([\s\S]*?)<\/ix:nonFraction>/gi)) {
+    const tag = match[1];
+    if (attribute(tag, 'name') !== 'nvda:MarketableSecuritiesAndEquitySecuritiesFVNI' || !contexts.has(attribute(tag, 'contextRef')) || !units.has(attribute(tag, 'unitRef'))) continue;
+    if (attribute(tag, 'format') !== 'ixt:num-dot-decimal' || attribute(tag, 'sign') === '-') continue;
+    const raw = match[2].trim(), scale = Number(attribute(tag, 'scale') || 0);
+    if (!/^[\d,]+(?:\.\d+)?$/.test(raw) || !Number.isInteger(scale) || Math.abs(scale) > 12) continue;
+    const value = Number(raw.replaceAll(',', '')) * 10 ** scale;
+    if (Number.isFinite(value) && value >= 0) values.push(value);
+  }
+  if (!values.length || new Set(values).size !== 1) return null;
+  return { fiscalYear: filing.reportDate.slice(0, 4), end: filing.reportDate, filed: filing.filingDate, value: values[0], form: '10-K', accession: filing.accession, unit: 'USD', concept: 'nvda:MarketableSecuritiesAndEquitySecuritiesFVNI', label: 'Marketable securities', sourceUrl: filing.url, extraction: 'inline-xbrl' };
+}
 async function secCompany(env, ticker) {
   const registry = await cachedSec("tickers", () => secJson(env, "https://www.sec.gov/files/company_tickers.json"));
   const match = Object.values(registry).find((item) => item.ticker === ticker);
@@ -137,8 +165,14 @@ async function secCompany(env, ticker) {
   const allFilings = (recent.form || []).map((form, index) => ({ form, filingDate: recent.filingDate?.[index], reportDate: recent.reportDate?.[index], accession: recent.accessionNumber?.[index], document: recent.primaryDocument?.[index], description: recent.primaryDocDescription?.[index] })).filter((item) => forms.includes(item.form)).map((item) => ({ ...item, url: item.accession && item.document ? `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${item.accession.replaceAll("-", "")}/${item.document}` : null }));
   const annualFilings = allFilings.filter((item) => item.form === "10-K").slice(0, 5), annual = annualFilings[0], filings = allFilings.slice(0, 8);
   const narrative = await filingNarrative(env, annual);
+  const series = makeFundamentalSeries(facts.facts, annualFilings);
+  if (cik === '0001045810' && annual?.url && !series.shortTermInvestments.some(item => item.end === annual.reportDate)) {
+    const document = secCache.get('filing:' + annual.accession)?.value;
+    const investment = typeof document === 'string' ? nvidiaInlineInvestments(document, annual) : null;
+    if (investment) series.shortTermInvestments.push(investment);
+  }
   const sector = submissions.sicDescription || null, bank = /bank|savings|credit/i.test(sector || "");
-  return { ticker, cik, name: submissions.name || match.title, sic: sector, isBank: bank, updated: submissions.filingDate || null, filings, annual, narrative, series: makeFundamentalSeries(facts.facts, annualFilings), fundamentals: { revenue: secFact(facts.facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"]), netIncome: secFact(facts.facts, ["NetIncomeLoss"]), assets: secFact(facts.facts, ["Assets"]), liabilities: secFact(facts.facts, ["Liabilities"]), equity: secFact(facts.facts, ["StockholdersEquity"]) } };
+  return { ticker, cik, name: submissions.name || match.title, sic: sector, isBank: bank, updated: submissions.filingDate || null, filings, annual, narrative, series, fundamentals: { revenue: secFact(facts.facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"]), netIncome: secFact(facts.facts, ["NetIncomeLoss"]), assets: secFact(facts.facts, ["Assets"]), liabilities: secFact(facts.facts, ["Liabilities"]), equity: secFact(facts.facts, ["StockholdersEquity"]) } };
 }
 function tradingViewExchange(exchange) {
   const value = String(exchange || "").toUpperCase();

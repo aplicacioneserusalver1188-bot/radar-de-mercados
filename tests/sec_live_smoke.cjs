@@ -25,5 +25,23 @@ const url="https://www.sec.gov/Archives/edgar/data/1045810/000104581026000021/nv
  assert.equal(series.netIncome[0]?.value,120067000000,'FY2026 net income must match the official 10-K');
  assert.equal(series.eps[0]?.value,4.90,'FY2026 diluted EPS must match the official 10-K');
  assert.equal(series.eps[0]?.unit,'USD/shares');
+ vm.runInContext(src.slice(src.indexOf('function nvidiaInlineInvestments('),src.indexOf('async function secCompany(')),ctx);
+ const investments=ctx.nvidiaInlineInvestments(html,{accession:'0001045810-26-000021',reportDate:'2026-01-25',url});
+ assert.equal(investments?.value,51951000000,'NVIDIA marketable securities must match the consolidated balance sheet');
+ series.shortTermInvestments=[investments];
+ for(const key of ['cash','shortTermInvestments','debtCurrent','debtNoncurrent','dilutedShares','operatingCashFlow','capitalExpenditures']) {
+  assert.ok(Number.isFinite(series[key][0]?.value),key+' missing for per-share DCF');
+  assert.equal(series[key][0].end,'2026-01-25',key+' has a different fiscal closing date');
+ }
+ const page=fs.readFileSync('consultor.html','utf8');
+ const reportContext=vm.createContext({Intl});
+ vm.runInContext(page.slice(page.indexOf('function h('),page.indexOf('async function secAsset(')),reportContext);
+ vm.runInContext('function n(v){return String(v)}',reportContext);
+ const fcf=series.operatingCashFlow[0].value-Math.abs(series.capitalExpenditures[0].value);
+ const report=reportContext.dcfReport({annual:{url}},series,fcf);
+ for(const label of ['Conservador','Base','Optimista','Valor patrimonial por acción','Anexo técnico','10-K SEC']) assert.ok(report.includes(label),label+' missing');
+ assert.ok(!report.includes('Valor por acción no disponible'));
+ assert.ok(!/NaN|Infinity/.test(report));
+ console.log('PASS: real NVIDIA SEC inputs render all three DCF scenarios, per-share valuation and technical appendix');
  console.log("PASS: NVIDIA FY2026 live 10-K, sections present and plausible");
 })().catch(e=>{console.error("FAIL:",e.message);process.exitCode=1});
