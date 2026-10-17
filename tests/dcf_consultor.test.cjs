@@ -1,5 +1,11 @@
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const html=fs.readFileSync("consultor.html","utf8");
+test("entire consultor inline script parses as JavaScript",()=>{
+ const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+ assert.ok(script,"missing inline script");
+ assert.doesNotThrow(()=>new vm.Script(script,{filename:"consultor-inline.js"}));
+});
+
 const start=html.indexOf("function dcfModel("),end=html.indexOf("function dcfReport(",start);
 assert.ok(start>=0&&end>start);
 const context=vm.createContext({});
