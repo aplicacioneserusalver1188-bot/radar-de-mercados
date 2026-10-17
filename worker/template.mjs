@@ -51,19 +51,71 @@ function annualFactSeries(facts, names, annualFilings, isFlow = true) {
   }
   return result.sort((a, b) => String(a.end).localeCompare(String(b.end))).slice(-5);
 }
-function cleanFilingText(value) { return String(value || "").replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim(); }
-function filingSection(text, start, end) { const from = text.search(start); if (from < 0) return null; const tail = text.slice(from), stop = tail.search(end), excerpt = (stop > 0 ? tail.slice(0, stop) : tail).replace(/^.{0,100}?ITEM\s+[0-9]+[A-Z]?\.?\s*/i, "").trim(); return excerpt.slice(0, 1100) || null; }
-async function filingNarrative(env, filing) {
-  if (!filing?.url) return { available: false };
+function cleanFilingText(value) {
+  return String(value || "").replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<ix:header[\s\S]*?<\/ix:header>/gi," ")
+    .replace(/<\/(?:p|div|tr|h[1-6]|table|li|section)>/gi,"\n").replace(/<[^>]+>/g," ")
+    .replace(/&nbsp;|&#160;/gi," ").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"')
+    .replace(/&#39;|&apos;/gi,"'").replace(/[ \t\r\f]+/g," ").replace(/\n\s*\n+/g,"\n").trim();
+}
+const FILING_HEADINGS = [
+  {key:"business",re:/\bITEM\s+1\s*\.?\s*BUSINESS\b/gi},
+  {key:"risks",re:/\bITEM\s+1A\s*\.?\s*RISK\s+FACTORS\b/gi},
+  {key:"discussion",re:/\bITEM\s+7\s*\.?\s*MANAGEMENT.{0,120}?DISCUSSION\b/gi},
+  {key:"discussionEnd",re:/\bITEM\s+7A\s*\.?\s*QUANTITATIVE|\bITEM\s+8\s*\.?\s*FINANCIAL/gi},
+  {key:"risksEnd",re:/\bITEM\s+1B\s*\.?\s*UNRESOLVED|\bITEM\s+1C\s*\.?\s*CYBERSECURITY|\bITEM\s+2\s*\.?\s*PROPERTIES/gi}
+];
+function filingSections(text) {
+  const positions={};
+  for(const {key,re} of FILING_HEADINGS) positions[key]=[...text.matchAll(re)].map(m=>({at:m.index,after:m.index+m[0].length}));
+  const result={};
+  for(const [key,ends] of [["business",["risks"]],["risks",["risksEnd","discussion"]],["discussion",["discussionEnd"]]]) {
+    const candidates=[];
+    for(const heading of positions[key]||[]) {
+      const following=ends.flatMap(name=>positions[name]||[]).filter(p=>p.at>heading.after).sort((a,b)=>a.at-b.at)[0];
+      if(!following) continue;
+      const body=text.slice(heading.after,following.at).trim();
+      if(body.length>=1200) candidates.push({body,length:body.length});
+    }
+    candidates.sort((a,b)=>b.length-a.length);
+    result[key]=candidates[0]||null;
+  }
+  return result;
+}
+function filingEvidence(section,patterns,maxItems=8) {
+  if(!section) return [];
+  const paragraphs=section.body.split(/\n+/).map(s=>s.trim()).filter(s=>s.length>=35);
+  const results=[];
+  for(const pattern of patterns) {
+    const matched=paragraphs.find(p=>pattern.test(p)&&!results.some(x=>x.text===p));
+    if(matched) results.push({text:matched.slice(0,1800),sourceSection:section.name,sourceUrl:section.url});
+    if(results.length>=maxItems) break;
+  }
+  return results;
+}
+async function filingNarrative(env,filing) {
+  if(!filing?.url) return {available:false};
   try {
-    const html = await cachedSec(`filing:${filing.accession}`, async () => {
-      const response = await fetch(filing.url, { headers: { "User-Agent": env.SEC_USER_AGENT, "Accept-Encoding": "gzip, deflate", "Accept": "text/html,application/xhtml+xml" } });
-      if (!response.ok) throw new Error(`SEC EDGAR devolvió HTTP ${response.status}.`);
+    const html=await cachedSec("filing:"+filing.accession,async()=>{
+      const response=await fetch(filing.url,{headers:{"User-Agent":env.SEC_USER_AGENT,"Accept-Encoding":"gzip, deflate","Accept":"text/html,application/xhtml+xml"}});
+      if(!response.ok) throw new Error("SEC EDGAR devolvió HTTP "+response.status+".");
       return response.text();
     });
-    const text = cleanFilingText(html);
-    return { available: true, filingDate: filing.filingDate, reportDate: filing.reportDate, url: filing.url, business: filingSection(text, /\bITEM\s+1\.?\s+BUSINESS\b/i, /\bITEM\s+1A\.?\s+RISK\s+FACTORS\b/i), risks: filingSection(text, /\bITEM\s+1A\.?\s+RISK\s+FACTORS\b/i, /\bITEM\s+1B\b|\bITEM\s+2\.?/i), discussion: filingSection(text, /\bITEM\s+7\.?\s+MANAGEMENT.{0,120}DISCUSSION/i, /\bITEM\s+7A\.?|\bITEM\s+8\.?/i) };
-  } catch (error) { return { available: false, error: error.message || "No se pudo leer el informe anual." }; }
+    const sections=filingSections(cleanFilingText(html));
+    const annotate=(key,name)=>sections[key]?{...sections[key],name,url:filing.url}:null;
+    const business=annotate("business","Item 1. Business"),risks=annotate("risks","Item 1A. Risk Factors"),discussion=annotate("discussion","Item 7. MD&A");
+    const evidence={
+      customers:filingEvidence(discussion||business,[/customer.{0,100}(concentrat|account|represent)/i,/receivable.{0,100}customer/i,/customer.{0,100}\d{1,2}%/i]),
+      segments:filingEvidence(discussion||business,[/compute.{0,40}networking/i,/graphics.{0,60}revenue/i,/data center.{0,80}revenue/i]),
+      supply:filingEvidence(risks||discussion,[/supply.{0,80}(constraint|capacity|chain)/i,/inventory.{0,80}(risk|commitment)/i,/purchase.{0,50}commitment/i]),
+      exportControls:filingEvidence(risks||discussion,[/export.{0,40}(control|restriction)/i,/\bH20\b/i])
+    };
+    return {
+      available:!!(business||risks||discussion),filingDate:filing.filingDate,reportDate:filing.reportDate,url:filing.url,
+      business:business?.body.slice(0,10000)||null,risks:risks?.body.slice(0,10000)||null,discussion:discussion?.body.slice(0,10000)||null,
+      sections:Object.fromEntries([["business",business],["risks",risks],["discussion",discussion]].map(([key,s])=>[key,s?{heading:s.name,length:s.length,sourceUrl:s.url,found:true}:{found:false}])),
+      evidence,warnings:["Extractos documentales, no verificación de cifras XBRL; comprobar unidades y período antes de usarlos en una valoración."]
+    };
+  } catch(error) {return {available:false,error:error.message||"No se pudo leer el informe anual."};}
 }
 function makeFundamentalSeries(facts, annualFilings) { return { revenue: annualFactSeries(facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"], annualFilings), netIncome: annualFactSeries(facts, ["NetIncomeLoss"], annualFilings), assets: annualFactSeries(facts, ["Assets"], annualFilings, false), liabilities: annualFactSeries(facts, ["Liabilities"], annualFilings, false), equity: annualFactSeries(facts, ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"], annualFilings, false), operatingCashFlow: annualFactSeries(facts, ["NetCashProvidedByUsedInOperatingActivities"], annualFilings), capitalExpenditures: annualFactSeries(facts, ["PaymentsToAcquirePropertyPlantAndEquipment"], annualFilings), grossProfit: annualFactSeries(facts, ["GrossProfit"], annualFilings), operatingIncome: annualFactSeries(facts, ["OperatingIncomeLoss"], annualFilings), eps: annualFactSeries(facts, ["EarningsPerShareDiluted"], annualFilings), netInterestIncome: annualFactSeries(facts, ["InterestIncomeExpenseNet"], annualFilings) }; }
 async function secCompany(env, ticker) {
