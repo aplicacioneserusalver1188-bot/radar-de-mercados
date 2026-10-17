@@ -10,3 +10,9 @@ test("risk section excludes MD&A",()=>{assert.ok(s.risks.body.startsWith("Supply
 test("MD&A heading is completely removed",()=>assert.ok(s.discussion.body.startsWith("Compute & Networking")));
 test("evidence records provenance",()=>{const e=c.filingEvidence({...s.risks,name:"Item 1A",url:"https://www.sec.gov/example"},[/supply chain/i]);assert.equal(e.length,1);assert.equal(e[0].sourceUrl,"https://www.sec.gov/example")});
 test("missing sections are null",()=>{const v=c.filingSections("Nothing to extract");assert.equal(v.risks,null)});
+
+test("full Item 7 heading with descriptive suffix",()=>{
+ const full=fixture.replaceAll("ITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS","ITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS");
+ const result=c.filingSections(c.cleanFilingText(full));
+ assert.ok(result.discussion.body.startsWith("Compute & Networking"));
+});
