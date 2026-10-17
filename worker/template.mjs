@@ -58,31 +58,27 @@ function cleanFilingText(value) {
     .replace(/&#39;|&apos;/gi,"'").replace(/[ \t\r\f]+/g," ").replace(/\n\s*\n+/g,"\n").trim();
 }
 const FILING_HEADINGS = [
-  {key:"business",re:/^\s*ITEM\s+1\s*\.?\s*BUSINESS\s*$/gim},
-  {key:"risks",re:/^\s*ITEM\s+1A\s*\.?\s*RISK\s+FACTORS\s*$/gim},
-  {key:"discussion",re:/^[ \t]*ITEM\s+7\s*\.?\s*MANAGEMENT[^\n]{0,180}?DISCUSSION\s+AND\s+ANALYSIS[^\n]{0,180}$/gim},
-  {key:"discussionEnd",re:/^\s*ITEM\s+7A\s*\.?\s*QUANTITATIVE[^\n]*$|^\s*ITEM\s+8\s*\.?\s*FINANCIAL[^\n]*$/gim},
-  {key:"risksEnd",re:/^\s*ITEM\s+1B\s*\.?\s*UNRESOLVED[^\n]*$|^\s*ITEM\s+1C\s*\.?\s*CYBERSECURITY[^\n]*$|^\s*ITEM\s+2\s*\.?\s*PROPERTIES[^\n]*$/gim}
+ {key:"business",re:/^\s*(?:ITEM|Item)\s*1\s*\.?\s*B\s*U\s*S\s*I\s*N\s*E\s*S\s*S\s*$/gim},
+ {key:"risks",re:/^\s*(?:ITEM|Item)\s*1\s*A\s*\.?\s*R\s*I\s*S\s*K\s*F\s*A\s*C\s*T\s*O\s*R\s*S\s*$/gim},
+ {key:"discussion",re:/^\s*(?:ITEM|Item)\s*7\s*\.?\s*M\s*A\s*N\s*A\s*G\s*E\s*M\s*E\s*N\s*T[^\n]{0,180}(?:DISCUSSION|D\s*I\s*S\s*C\s*U\s*S\s*S\s*I\s*O\s*N)[^\n]{0,180}$/gim},
+ {key:"discussionEnd",re:/^\s*(?:ITEM|Item)\s*(?:7\s*A|8)\s*\.?[^\n]{0,180}$/gim},
+ {key:"risksEnd",re:/^\s*(?:ITEM|Item)\s*(?:1\s*B|1\s*C|2)\s*\.?[^\n]{0,180}$/gim}
 ];
 function filingSections(text) {
-  // Match headings only at line starts, and prefer the last complete section after the TOC.
-  // Reject heading candidates that are embedded inside narrative sentences.
-  const positions={};
-  for(const {key,re} of FILING_HEADINGS) {
-    positions[key]=[...text.matchAll(re)].map(m=>({at:m.index,after:m.index+m[0].length}));
+ const positions={};
+ for(const {key,re} of FILING_HEADINGS)positions[key]=[...text.matchAll(re)].map(m=>({at:m.index,after:m.index+m[0].length}));
+ const result={};
+ for(const [key,ends] of [["business",["risks"]],["risks",["risksEnd","discussion"]],["discussion",["discussionEnd"]]]) {
+  const candidates=[];
+  for(const heading of positions[key]||[]) {
+   const following=ends.flatMap(name=>positions[name]||[]).filter(p=>p.at>heading.after).sort((a,b)=>a.at-b.at)[0];
+   if(!following)continue;
+   const body=text.slice(heading.after,following.at).trim();
+   if(body.length>=700)candidates.push({body,length:body.length});
   }
-  const result={};
-  for(const [key,ends] of [["business",["risks"]],["risks",["risksEnd","discussion"]],["discussion",["discussionEnd"]]]) {
-    const candidates=[];
-    for(const heading of positions[key]||[]) {
-      const following=ends.flatMap(name=>positions[name]||[]).filter(p=>p.at>heading.after).sort((a,b)=>a.at-b.at)[0];
-      if(!following) continue;
-      const body=text.slice(heading.after,following.at).trim();
-      if(body.length>=1200) candidates.push({body,length:body.length});
-    }
-    result[key]=candidates[candidates.length-1]||null;
-  }
-  return result;
+  result[key]=candidates.sort((a,b)=>b.length-a.length)[0]||null;
+ }
+ return result;
 }
 function filingEvidence(section,patterns,maxItems=8) {
   if(!section) return [];
