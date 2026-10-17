@@ -86,11 +86,15 @@ function filingSections(text) {
 }
 function filingEvidence(section,patterns,maxItems=8) {
   if(!section) return [];
-  const paragraphs=section.body.split(/\n+/).map(s=>s.trim()).filter(s=>s.length>=35);
   const results=[];
   for(const pattern of patterns) {
-    const matched=paragraphs.find(p=>pattern.test(p)&&!results.some(x=>x.text===p));
-    if(matched) results.push({text:matched.slice(0,1800),sourceSection:section.name,sourceUrl:section.url});
+    const flags=pattern.flags.replace(/g/g,"");
+    const matcher=new RegExp(pattern.source,flags);
+    const match=matcher.exec(section.body);
+    if(!match) continue;
+    const from=Math.max(0,match.index-300),to=Math.min(section.body.length,match.index+match[0].length+650);
+    const excerpt=section.body.slice(from,to).replace(/\s+/g," ").trim();
+    if(!results.some(x=>x.text===excerpt)) results.push({text:excerpt,sourceSection:section.name,sourceUrl:section.url,offset:match.index});
     if(results.length>=maxItems) break;
   }
   return results;
