@@ -44,3 +44,13 @@ Estas cifras son salidas de sensibilidad con supuestos explícitos, no precios o
 El navegador directo quedó en la verificación de inicio de sesión de ChatGPT. Se utilizó el acceso de servicio documentado por Sites para comprobar el sitio publicado y mostrarlo mediante un puente local de solo lectura. El puente añadió la autorización únicamente en el servidor local y solo hacia el origen privado autorizado; no modificó la audiencia ni envió el token al navegador. No se sirvió una copia local del código para simular la publicación. Se cerró el puente al terminar.
 
 El acceso interactivo normal del propietario seguirá requiriendo iniciar sesión con la cuenta autorizada. No falta permiso de publicación y no quedan tareas pendientes de esta entrega de revisión. El anexo y los supuestos DCF siguen siendo ilustrativos; no se ha autorizado ni realizado un despliegue del tablero público.
+
+## Correcciones posteriores a la versión 51 (pendientes de nueva publicación en Sites)
+
+Se corrigió el análisis específico de NVIDIA y se añadieron trimestres 10-Q independientes de la base anual, sensibilidad del descuento/crecimiento y un DCF alternativo FCFE sujeto a disponibilidad de emisiones y amortizaciones de deuda del mismo ejercicio.
+
+**Advertencia financiera:** el DCF anterior basado en CFO − CapEx no constituye por sí solo FCFF descontado con WACC ni FCFE descontado al coste de capital propio. El puente experimental a USD/acción se conserva solo para auditoría y no debe interpretarse como valor razonable. El modelo FCFE alternativo se omite si faltan movimientos de deuda comparables; sus tasas son supuestos, no CAPM estimado.
+
+Se corrigió además una interpolación condicional mal formada en el informe de NVIDIA y se incorporó una prueba que compila todo el JavaScript embebido del Consultor, además de las pruebas funcionales existentes.
+
+**Estado de despliegue:** estos cambios están en la rama de desarrollo, no en la versión 51 publicada. Se requiere publicación posterior en el mismo sitio privado, comprobación SEC real de NVDA y verificación visual autenticada. No afirmar que la versión privada actual contiene estas mejoras sin nueva verificación. No se modificó producción pública ni main.
