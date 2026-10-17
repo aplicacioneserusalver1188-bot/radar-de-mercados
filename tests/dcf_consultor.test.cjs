@@ -85,3 +85,10 @@ test("generic SEC investor diagnosis does not invent company-specific business c
  assert.match(html,/no se afirma conocer segmentos, clientes o ventajas competitivas particulares/);
  assert.match(html,/generalInvestorAnalysis\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
 });
+
+test("generic issuer analysis connects SEC narrative evidence to risk implications",()=>{
+ assert.match(html,/function secNarrativeSignals\(d\)/);
+ assert.match(html,/Riesgos localizados en texto SEC y por qué importan/);
+ assert.match(html,/Interpretación causal a comprobar/);
+ assert.match(html,/No se recuperaron suficientes pasajes/);
+});
