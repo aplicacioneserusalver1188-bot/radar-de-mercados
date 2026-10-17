@@ -92,3 +92,5 @@ test("generic issuer analysis connects SEC narrative evidence to risk implicatio
  assert.match(html,/Interpretación causal a comprobar/);
  assert.match(html,/No se recuperaron suficientes pasajes/);
 });
+
+test("report core uses financial interpretation",()=>{assert.ok(html.includes("executiveDiagnosis(d,rev,revGrowth,opMargin,fcf)"));assert.ok(html.includes("riskInterpretation(d)"));assert.ok(html.includes("fundamentalConclusion(d,revGrowth,opMargin,fcf)"));});
