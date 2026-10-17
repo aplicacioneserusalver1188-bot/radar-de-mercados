@@ -50,3 +50,9 @@ test("10-Q revenue section stays independent of annual DCF",()=>{
  assert.match(html,/No son acumulados semestrales/);
  assert.match(html,/El DCF anterior conserva su base anual histórica/);
 });
+
+test("DCF sensitivity matrix varies growth and discount with fixed terminal rate",()=>{
+ assert.match(html,/function dcfSensitivity\(base\)/);
+ assert.match(html,/const rates=\[\.09,\.11,\.13\],growthRates=\[\.10,\.16,\.22\],terminal=\.03/);
+ assert.match(html,/dcfSensitivity\(fcf\)/);
+});
