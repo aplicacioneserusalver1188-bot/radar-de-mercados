@@ -44,3 +44,9 @@ test("executive scope does not deny the illustrative DCF",()=>{
  assert.doesNotMatch(html,/no es valoración ni recomendación/);
  assert.match(html,/incluye una valoración DCF ilustrativa/);
 });
+
+test("10-Q revenue section stays independent of annual DCF",()=>{
+ assert.match(html,/function quarterlySecBrief\(/);
+ assert.match(html,/No son acumulados semestrales/);
+ assert.match(html,/El DCF anterior conserva su base anual histórica/);
+});
