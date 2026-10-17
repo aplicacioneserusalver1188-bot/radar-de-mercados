@@ -76,8 +76,8 @@ function filingSections(text) {
       const body=text.slice(heading.after,following.at).trim();
       if(body.length>=1200) candidates.push({body,length:body.length});
     }
-    candidates.sort((a,b)=>b.length-a.length);
-    result[key]=candidates[0]||null;
+    // Later headings normally belong to the body; early matches are often the table of contents.
+    result[key]=candidates[candidates.length-1]||null;
   }
   return result;
 }
