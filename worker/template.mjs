@@ -103,7 +103,7 @@ async function filingNarrative(env,filing) {
       if(!response.ok) throw new Error("SEC EDGAR devolvió HTTP "+response.status+".");
       return response.text();
     });
-    const cleaned=cleanFilingText(html); const sections=filingSections(cleaned);
+    const cleaned=cleanFilingText(html); const sections=filingSections(cleaned.replace(/ITEM[ ]+(1A|1B|7A|1|7|8)[. ]+(?=BUSINESS|RISK|MANAGEMENT|FINANCIAL)/gi,'\nITEM $1. '));
     const annotate=(key,name)=>sections[key]?{...sections[key],name,url:filing.url}:null;
     const business=annotate("business","Item 1. Business"),risks=annotate("risks","Item 1A. Risk Factors"),discussion=annotate("discussion","Item 7. MD&A");
     const evidence={
