@@ -70,3 +70,11 @@ test("FCFE model refuses missing debt financing facts and does not double adjust
  assert.match(html,/no se vuelve a sumar efectivo ni restar deuda/);
  assert.match(html,/fcfeAlternative\(s,fcf\)/);
 });
+
+test("Microsoft FY2026 analysis identifies actual businesses and SEC source",()=>{
+ assert.match(html,/function microsoftInvestorAnalysis\(/);
+ assert.match(html,/Productivity and Business Processes/);
+ assert.match(html,/Azure y otros servicios de nube crecieron 41%/);
+ assert.match(html,/msft-20260630\.htm/);
+ assert.match(html,/microsoftInvestorAnalysis\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
+});
