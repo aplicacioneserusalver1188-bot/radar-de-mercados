@@ -94,3 +94,5 @@ test("report core uses financial interpretation",()=>{assert.ok(html.includes("e
 test('Microsoft FY2026 operational metrics require verified filing period',()=>{assert.match(html,/fy\?'Microsoft Cloud creció/);assert.match(html,/Las métricas específicas de FY2026 no se presentan/);});
 
 test('multi-year analysis and period-matched margin comparison are rendered',()=>{assert.match(html,/function multiYearReading\(/);assert.match(html,/\$\{multiYearReading\(s\)\}/);assert.match(html,/function marginTrendReading\(/);assert.match(html,/\$\{marginTrendReading\(s\)\}/);assert.match(html,/x\.end===r\.end&&x\.fiscalYear===r\.fiscalYear/);});
+
+test('risk interpretation identifies themes rather than claiming causal evidence',()=>{assert.match(html,/Temas detectados en el texto SEC/);assert.match(html,/no una atribución causal/);assert.match(html,/Ver documento SEC original/);});
