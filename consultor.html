@@ -37,10 +37,10 @@ function microsoftInvestorAnalysis(d,s,rev,revGrowth,grossMargin,opMargin,netMar
 }
 function balanceReading(d,s){
  const cash=latest(s.cash),current=latest(s.debtCurrent),long=latest(s.debtNoncurrent),assets=latest(s.assets),equity=latest(s.equity);
- const debt=current&&long&&current.end===long.end?current.value+long.value:null;
+ const debt=current&&long&&current.end===long.end&&current.fiscalYear===long.fiscalYear?current.value+long.value:null;
  const parts=[];
- if(assets&&equity&&assets.end===equity.end&&assets.value>0)parts.push('El patrimonio representa '+fmtPct(pct(equity.value,assets.value))+' de los activos; no equivale a capital regulatorio.');
- if(Number.isFinite(debt)&&cash&&cash.end===current.end){parts.push('Deuda financiera registrada '+usd(debt)+' frente a efectivo '+usd(cash.value)+'.');parts.push(debt>cash.value?'La deuda excede el efectivo: revisar vencimientos, liquidez y cobertura de intereses.':'El efectivo cubre la deuda financiera identificada, sin considerar restricciones sobre su disponibilidad.');}
+ if(assets&&equity&&assets.end===equity.end&&assets.fiscalYear===equity.fiscalYear&&assets.value>0)parts.push('El patrimonio representa '+fmtPct(pct(equity.value,assets.value))+' de los activos; no equivale a capital regulatorio.');
+ if(Number.isFinite(debt)&&cash&&cash.end===current.end&&cash.fiscalYear===current.fiscalYear){parts.push('Deuda financiera registrada '+usd(debt)+' frente a efectivo '+usd(cash.value)+'.');parts.push(debt>cash.value?'La deuda excede el efectivo: revisar vencimientos, liquidez y cobertura de intereses.':'El efectivo cubre la deuda financiera identificada, sin considerar restricciones sobre su disponibilidad.');}
  if(d.isBank)parts.push('En entidades financieras, estas relaciones no sustituyen liquidez, provisiones ni capital regulatorio.');
  return '<p><b>Diagnóstico de balance:</b> '+h(parts.join(' ')||'Los hechos SEC disponibles no permiten calcular un diagnóstico comparable de liquidez y deuda; no se imputan ceros a partidas ausentes.')+'</p>';
 }
