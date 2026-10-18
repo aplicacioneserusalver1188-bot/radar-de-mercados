@@ -90,3 +90,5 @@ test("generic issuer analysis connects SEC narrative evidence to risk implicatio
 });
 
 test("report core uses financial interpretation",()=>{assert.ok(html.includes("executiveDiagnosis(d,rev,revGrowth,opMargin,fcf)"));assert.ok(html.includes("riskInterpretation(d)"));assert.ok(html.includes("fundamentalConclusion(d,revGrowth,opMargin,fcf)"));});
+
+test('Microsoft FY2026 operational metrics require verified filing period',()=>{assert.match(html,/fy\?'Microsoft Cloud creció/);assert.match(html,/Las métricas específicas de FY2026 no se presentan/);});
