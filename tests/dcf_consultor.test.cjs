@@ -98,3 +98,5 @@ test('multi-year analysis and period-matched margin comparison are rendered',()=
 test('risk interpretation identifies themes rather than claiming causal evidence',()=>{assert.match(html,/Temas detectados en el texto SEC/);assert.match(html,/no una atribución causal/);assert.match(html,/Ver documento SEC original/);});
 
 test('ratios only divide SEC facts from matching fiscal periods',()=>{assert.match(html,/rev\.end===ni\.end&&rev\.fiscalYear===ni\.fiscalYear/);assert.match(html,/rev\.end===gross\.end&&rev\.fiscalYear===gross\.fiscalYear/);assert.match(html,/rev\.end===op\.end&&rev\.fiscalYear===op\.fiscalYear/);assert.match(html,/ni\.end===cfo\.end&&ni\.fiscalYear===cfo\.fiscalYear/);});
+
+test('Microsoft FY2026 metrics require retrieved 10-K narrative and source URL',()=>{assert.match(html,/d\.narrative\?\.available===true&&!!d\.narrative\?\.url/);assert.match(html,/Riesgos para contrastar con el 10-K/);});
