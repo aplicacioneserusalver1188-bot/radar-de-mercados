@@ -53,7 +53,7 @@ function marginTrendReading(s){
   return {year:r.fiscalYear,margin:op?pct(op.value,r.value):null,fcf:cfo&&cap?pct(cfo.value-Math.abs(cap.value),r.value):null,capex:cap?pct(Math.abs(cap.value),r.value):null};
  });
  const a=rows.at(-2),z=rows.at(-1);
- if(!a||!z)return '<p><b>Comparación de márgenes:</b> faltan ejercicios consecutivos para medir cambios.</p>';
+ if(!a||!z||Number(z.year)-Number(a.year)!==1)return '<p><b>Comparación de márgenes:</b> faltan ejercicios consecutivos para medir cambios.</p>';
  const changes=[['margen operativo',a.margin,z.margin],['FCF sobre ingresos',a.fcf,z.fcf],['CapEx sobre ingresos',a.capex,z.capex]].filter(x=>Number.isFinite(x[1])&&Number.isFinite(x[2]));
  if(!changes.length)return '<p><b>Comparación de márgenes:</b> faltan cifras del mismo período para comparar rentabilidad, caja e inversión.</p>';
  return '<p><b>Comparación '+h(a.year)+'–'+h(z.year)+':</b> '+changes.map(x=>x[0]+': '+fmtPct(x[1])+' → '+fmtPct(x[2])+' ('+(x[2]-x[1]>=0?'+':'')+n(x[2]-x[1])+' puntos porcentuales)').join('; ')+'. Las diferencias describen evolución, no prueban causas.</p>';
