@@ -70,7 +70,7 @@ test("FCFE model refuses missing debt financing facts and does not double adjust
 test("Microsoft FY2026 analysis identifies actual businesses and SEC source",()=>{
  assert.match(html,/function microsoftInvestorAnalysis\(/);
  assert.match(html,/Productivity and Business Processes/);
- assert.match(html,/Azure y otros servicios de nube crecieron 41%/);
+ assert.match(html,/No se presentan tasas operativas específicas sin extraer y verificar/);
  assert.match(html,/d\.narrative\?\.reportDate==='2026-06-30'/);
  assert.match(html,/microsoftInvestorAnalysis\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
 });
@@ -91,7 +91,7 @@ test("generic issuer analysis connects SEC narrative evidence to risk implicatio
 
 test("report core uses financial interpretation",()=>{assert.ok(html.includes("executiveDiagnosis(d,rev,revGrowth,opMargin,fcf)"));assert.ok(html.includes("riskInterpretation(d)"));assert.ok(html.includes("fundamentalConclusion(d,revGrowth,opMargin,fcf)"));});
 
-test('Microsoft FY2026 operational metrics require verified filing period',()=>{assert.match(html,/fy\?'Microsoft Cloud creció/);assert.match(html,/Las métricas específicas de FY2026 no se presentan/);});
+test('Microsoft FY2026 operational metrics require verified filing period',()=>{assert.match(html,/fy\?'El 10-K del ejercicio FY2026 está disponible/);assert.match(html,/Las métricas operativas específicas de FY2026 no se presentan/);});
 
 test('multi-year analysis and period-matched margin comparison are rendered',()=>{assert.match(html,/function multiYearReading\(/);assert.match(html,/\$\{multiYearReading\(s\)\}/);assert.match(html,/function marginTrendReading\(/);assert.match(html,/\$\{marginTrendReading\(s\)\}/);assert.match(html,/x\.end===r\.end&&x\.fiscalYear===r\.fiscalYear/);});
 
