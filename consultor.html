@@ -63,7 +63,7 @@ function multiYearReading(s){
  if(revenues.length<2)return '<p><b>Tendencia plurianual:</b> faltan ejercicios anuales comparables; no se calcula crecimiento compuesto.</p>';
  const first=revenues[0],last=revenues.at(-1),years=Number(last.fiscalYear)-Number(first.fiscalYear);
  const cagr=years>0?100*(Math.pow(last.value/first.value,1/years)-1):null;
- const growths=revenues.slice(1).map((x,i)=>({year:x.fiscalYear,value:pct(x.value-revenues[i].value,revenues[i].value)}));
+ const growths=revenues.slice(1).map((x,i)=>({year:x.fiscalYear,value:Number(x.fiscalYear)-Number(revenues[i].fiscalYear)===1?pct(x.value-revenues[i].value,revenues[i].value):null}));
  const prior=growths.at(-2),recent=growths.at(-1);
  const momentum=prior&&recent&&Number.isFinite(prior.value)&&Number.isFinite(recent.value)?' La tasa interanual '+(recent.value>prior.value?'se acelera':recent.value<prior.value?'se desacelera':'permanece estable')+' ('+fmtPct(prior.value)+' a '+fmtPct(recent.value)+'); una variación de crecimiento no identifica por sí sola su causa.':'';
  const details=Number.isFinite(cagr)?'Crecimiento anual compuesto '+fmtPct(cagr)+' entre '+h(first.fiscalYear)+' y '+h(last.fiscalYear)+'.':'Los ejercicios no permiten calcular una tasa compuesta.';
