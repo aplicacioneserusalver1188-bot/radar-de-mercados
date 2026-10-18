@@ -95,7 +95,7 @@ function fundamentalConclusion(d,revGrowth,opMargin,fcf){
 function riskInterpretation(d){
  const signals=secNarrativeSignals(d);
  if(!signals.length)return '<p><b>Diagnóstico de riesgos:</b> no hay extractos suficientes para identificar riesgos específicos. La ausencia de extracción no implica ausencia de riesgos.</p>';
- return '<p><b>Riesgos localizados en el 10-K y su posible efecto:</b> '+signals.map(x=>h(x.label)+' → '+h(x.implication)).join('; ')+'. Son coincidencias temáticas que requieren lectura del documento completo; no cuantifican probabilidad ni impacto.</p>';
+ return '<p><b>Temas detectados en el texto SEC y su posible efecto:</b> '+signals.map(x=>h(x.label)+' → '+h(x.implication)).join('; ')+'. Son coincidencias temáticas, no una atribución causal ni una evaluación de probabilidad. '+(d.narrative?.url?'<a href="'+h(d.narrative.url)+'" target="_blank" rel="noopener">Ver documento SEC original</a>.':'No se recuperó enlace al documento original.')+'</p>';
 }
 function executiveDiagnosis(d,rev,revGrowth,opMargin,fcf){
  const facts=[];
