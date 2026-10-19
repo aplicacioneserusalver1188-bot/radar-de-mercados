@@ -128,3 +128,16 @@ test('Microsoft operating evidence rejects NVIDIA and mismatched annual period',
 test('investment thesis rejects unmatched annual cash flow and CapEx',()=>{const a=html.indexOf('function integratedInvestmentThesis('),z=html.indexOf('function secEvidenceReading(',a);const ctx=vm.createContext({latest:v=>(v||[]).at(-1)||null,previous:v=>(v||[]).at(-2)||null,pct:(n,d)=>d?n/d*100:null,fmtPct:v=>String(v)+'%',usd:v=>'USD '+v,h:v=>String(v)});vm.runInContext(html.slice(a,z),ctx);const rev={end:'2026-06-30',fiscalYear:'2026',value:1000};const cfo={end:rev.end,fiscalYear:rev.fiscalYear,value:200};const cap={end:rev.end,fiscalYear:rev.fiscalYear,value:80};const fn=ctx.integratedInvestmentThesis;const good=fn({ticker:'MSFT'},{operatingCashFlow:[cfo],capitalExpenditures:[cap]},rev,10,20,120);assert.match(good,/USD 120/);const bad=fn({ticker:'MSFT'},{operatingCashFlow:[cfo],capitalExpenditures:[{...cap,end:'2025-06-30'}]},rev,10,20,120);assert.match(bad,/Sin flujo operativo y CapEx del mismo ejercicio/);assert.doesNotMatch(bad,/USD 120/);});
 
 test('Microsoft operating evidence rejects non-Microsoft SEC archive URLs',()=>{const a=html.indexOf('function microsoft2026OperatingEvidence('),z=html.indexOf('function microsoftInvestorAnalysis(',a),ctx=vm.createContext({});vm.runInContext(html.slice(a,z),ctx);const d={ticker:'MSFT',narrative:{reportDate:'2026-06-30',available:true,url:'https://www.sec.gov/Archives/edgar/data/1045810/nvda.htm'}};assert.doesNotMatch(ctx.microsoft2026OperatingEvidence(d,{end:'2026-06-30'}),/Microsoft Cloud creció 27%/);});
+
+
+test("SEC heading parser accepts conventional Microsoft 10-K headings",()=>{
+ const worker=fs.readFileSync("worker/template.mjs","utf8");
+ const start=worker.indexOf("const FILING_HEADINGS = ["),end=worker.indexOf("function filingEvidence(",start);
+ assert.ok(start>=0&&end>start);
+ const ctx=vm.createContext({});vm.runInContext(worker.slice(start,end),ctx);
+ const sample="ITEM 1. BUSINESS\\n"+"Microsoft cloud services ".repeat(80)+"\\nITEM 1A. RISK FACTORS\\n"+"Competition and security risks ".repeat(80)+"\\nITEM 1B. UNRESOLVED STAFF COMMENTS\\nITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS\\n"+"Operating results and cash flow ".repeat(80)+"\\nITEM 7A. QUANTITATIVE AND QUALITATIVE DISCLOSURES";
+ const sections=ctx.filingSections(sample);
+ assert.ok(sections.business?.body.includes("Microsoft cloud"));
+ assert.ok(sections.risks?.body.includes("Competition"));
+ assert.ok(sections.discussion?.body.includes("Operating results"));
+});
