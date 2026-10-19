@@ -112,3 +112,5 @@ test('Microsoft operating growth claims are not hardcoded without direct verific
 test('reinvestment analysis links CapEx to operating cash and annual revenue',()=>{assert.match(html,/function investmentPressureReading\(s\)/);assert.match(html,/\$\{investmentPressureReading\(s\)\}/);assert.match(html,/rev\.end!==cfo\.end\|\|rev\.end!==cap\.end/);assert.match(html,/Number\(rev\.fiscalYear\)-Number\(prevRev\.fiscalYear\)===1/);});
 
 test('annual SEC narrative evidence is shown with original source and missing-data guard',()=>{assert.match(html,/function secEvidenceReading\(d\)/);assert.match(html,/\$\{secEvidenceReading\(d\)\}/);assert.match(html,/no se extrajeron pasajes verificables del 10-K/);assert.match(html,/Consultar 10-K original/);assert.match(html,/h\(evidence\.trim\(\)\)/);});
+
+test('SEC evidence requires verified annual report and rejects boilerplate',()=>{assert.match(html,/if\(!n\.url\|\|!n\.available\)return/);assert.match(html,/informe anual original no está verificado/);assert.match(html,/table of contents\|forward\.looking statements/);});
