@@ -58,11 +58,11 @@ function cleanFilingText(value) {
     .replace(/&#39;|&apos;/gi,"'").replace(/[ \t\r\f]+/g," ").replace(/\n\s*\n+/g,"\n").trim();
 }
 const FILING_HEADINGS = [
- {key:"business",re:/^\s*(?:ITEM|Item)\s*1\s*\.?\s*B\s*U\s*S\s*I\s*N\s*E\s*S\s*S\s*$/gim},
- {key:"risks",re:/^\s*(?:ITEM|Item)\s*1\s*A\s*\.?\s*R\s*I\s*S\s*K\s*F\s*A\s*C\s*T\s*O\s*R\s*S\s*$/gim},
- {key:"discussion",re:/^\s*(?:ITEM|Item)\s*7\s*\.?\s*M\s*A\s*N\s*A\s*G\s*E\s*M\s*E\s*N\s*T[^\n]{0,180}(?:DISCUSSION|D\s*I\s*S\s*C\s*U\s*S\s*S\s*I\s*O\s*N)[^\n]{0,180}$/gim},
- {key:"discussionEnd",re:/^\s*(?:ITEM|Item)\s*(?:7\s*A|8)\s*\.?[^\n]{0,180}$/gim},
- {key:"risksEnd",re:/^\s*(?:ITEM|Item)\s*(?:1\s*B|1\s*C|2)\s*\.?[^\n]{0,180}$/gim}
+ {key:"business",re:/^\s*ITEM\s*1\s*[.:-]?\s*BUSINESS\b[^\n]{0,100}$/gim},
+ {key:"risks",re:/^\s*ITEM\s*1\s*A\s*[.:-]?\s*RISK\s*FACTORS\b[^\n]{0,100}$/gim},
+ {key:"discussion",re:/^\s*ITEM\s*7\s*[.:-]?\s*MANAGEMENT.{0,150}DISCUSSION[^\n]{0,150}$/gim},
+ {key:"discussionEnd",re:/^\s*ITEM\s*(?:7\s*A|8)\s*[.:-]?[^\n]{0,150}$/gim},
+ {key:"risksEnd",re:/^\s*ITEM\s*(?:1\s*B|1\s*C|2)\s*[.:-]?[^\n]{0,150}$/gim}
 ];
 function filingSections(text) {
  const positions={};
