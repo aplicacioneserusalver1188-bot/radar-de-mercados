@@ -126,7 +126,7 @@ function secEvidenceReading(d){
 }
 function riskInterpretation(d){
  const signals=secNarrativeSignals(d);
- if(!signals.length)return '<p><b>Diagnóstico de riesgos:</b> no hay extractos suficientes para identificar riesgos específicos. La ausencia de extracción no implica ausencia de riesgos.</p>';
+ if(!signals.length)return '<p><b>Riesgos a verificar para '+h(d.ticker)+':</b> '+(d.ticker==='MSFT'?'rentabilidad de centros de datos e IA, competencia en nube, ciberseguridad y presión regulatoria; cada factor podría elevar costes, ralentizar ingresos o exigir mayor reinversión.':d.ticker==='NVDA'?'concentración de grandes compradores, controles de exportación, dependencia de fabricación avanzada y posibles cambios en la demanda de aceleradores; cada factor puede afectar ventas y márgenes.':'no se identificaron factores particulares en la extracción.')+' <b>Estado documental:</b> no se pudo extraer evidencia suficiente de Risk Factors; son hipótesis para contrastar, no riesgos confirmados por citas del 10-K.</p>';
  return '<p><b>Temas detectados en el texto SEC y su posible efecto:</b> '+signals.map(x=>h(x.label)+' → '+h(x.implication)).join('; ')+'. Son coincidencias temáticas, no una atribución causal ni una evaluación de probabilidad. '+(d.narrative?.url?'<a href="'+h(d.narrative.url)+'" target="_blank" rel="noopener">Ver documento SEC original</a>.':'No se recuperó enlace al documento original.')+'</p>';
 }
 function executiveDiagnosis(d,rev,revGrowth,opMargin,fcf){
