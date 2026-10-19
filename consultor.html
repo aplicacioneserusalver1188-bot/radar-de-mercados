@@ -99,10 +99,11 @@ function secEvidenceReading(d){
   const text=String(n[key]||'').replace(/\s+/g,' ').trim();
   if(text.length<100)return '';
   const sentences=text.match(/[^.!?]{35,320}[.!?]/g)||[];
-  const evidence=sentences.find(x=>pattern.test(x));
+  const evidence=sentences.find(x=>pattern.test(x)&&!/table of contents|forward.looking statements|index to financial statements/i.test(x));
   if(!evidence)return '';
   return '<li><b>'+h(label)+':</b> <q>'+h(evidence.trim())+'</q></li>';
  }).filter(Boolean);
+ if(!n.url||!n.available)return '<p><b>Evidencia documental:</b> el informe anual original no está verificado; no se presentan fragmentos como citas SEC.</p>';
  if(!found.length)return '<p><b>Evidencia documental:</b> no se extrajeron pasajes verificables del 10-K. No se atribuyen afirmaciones específicas al emisor.</p>';
  const source=n.url?'<a href="'+h(n.url)+'" target="_blank" rel="noopener">Consultar 10-K original</a>':'Enlace al 10-K no disponible';
  return '<section><h3>Evidencia directa del informe anual</h3><p>Fragmentos textuales para contrastar las interpretaciones; su presencia no demuestra materialidad ni causalidad.</p><ul>'+found.join('')+'</ul><p>'+source+'</p></section>';
