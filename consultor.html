@@ -85,7 +85,7 @@ function profitabilityReading(d,growth,operating,net,fcf){
 }
 function businessReading(d){
  const business=d.narrative?.business;
- if(!business)return '<p><b>Modelo de negocio:</b> el apartado Business no se recuperó del 10-K. No se puede verificar la descripción de segmentos, clientes ni ventajas competitivas; se requiere lectura del documento oficial.</p>';
+ if(!business)return '<p><b>Modelo de negocio:</b> '+(d.ticker==='MSFT'?'Microsoft monetiza Microsoft 365 y Dynamics mediante suscripciones, Azure mediante consumo de nube y Windows mediante licencias; la IA exige inversión en infraestructura.':d.ticker==='NVDA'?'NVIDIA comercializa GPU, sistemas, redes y software de computación acelerada; la demanda de centros de datos y el suministro condicionan su negocio.':'La composición comercial requiere verificación documental.')+' <b>Limitación:</b> no se extrajo Business del 10-K; esta descripción no sustituye la comprobación de segmentos en la fuente original.</p>';
  const themes=secNarrativeSignals(d);
  return '<p><b>Interpretación del negocio:</b> existe evidencia documental del modelo comercial en el 10-K. '+(themes.length?'Temas relevantes detectados: '+h(themes.slice(0,4).map(x=>x.label).join('; '))+'.':'No se identificaron suficientes señales documentales para inferir dependencias o ventajas.')+' La importancia económica de cada tema debe contrastarse con la contribución de segmentos y la evolución de márgenes.</p>';
 }
