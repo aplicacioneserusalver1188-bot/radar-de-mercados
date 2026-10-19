@@ -130,13 +130,11 @@ function riskInterpretation(d){
  return '<p><b>Temas detectados en el texto SEC y su posible efecto:</b> '+signals.map(x=>h(x.label)+' → '+h(x.implication)).join('; ')+'. Son coincidencias temáticas, no una atribución causal ni una evaluación de probabilidad. '+(d.narrative?.url?'<a href="'+h(d.narrative.url)+'" target="_blank" rel="noopener">Ver documento SEC original</a>.':'No se recuperó enlace al documento original.')+'</p>';
 }
 function executiveDiagnosis(d,rev,revGrowth,opMargin,fcf){
- const facts=[];
- if(rev)facts.push('ingresos '+usd(rev.value)+' ('+h(rev.end)+')');
- if(Number.isFinite(revGrowth))facts.push(revGrowth>0?'ventas en crecimiento '+fmtPct(revGrowth):'ventas estancadas o en retroceso '+fmtPct(revGrowth));
- if(Number.isFinite(opMargin))facts.push(opMargin>0?'rentabilidad operativa positiva '+fmtPct(opMargin):'rentabilidad operativa no positiva '+fmtPct(opMargin));
- if(Number.isFinite(fcf))facts.push(fcf>0?'FCF aproximado positivo '+usd(fcf):'FCF aproximado no positivo '+usd(fcf));
- const risks=secNarrativeSignals(d);
- return '<p><b>Diagnóstico financiero:</b> '+(facts.length?h(facts.join('; ')):'datos comparables insuficientes')+'.</p><p><b>Implicaciones:</b> '+(Number.isFinite(revGrowth)&&revGrowth<0?'investigar demanda, mezcla y costes. ':'comprobar la sostenibilidad del crecimiento y de los márgenes. ')+(Number.isFinite(fcf)&&fcf<=0?'Revisar inversiones y financiación. ':'Contrastar beneficio contable con caja operativa y reinversión. ')+'</p><p><b>Riesgos documentales a examinar:</b> '+(risks.length?h(risks.slice(0,4).map(x=>x.label).join('; ')):'sin extracción suficiente para identificar riesgos específicos')+'.</p>';
+ const label=d.ticker==='MSFT'?'Microsoft':d.ticker==='NVDA'?'NVIDIA':h(d.name||d.ticker);
+ const model=d.ticker==='MSFT'?'Su rentabilidad depende de suscripciones empresariales, nube Azure y licencias; el desafío es convertir la expansión de IA en caja después de invertir en centros de datos.':d.ticker==='NVDA'?'La demanda de aceleradores de IA y redes impulsa el negocio; el desafío es sostener ventas y márgenes frente a concentración de compradores, restricciones de exportación y ciclos de infraestructura.':'La rentabilidad debe explicarse por sus motores comerciales, inversión y riesgos documentados.';
+ const figures=rev?'Ingresos del ejercicio '+h(rev.fiscalYear)+': '+usd(rev.value)+(Number.isFinite(revGrowth)?', crecimiento '+fmtPct(revGrowth):', crecimiento interanual no verificable')+(Number.isFinite(opMargin)?', margen operativo '+fmtPct(opMargin):'')+(Number.isFinite(fcf)?', flujo de caja aproximado después de CapEx '+usd(fcf):'')+'.':'No hay ingresos anuales comparables recuperados.';
+ const caution=d.narrative?.business&&d.narrative?.risks?'El documento anual aporta secciones de negocio y riesgos para contrastar la tesis.':'La extracción del negocio o los riesgos del 10-K es incompleta; el diagnóstico es provisional y requiere consultar la fuente original.';
+ return '<p><b>Diagnóstico de '+label+':</b> '+model+'</p><p><b>Evidencia financiera:</b> '+figures+'</p><p><b>Juicio provisional:</b> '+caution+' Sin cotización comparable y valoración consistente no se determina si la acción está cara o barata.</p>';
 }
 function fundamentalQualityGate(d,s,rev,fcf){
  const checks=[
