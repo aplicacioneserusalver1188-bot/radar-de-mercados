@@ -118,3 +118,5 @@ test('SEC evidence requires verified annual report and rejects boilerplate',()=>
 test('Microsoft report distinguishes verified results from unverified segment growth',()=>{assert.match(html,/Comprobación de indicadores operativos:/);assert.doesNotMatch(html,/Indicadores operativos FY2026 reportados:/);assert.match(html,/sin atribuir automáticamente el crecimiento agregado a esos productos/);});
 
 test('integrated thesis is shared by Microsoft and NVIDIA and checks cash-flow periods',()=>{assert.match(html,/function integratedInvestmentThesis\(d,s,rev,revGrowth,opMargin,fcf\)/);assert.match(html,/\$\{integratedInvestmentThesis\(d,s,rev,revGrowth,opMargin,fcf\)\}/);assert.match(html,/rev\.end===cfo\.end&&rev\.end===cap\.end/);assert.match(html,/d\.ticker==='MSFT'/);assert.match(html,/d\.ticker==='NVDA'/);assert.match(html,/Sin estas verificaciones no se emite una recomendación/);});
+
+test('integrated thesis derives cash remainder from aligned cash flow and capex',()=>{assert.match(html,/Number\.isFinite\(cfo\.value\)&&Number\.isFinite\(cap\.value\)/);assert.match(html,/cfo\.value-Math\.abs\(cap\.value\)/);});
