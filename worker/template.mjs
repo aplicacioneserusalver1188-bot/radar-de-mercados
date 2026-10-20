@@ -67,6 +67,13 @@ const FILING_HEADINGS = [
 function filingSections(text) {
  const positions={};
  for(const {key,re} of FILING_HEADINGS)positions[key]=[...text.matchAll(re)].map(m=>({at:m.index,after:m.index+m[0].length}));
+ // Some SEC HTML filings split the item number and its title into separate paragraphs.
+ const split=[
+  ["business",/^\s*ITEM\s*1\s*[.:-]?\s*\n\s*B\s*U\s*S\s*I\s*N\s*E\s*S\s*S\b[^\n]*/gim],
+  ["risks",/^\s*ITEM\s*1\s*A\s*[.:-]?\s*\n\s*R\s*I\s*S\s*K\s*F\s*A\s*C\s*T\s*O\s*R\s*S\b[^\n]*/gim],
+  ["discussion",/^\s*ITEM\s*7\s*[.:-]?\s*\n\s*MANAGEMENT[^\n]{0,150}DISCUSSION[^\n]*/gim]
+ ];
+ for(const [key,re] of split)for(const m of text.matchAll(re))positions[key].push({at:m.index,after:m.index+m[0].length});
  const result={};
  for(const [key,ends] of [["business",["risks"]],["risks",["risksEnd","discussion"]],["discussion",["discussionEnd"]]]) {
   const candidates=[];
