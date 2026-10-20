@@ -81,7 +81,7 @@ function filingSections(text) {
    const following=ends.flatMap(name=>positions[name]||[]).filter(p=>p.at>heading.after).sort((a,b)=>a.at-b.at)[0];
    if(!following)continue;
    const body=text.slice(heading.after,following.at).trim();
-   if(body.length>=700)candidates.push({body,length:body.length});
+   if(body.length>=700 && (body.match(/[A-Za-z]{3,}/g)||[]).length>=100)candidates.push({body,length:body.length});
   }
   result[key]=candidates.sort((a,b)=>b.length-a.length)[0]||null;
  }
