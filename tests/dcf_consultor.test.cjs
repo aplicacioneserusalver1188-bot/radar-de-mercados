@@ -169,3 +169,13 @@ test("SEC filing parser handles Item numbers and titles on separate lines",()=>{
  assert.ok(sections.risks?.body.includes("Competition"));
  assert.ok(sections.discussion?.body.includes("Cash flows"));
 });
+
+test("SEC extractor excludes long numeric table-of-contents fragments",()=>{
+ const worker=fs.readFileSync("worker/template.mjs","utf8"),a=worker.indexOf("const FILING_HEADINGS = ["),b=worker.indexOf("function filingEvidence(",a),ctx=vm.createContext({});
+ vm.runInContext(worker.slice(a,b),ctx);
+ const sample=["ITEM 1. BUSINESS",("1234 5678 9012 3456 ").repeat(60),"ITEM 1A. RISK FACTORS","Competition and cloud infrastructure risks ".repeat(80),"ITEM 1B. UNRESOLVED STAFF COMMENTS","ITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS","Cash flow and investment discipline ".repeat(80),"ITEM 7A. QUANTITATIVE AND QUALITATIVE DISCLOSURES"].join(String.fromCharCode(10));
+ const sections=ctx.filingSections(sample);
+ assert.equal(sections.business,null);
+ assert.ok(sections.risks?.body.includes("Competition"));
+ assert.ok(sections.discussion?.body.includes("Cash flow"));
+});
