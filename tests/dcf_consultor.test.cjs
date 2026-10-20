@@ -135,7 +135,7 @@ test("SEC heading parser accepts conventional Microsoft 10-K headings",()=>{
  const start=worker.indexOf("const FILING_HEADINGS = ["),end=worker.indexOf("function filingEvidence(",start);
  assert.ok(start>=0&&end>start);
  const ctx=vm.createContext({});vm.runInContext(worker.slice(start,end),ctx);
- const sample="ITEM 1. BUSINESS\\n"+"Microsoft cloud services ".repeat(80)+"\\nITEM 1A. RISK FACTORS\\n"+"Competition and security risks ".repeat(80)+"\\nITEM 1B. UNRESOLVED STAFF COMMENTS\\nITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS\\n"+"Operating results and cash flow ".repeat(80)+"\\nITEM 7A. QUANTITATIVE AND QUALITATIVE DISCLOSURES";
+ const sample="ITEM 1. BUSINESS\n"+"Microsoft cloud services ".repeat(80)+"\nITEM 1A. RISK FACTORS\n"+"Competition and security risks ".repeat(80)+"\nITEM 1B. UNRESOLVED STAFF COMMENTS\nITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS\n"+"Operating results and cash flow ".repeat(80)+"\nITEM 7A. QUANTITATIVE AND QUALITATIVE DISCLOSURES";
  const sections=ctx.filingSections(sample);
  assert.ok(sections.business?.body.includes("Microsoft cloud"));
  assert.ok(sections.risks?.body.includes("Competition"));
