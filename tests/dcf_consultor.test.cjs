@@ -216,3 +216,14 @@ test("DCF additionally requires identical SEC reporting end dates",()=>{
  assert.ok(html.includes("cashEnd!==investmentEnd"));
  assert.ok(html.includes("mismo ejercicio fiscal y fecha de cierre verificables"));
 });
+
+test("MSFT FY2026 investor narrative reconciles CFO less PP&E additions year over year",()=>{
+ const html=fs.readFileSync("consultor.html","utf8");
+ const fcf26=182935-115948,fcf25=136162-64551;
+ assert.equal(fcf26,66987);
+ assert.equal(fcf25,71611);
+ assert.ok((fcf26/fcf25-1)*100< -6.4);
+ assert.ok(html.includes("USD 71.611 millones"));
+ assert.ok(html.includes("descendió aproximadamente 6,5%"));
+ assert.ok(html.includes("no FCFF descontable sin ajustes"));
+});
