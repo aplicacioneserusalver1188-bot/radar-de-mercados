@@ -227,3 +227,27 @@ test("MSFT FY2026 investor narrative reconciles CFO less PP&E additions year ove
  assert.ok(html.includes("descendió aproximadamente 6,5%"));
  assert.ok(html.includes("no FCFF descontable sin ajustes"));
 });
+
+test("MSFT FY2026 full investor report renders from a realistic SEC API response",async()=>{
+ const a=html.indexOf("function h(value)"),b=html.indexOf("async function cryptoAsset(",a);
+ assert.ok(a>0&&b>a);
+ const end="2026-06-30",prior="2025-06-30";
+ const fact=(value,year,date,concept)=>({value,fiscalYear:year,end:date,concept,form:"10-K",filed:"2026-07-30"});
+ const series={
+  revenue:[fact(281724e6,2025,prior,"Revenues"),fact(331839e6,2026,end,"Revenues")],
+  netIncome:[fact(101832e6,2025,prior,"NetIncomeLoss"),fact(133749e6,2026,end,"NetIncomeLoss")],
+  operatingCashFlow:[fact(136162e6,2025,prior,"NetCashProvidedByUsedInOperatingActivities"),fact(182935e6,2026,end,"NetCashProvidedByUsedInOperatingActivities")],
+  capitalExpenditures:[fact(64551e6,2025,prior,"PaymentsToAcquirePropertyPlantAndEquipment"),fact(115948e6,2026,end,"PaymentsToAcquirePropertyPlantAndEquipment")],
+  grossProfit:[fact(190000e6,2025,prior,"GrossProfit"),fact(225454e6,2026,end,"GrossProfit")],
+  operatingIncome:[fact(128000e6,2025,prior,"OperatingIncomeLoss"),fact(155242e6,2026,end,"OperatingIncomeLoss")]
+ };
+ const url="https://www.sec.gov/Archives/edgar/data/789019/000119312526323660/msft-20260630.htm";
+ const payload={ticker:"MSFT",name:"Microsoft Corporation",cik:"789019",isBank:false,series,annual:{url,filingDate:"2026-07-30"},narrative:{available:true,url,reportDate:end,business:"Microsoft is a technology company. We operate cloud and software platforms. ".repeat(8),risks:"Cybersecurity, competition and regulatory scrutiny may affect results. ".repeat(8),discussion:"Revenue increased while capital expenditures rose to expand datacenter capacity. ".repeat(8)},filings:[]};
+ const ctx=vm.createContext({fetch:async()=>({json:async()=>payload}),Intl,Number,Math,Date});
+ vm.runInContext(html.slice(a,b),ctx);
+ const output=await ctx.secAsset("MSFT");
+ for(const term of ["Microsoft Corporation","Resumen ejecutivo","Análisis específico · Microsoft","Evidencia directa del informe anual","DCF simplificado","USD 66.987 millones","USD 71.611 millones","6,5%","No equivale necesariamente a EV"]){
+  assert.ok(output.includes(term),"missing report element: "+term);
+ }
+ assert.ok(!output.includes("DCF bloqueado"));
+});
