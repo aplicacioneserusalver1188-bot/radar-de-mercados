@@ -251,3 +251,13 @@ test("MSFT FY2026 full investor report renders from a realistic SEC API response
  }
  assert.ok(!output.includes("DCF bloqueado"));
 });
+
+test("SEC 403 is reported as upstream access denial, never invented financial data",async()=>{
+ const worker=fs.readFileSync("worker/template.mjs","utf8");
+ const a=worker.indexOf("async function secJson("),b=worker.indexOf("function secFact(",a);
+ assert.ok(a>=0&&b>a);
+ const ctx=vm.createContext({URL,fetch:async()=>({ok:false,status:403})});
+ vm.runInContext(worker.slice(a,b),ctx);
+ await assert.rejects(ctx.secJson({SEC_USER_AGENT:"Observatorio RM test contact test@example.org"},"https://data.sec.gov/submissions/CIK0000789019.json"),/HTTP 403.*data\.sec\.gov.*rechazó/);
+ await assert.rejects(ctx.secJson({},"https://data.sec.gov/submissions/CIK0000789019.json"),/SEC_USER_AGENT no está configurado/);
+});
