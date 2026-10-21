@@ -243,7 +243,7 @@ test("MSFT FY2026 full investor report renders from a realistic SEC API response
  };
  const url="https://www.sec.gov/Archives/edgar/data/789019/000119312526323660/msft-20260630.htm";
  const payload={ticker:"MSFT",name:"Microsoft Corporation",cik:"789019",isBank:false,series,annual:{url,filingDate:"2026-07-30"},narrative:{available:true,url,reportDate:end,business:"Microsoft is a technology company. We operate cloud and software platforms. ".repeat(8),risks:"Cybersecurity, competition and regulatory scrutiny may affect results. ".repeat(8),discussion:"Revenue increased while capital expenditures rose to expand datacenter capacity. ".repeat(8)},filings:[]};
- const ctx=vm.createContext({fetch:async()=>({json:async()=>payload}),Intl,Number,Math,Date});
+ const ctx=vm.createContext({fetch:async()=>({json:async()=>payload}),Intl,Number,Math,Date,n:v=>String(v)});
  vm.runInContext(html.slice(a,b),ctx);
  const output=await ctx.secAsset("MSFT");
  for(const term of ["Microsoft Corporation","Resumen ejecutivo","Análisis específico · Microsoft","Evidencia directa del informe anual","DCF simplificado","USD 66.987 millones","USD 71.611 millones","6,5%","No equivale necesariamente a EV"]){
