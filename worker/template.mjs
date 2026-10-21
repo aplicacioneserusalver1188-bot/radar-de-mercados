@@ -75,7 +75,7 @@ function filingSections(text) {
  ];
  for(const [key,re] of split)for(const m of text.matchAll(re))positions[key].push({at:m.index,after:m.index+m[0].length});
  const result={};
- for(const [key,ends] of [["business",["risks"]],["risks",["risksEnd","discussion"]],["discussion",["discussionEnd"]]]) {
+ for(const [key,ends] of [["business",["risks"]],["risks",["business","risksEnd","discussion"]],["discussion",["business","risks","discussionEnd"]]]) {
   const candidates=[];
   for(const heading of positions[key]||[]) {
    const following=ends.flatMap(name=>positions[name]||[]).filter(p=>p.at>heading.after).sort((a,b)=>a.at-b.at)[0];
