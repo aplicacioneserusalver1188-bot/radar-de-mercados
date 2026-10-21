@@ -110,7 +110,7 @@ async function filingNarrative(env,filing) {
       if(!response.ok) throw new Error("SEC EDGAR devolvió HTTP "+response.status+".");
       return response.text();
     });
-    const cleaned=cleanFilingText(html); const sections=filingSections(cleaned.replace(/ITEM[ ]+(1A|1B|7A|1|7|8)[. ]+(?=BUSINESS|RISK|MANAGEMENT|FINANCIAL)/gi,'\nITEM $1. '));
+    const cleaned=cleanFilingText(html).replace(/\bITEM\s+1\s*[.]\s+B\s*\n\s*USINESS\b/gi,"ITEM 1. BUSINESS").replace(/\bITEM\s+1\s*A\s*[.]\s*RIS\s*\n\s*K\s+FACTORS\b/gi,"ITEM 1A. RISK FACTORS").replace(/\bITEM\s+7\s*[.]\s*MANAGEMENT[^\n]*DISCUSSION\s+AND\s+ANALYSIS\s+OF\s*\n\s*FINANCIAL\s+CONDITION\s+AND\s+RESULTS\s+OF\s+OPERATIONS/gi,"ITEM 7. MANAGEMENT DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS"); const sections=filingSections(cleaned.replace(/ITEM[ ]+(1A|1B|7A|1|7|8)[. ]+(?=BUSINESS|RISK|MANAGEMENT|FINANCIAL)/gi,'\nITEM $1. '));
     const annotate=(key,name)=>sections[key]?{...sections[key],name,url:filing.url}:null;
     const business=annotate("business","Item 1. Business"),risks=annotate("risks","Item 1A. Risk Factors"),discussion=annotate("discussion","Item 7. MD&A");
     const evidence={
