@@ -215,6 +215,8 @@ function dcfSensitivity(base){
  return '<details><summary><b>Sensibilidad del valor presente: crecimiento y descuento</b></summary><p>Valores en USD; crecimiento terminal fijo de 3%. Cada celda cambia únicamente crecimiento del FCF (filas) y descuento (columnas), manteniendo la misma base anual. Es un ejercicio de sensibilidad, no una valoración de mercado.</p><div style="overflow-x:auto"><table><thead><tr><th>Crecimiento anual</th>'+rates.map(r=>'<th>Descuento '+fmtPct(r*100)+'</th>').join('')+'</tr></thead><tbody>'+rows+'</tbody></table></div></details>';
 }
 function dcfReport(d,s,fcf){
+ const cashYear=latest(s.operatingCashFlow)?.fiscalYear,investmentYear=latest(s.capitalExpenditures)?.fiscalYear;
+ if(!cashYear||!investmentYear||cashYear!==investmentYear)return '<p class="warn">DCF bloqueado: el flujo operativo y las inversiones de capital no pertenecen al mismo ejercicio fiscal verificable. No se permite mezclar períodos.</p>';
  if(d.isBank)return '<p class="hint">DCF basado en FCF operativo no apropiado para bancos: requiere un modelo de patrimonio y capital regulatorio.</p>';
  if(!Number.isFinite(fcf)||fcf<=0)return '<p class="warn">DCF no disponible: no existe flujo de caja libre positivo y verificable para el ejercicio seleccionado.</p>';
  const configs=[{name:'Conservador',growth:.08,discount:.13,terminal:.025},{name:'Base',growth:.16,discount:.11,terminal:.03},{name:'Optimista',growth:.24,discount:.10,terminal:.035}];
