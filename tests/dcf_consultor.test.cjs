@@ -192,3 +192,21 @@ test("DCF blocks mixed fiscal years instead of modeling a misleading cash flow",
  assert.ok(html.includes("cashYear!==investmentYear"));
  assert.ok(html.includes("DCF bloqueado: el flujo operativo y las inversiones de capital no pertenecen al mismo ejercicio fiscal verificable"));
 });
+
+test("SEC parser selects substantive Microsoft FY2026 sections instead of contents",()=>{
+ const worker=fs.readFileSync("worker/template.mjs","utf8"),a=worker.indexOf("const FILING_HEADINGS = ["),b=worker.indexOf("function filingEvidence(",a),ctx=vm.createContext({});
+ vm.runInContext(worker.slice(a,b),ctx);
+ const sample=[
+  "ITEM 1. BUSINESS","ITEM 1A. RISK FACTORS","ITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS",
+  "ITEM 1. BUSINESS","GENERAL","Microsoft is a technology company committed to making digital technology and artificial intelligence available broadly. ".repeat(25),
+  "ITEM 1A. RISK FACTORS","Our operations and financial results are subject to various risks and uncertainties. ".repeat(30),
+  "ITEM 1B. UNRESOLVED STAFF COMMENTS",
+  "ITEM 7. MANAGEMENT'S DISCUSSION AND ANALYSIS OF FINANCIAL CONDITION AND RESULTS OF OPERATIONS",
+  "The following Management's Discussion and Analysis of Financial Condition and Results of Operations is intended to help the reader understand the results. ".repeat(25),
+  "ITEM 7A. QUANTITATIVE AND QUALITATIVE DISCLOSURES"
+ ].join(String.fromCharCode(10));
+ const sections=ctx.filingSections(sample);
+ assert.ok(sections.business?.body.startsWith("GENERAL"));
+ assert.ok(sections.risks?.body.startsWith("Our operations"));
+ assert.ok(sections.discussion?.body.startsWith("The following"));
+});
