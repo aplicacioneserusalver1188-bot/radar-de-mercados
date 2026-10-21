@@ -179,3 +179,10 @@ test("SEC extractor excludes long numeric table-of-contents fragments",()=>{
  assert.ok(sections.risks?.body.includes("Competition"));
  assert.ok(sections.discussion?.body.includes("Cash flow"));
 });
+
+test("SEC narrative normalizes broken headings seen in real MSFT FY2026 filing",()=>{
+ const worker=fs.readFileSync("worker/template.mjs","utf8");
+ assert.match(worker,/ITEM\\s\+1\\s\*\[\.\]\\s\*B\\s\*\\n\\s\*USINESS/);
+ assert.match(worker,/ITEM\\s\+1\\s\*A\\s\*\[\.\]\\s\*RIS\\s\*\\n\\s\*K/);
+ assert.match(worker,/MANAGEMENT\[\^\\n\]\*DISCUSSION/);
+});
