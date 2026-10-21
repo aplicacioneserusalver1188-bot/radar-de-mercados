@@ -20,7 +20,7 @@ async function cachedSec(key, load) {
 async function secJson(env, address) {
   if (!env.SEC_USER_AGENT) throw new Error("SEC_USER_AGENT no está configurado en el servidor.");
   const response = await fetch(address, { headers: { "User-Agent": env.SEC_USER_AGENT, "Accept-Encoding": "gzip, deflate", "Accept": "application/json" } });
-  if (!response.ok) throw new Error(`SEC EDGAR devolvió HTTP ${response.status}.`);
+  if (!response.ok) { const host = new URL(address).hostname; throw new Error(`SEC EDGAR devolvió HTTP ${response.status} al consultar ${host}. ${response.status === 403 ? "La SEC rechazó la solicitud del servidor; verificar identificación SEC_USER_AGENT y restricciones de acceso de la infraestructura." : "Verificar disponibilidad de la fuente."}`); }
   return response.json();
 }
 function secFact(facts, names) {
