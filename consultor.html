@@ -216,7 +216,8 @@ function dcfSensitivity(base){
 }
 function dcfReport(d,s,fcf){
  const cashYear=latest(s.operatingCashFlow)?.fiscalYear,investmentYear=latest(s.capitalExpenditures)?.fiscalYear;
- if(!cashYear||!investmentYear||cashYear!==investmentYear)return '<p class="warn">DCF bloqueado: el flujo operativo y las inversiones de capital no pertenecen al mismo ejercicio fiscal verificable. No se permite mezclar períodos.</p>';
+ const cashEnd=latest(s.operatingCashFlow)?.end,investmentEnd=latest(s.capitalExpenditures)?.end;
+ if(!cashYear||!investmentYear||cashYear!==investmentYear||!cashEnd||cashEnd!==investmentEnd)return '<p class="warn">DCF bloqueado: el flujo operativo y las inversiones de capital no pertenecen al mismo ejercicio fiscal y fecha de cierre verificables. No se permite mezclar períodos.</p>';
  if(d.isBank)return '<p class="hint">DCF basado en FCF operativo no apropiado para bancos: requiere un modelo de patrimonio y capital regulatorio.</p>';
  if(!Number.isFinite(fcf)||fcf<=0)return '<p class="warn">DCF no disponible: no existe flujo de caja libre positivo y verificable para el ejercicio seleccionado.</p>';
  const configs=[{name:'Conservador',growth:.08,discount:.13,terminal:.025},{name:'Base',growth:.16,discount:.11,terminal:.03},{name:'Optimista',growth:.24,discount:.10,terminal:.035}];
