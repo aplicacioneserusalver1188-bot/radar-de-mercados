@@ -210,3 +210,9 @@ test("SEC parser selects substantive Microsoft FY2026 sections instead of conten
  assert.ok(sections.risks?.body.startsWith("Our operations"));
  assert.ok(sections.discussion?.body.startsWith("The following"));
 });
+
+test("DCF additionally requires identical SEC reporting end dates",()=>{
+ const html=fs.readFileSync("consultor.html","utf8");
+ assert.ok(html.includes("cashEnd!==investmentEnd"));
+ assert.ok(html.includes("mismo ejercicio fiscal y fecha de cierre verificables"));
+});
