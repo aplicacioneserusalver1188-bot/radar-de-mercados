@@ -186,3 +186,9 @@ test("SEC narrative normalizes broken headings seen in real MSFT FY2026 filing",
  assert.ok(worker.includes('K\\s+FACTORS\\b/gi,"ITEM 1A. RISK FACTORS"'));
  assert.ok(worker.includes('OPERATIONS/gi,"ITEM 7. MANAGEMENT DISCUSSION'));
 });
+
+test("DCF blocks mixed fiscal years instead of modeling a misleading cash flow",()=>{
+ const html=fs.readFileSync("consultor.html","utf8");
+ assert.ok(html.includes("cashYear!==investmentYear"));
+ assert.ok(html.includes("DCF bloqueado: el flujo operativo y las inversiones de capital no pertenecen al mismo ejercicio fiscal verificable"));
+});
