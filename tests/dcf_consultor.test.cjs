@@ -277,3 +277,19 @@ test("executive panel distinguishes growth, cash trend and unverified valuation"
  const guarded=ctx.executiveSignalPanel({},s,fact(331839,2026),17.79,46.78,66987);
  assert.ok(guarded.includes("Sin comparación anual verificable"));
 });
+
+test("financial trend table aligns revenue, margin and CFO minus CapEx by SEC end date",()=>{
+ const a=html.indexOf("function financialTrendTable("),b=html.indexOf("function profitabilityReading(",a);
+ assert.ok(a>=0&&b>a);
+ const ctx=vm.createContext({h:v=>String(v),usd:v=>String(v),fmtPct:v=>v===null?"—":String(Math.round(v*10)/10),pct:(x,y)=>x/y*100,Number,Math});
+ vm.runInContext(html.slice(a,b),ctx);
+ const f=(value,year,end=year+"-06-30")=>({value,fiscalYear:year,end});
+ const s={revenue:[f(281724,2025),f(331839,2026)],operatingIncome:[f(128000,2025),f(155242,2026)],operatingCashFlow:[f(136162,2025),f(182935,2026)],capitalExpenditures:[f(64551,2025),f(115948,2026)]};
+ const result=ctx.financialTrendTable(s);
+ assert.ok(result.includes("71611"));
+ assert.ok(result.includes("66987"));
+ s.capitalExpenditures[1].end="2026-03-31";
+ const guarded=ctx.financialTrendTable(s);
+ assert.ok(!guarded.includes("66987"));
+ assert.ok(guarded.includes("—"));
+});
