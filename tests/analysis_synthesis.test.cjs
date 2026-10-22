@@ -41,3 +41,37 @@ test('segment extraction rejects multiple dimensions, currency mismatch and conf
  const extra='<ix:nonFraction name="us-gaap:Revenues" contextRef="seg" unitRef="usd" format="ixt:num-dot-decimal" scale="6">70</ix:nonFraction>';
  assert.equal(parser.segmentRevenue(sample()+extra,filing).length,0);
 });
+test('executive summary presents computed findings instead of assigning research',()=>{
+ const s=series(),out=ctx.executiveDiagnosis({name:'Example',series:s,narrative:{business:'Business',risks:'Risk'}},s.revenue.at(-1),20,25,20);
+ assert.match(out,/Crecimiento rentable con presión de caja/);assert.match(out,/se expandió/);assert.match(out,/disminuyó/);
+ assert.doesNotMatch(out,/debe explicarse|para contrastar la tesis|requiere consultar/);
+});
+test('business analysis identifies documented monetization without inventing absent business',()=>{
+ assert.match(ctx.businessReading({narrative:{business:'We offer subscription services and cloud infrastructure to enterprise customers.'}}),/Suscripciones e ingresos recurrentes/);
+ assert.match(ctx.businessReading({ticker:'MSFT'}),/Modelo de negocio no documentado/);
+ assert.doesNotMatch(ctx.businessReading({ticker:'MSFT'}),/Azure/);
+});
+test('balance diagnosis quantifies debt coverage and rejects mixed closes',()=>{
+ const s=series();Object.assign(s,{assets:[fact(500,2026)],liabilities:[fact(300,2026)],equity:[fact(200,2026)],cash:[fact(40,2026)],debtCurrent:[fact(20,2026)],debtNoncurrent:[fact(80,2026)]});
+ const out=ctx.balanceReading({},s);assert.match(out,/\+40%/);assert.match(out,/2 veces el flujo operativo/);assert.match(out,/no equivale por sí solo a insolvencia/);
+ s.debtCurrent[0].end='2025-06-30';assert.match(ctx.balanceReading({},s),/no se calcula deuda neta/);
+});
+test('DCF interprets model dependence, preserves section number on unavailable and bank cases',()=>{
+ const s=series();const out=ctx.dcfReport({},s,20);
+ assert.match(out,/Resultado e interpretación del modelo/);assert.match(out,/del 11% al 13%/);assert.match(out,/período posterior al quinto año/);
+ assert.match(ctx.dcfReport({}, {}, null),/<h3>8\./);
+ assert.match(ctx.dcfReport({isBank:true},{},null),/DCF industrial no aplicable/);
+});
+test('falling investment intensity is not described as an increase',()=>{
+ const s=series();s.capitalExpenditures=[fact(30,2025),fact(10,2026)];
+ assert.match(ctx.investmentPressureReading(s),/menos inversión por unidad/);
+ assert.doesNotMatch(ctx.investmentPressureReading(s),/necesita más inversión/);
+});
+test('complete reports retain all sections and do not delegate the analysis',async()=>{
+ const payload={ticker:'EX',name:'Example',series:series(),narrative:{business:'We provide cloud subscription services to customers. '.repeat(5),risks:'We face intense competition and supply chain risk. '.repeat(5),discussion:'Revenue increased while capital expenditure expanded. '.repeat(5),available:true,url:'https://www.sec.gov/example'},annual:{url:'https://www.sec.gov/example'},filings:[]};
+ const full=vm.createContext({Intl,n:String,fetch:async()=>({json:async()=>payload})});
+ vm.runInContext(html.slice(html.indexOf('function h(value)'),html.indexOf('async function cryptoAsset(')),full);
+ const out=await full.secAsset('EX');for(let i=1;i<=9;i++)assert.match(out,new RegExp('<h3>'+i+'\\.'));
+ assert.doesNotMatch(out,/comparar con ejercicios|revisar disponibilidad|comparar inversión futura|la siguiente comprobación|debe comprobarse|hay que contrastarlo|requiere leer el MD&A|requiere consultar/);
+ assert.match(out,/Modelo comercial identificado/);assert.match(out,/Resultado e interpretación del modelo/);
+});

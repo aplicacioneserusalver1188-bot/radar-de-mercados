@@ -230,7 +230,7 @@ test("MSFT FY2026 full investor report renders from a realistic SEC API response
  const ctx=vm.createContext({fetch:async()=>({json:async()=>payload}),Intl,Number,Math,Date,n:v=>String(v)});
  vm.runInContext(html.slice(a,b),ctx);
  const output=await ctx.secAsset("MSFT");
- for(const term of ["Microsoft Corporation","Resumen ejecutivo","Análisis específico · Microsoft","Evidencia directa del informe anual","DCF simplificado","USD 66.987 millones","USD 71.611 millones","6,5%","No equivale necesariamente a EV"]){
+ for(const term of ["Microsoft Corporation","Resumen ejecutivo","Rentabilidad, eficiencia y calidad del crecimiento:","Evidencia directa del informe anual","DCF simplificado","USD 66.987 millones","USD 71.611 millones","6,5%","No equivale necesariamente a EV"]){
   assert.ok(output.includes(term),"missing report element: "+term);
  }
  assert.ok(!output.includes("DCF bloqueado"));
