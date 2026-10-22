@@ -91,7 +91,7 @@ test("generic issuer analysis connects SEC narrative evidence to risk implicatio
 
 test("report core uses financial interpretation",()=>{assert.ok(html.includes("executiveDiagnosis(d,rev,revGrowth,opMargin,fcf)"));assert.ok(html.includes("riskInterpretation(d)"));assert.ok(html.includes("fundamentalConclusion(d,revGrowth,opMargin,fcf)"));});
 
-test('Microsoft FY2026 operational metrics require verified filing period',()=>{assert.match(html,/fy\?'El 10-K del ejercicio FY2026 está disponible/);assert.match(html,/Las métricas operativas específicas de FY2026 no se presentan/);});
+test('Microsoft FY2026 operational metrics require verified filing period',()=>{assert.match(html,/fy\?'Las tasas FY2026 de Microsoft Cloud/);assert.match(html,/Las métricas operativas específicas de FY2026 no se presentan/);});
 
 test('multi-year analysis and period-matched margin comparison are rendered',()=>{assert.match(html,/function multiYearReading\(/);assert.match(html,/\$\{multiYearReading\(s\)\}/);assert.match(html,/function marginTrendReading\(/);assert.match(html,/\$\{marginTrendReading\(s\)\}/);assert.match(html,/x\.end===r\.end&&x\.fiscalYear===r\.fiscalYear/);});
 
