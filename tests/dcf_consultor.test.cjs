@@ -323,3 +323,18 @@ test("mobile risk table keeps probability header intact and page width constrain
  assert.match(html,/\.card,\.result,\.risk-table-scroll\{min-width:0\}/);
  assert.match(html,/@media\(max-width:650px\)\{main\{padding-left:12px;padding-right:12px\}/);
 });
+
+test("fundamental signals are evidence-gated and valuation remains pending",()=>{
+ assert.match(html,/function fundamentalSignals\(/);
+ assert.match(html,/name:'Crecimiento'/);
+ assert.match(html,/name:'Rentabilidad'/);
+ assert.match(html,/name:'Generación de caja'/);
+ assert.match(html,/name:'Valoración',state:'Pendiente'/);
+ assert.match(html,/oldCfo\.end===oldCapex\.end/);
+ assert.match(html,/Reglas descriptivas, no recomendaciones de compra o venta/);
+});
+test("mobile layout limits page overflow while preserving matrix scroll",()=>{
+ assert.match(html,/html,body\{max-width:100%;overflow-x:clip\}/);
+ assert.match(html,/risk-table-scroll\{width:100%;min-width:0\}/);
+ assert.match(html,/<th>Estado<\/th>/);
+});
