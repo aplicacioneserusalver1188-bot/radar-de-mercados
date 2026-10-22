@@ -102,6 +102,37 @@ function filingEvidence(section,patterns,maxItems=8) {
   }
   return results;
 }
+// Conservative annual segment revenue extraction; the UI must reconcile totals.
+function segmentRevenue(html, filing) {
+  const attr=(s,k)=>s.match(new RegExp('\\b'+k+'=["\x27]([^"\x27]+)["\x27]','i'))?.[1];
+  const contexts=new Map(),units=new Set(),groups=new Map();
+  for(const m of html.matchAll(/<xbrli:context\b([^>]*)>([\s\S]*?)<\/xbrli:context>/gi)) {
+    const body=m[2],members=[...body.matchAll(/<xbrldi:explicitMember\b([^>]*)>([^<]+)<\/xbrldi:explicitMember>/gi)];
+    if(members.length!==1||/typedMember/i.test(body))continue;
+    const axis=attr(members[0][1],'dimension'),member=members[0][2].trim();
+    if(!/:(StatementBusinessSegmentsAxis|BusinessSegmentsAxis)$/.test(axis||''))continue;
+    const start=body.match(/<xbrli:startDate>([^<]+)</i)?.[1],end=body.match(/<xbrli:endDate>([^<]+)</i)?.[1];
+    const days=(Date.parse(end)-Date.parse(start))/86400000;
+    const age=(Date.parse(filing.reportDate)-Date.parse(end))/86400000;
+    if(!(days>=300&&days<=400&&(age===0||age>=350&&age<=380)))continue;
+    contexts.set(attr(m[1],'id'),{axis,member,start,end});
+  }
+  for(const m of html.matchAll(/<xbrli:unit\b([^>]*)>([\s\S]*?)<\/xbrli:unit>/gi))if(/^\s*<xbrli:measure>iso4217:USD<\/xbrli:measure>\s*$/i.test(m[2]))units.add(attr(m[1],'id'));
+  for(const m of html.matchAll(/<ix:nonFraction\b([^>]*)>([\s\S]*?)<\/ix:nonFraction>/gi)) {
+    const context=contexts.get(attr(m[1],'contextRef')),concept=attr(m[1],'name');
+    if(!context||!units.has(attr(m[1],'unitRef'))||!/^us-gaap:(RevenueFromContractWithCustomerExcludingAssessedTax|SalesRevenueNet|Revenues)$/.test(concept||''))continue;
+    if(!/^(ixt|ixt-sec):num-dot-decimal$/.test(attr(m[1],'format')||'')||attr(m[1],'sign')==='-')continue;
+    const raw=m[2].trim(),scale=Number(attr(m[1],'scale')||0);
+    if(!/^[\d,]+(?:\.\d+)?$/.test(raw)||!Number.isInteger(scale)||Math.abs(scale)>12)continue;
+    const value=Number(raw.replaceAll(',',''))*10**scale;if(!Number.isFinite(value)||value<0)continue;
+    const key=[context.axis,concept,context.start,context.end].join('|');
+    if(!groups.has(key))groups.set(key,{axis:context.axis,concept,start:context.start,end:context.end,sourceUrl:filing.url,members:new Map()});
+    const members=groups.get(key).members;
+    if(!members.has(context.member))members.set(context.member,new Set());members.get(context.member).add(value);
+  }
+  return [...groups.values()].filter(g=>[...g.members.values()].every(v=>v.size===1)).map(g=>({...g,members:[...g.members].map(([member,v])=>({member,value:[...v][0]}))}));
+}
+
 async function filingNarrative(env,filing) {
   if(!filing?.url) return {available:false};
   try {
@@ -123,7 +154,7 @@ async function filingNarrative(env,filing) {
       available:!!(business||risks||discussion),filingDate:filing.filingDate,reportDate:filing.reportDate,url:filing.url,
       business:business?.body.slice(0,10000)||null,risks:risks?.body.slice(0,10000)||null,discussion:discussion?.body.slice(0,10000)||null,
       sections:Object.fromEntries([["business",business],["risks",risks],["discussion",discussion]].map(([key,s])=>[key,s?{heading:s.name,length:s.length,sourceUrl:s.url,found:true}:{found:false}])),
-      evidence,warnings:["Extractos documentales, no verificación de cifras XBRL; comprobar unidades y período antes de usarlos en una valoración."]
+      segmentRevenue:segmentRevenue(html,filing),evidence,warnings:["Extractos documentales, no verificación de cifras XBRL; comprobar unidades y período antes de usarlos en una valoración."]
     };
   } catch(error) {return {available:false,error:error.message||"No se pudo leer el informe anual."};}
 }

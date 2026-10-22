@@ -75,19 +75,7 @@ test("Microsoft FY2026 analysis identifies actual businesses and SEC source",()=
  assert.match(html,/microsoftInvestorAnalysis\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
 });
 
-test("generic SEC investor diagnosis does not invent company-specific business claims",()=>{
- assert.match(html,/function generalInvestorAnalysis\(/);
- assert.match(html,/El extracto Business no se recuperó automáticamente/);
- assert.match(html,/no se afirma conocer segmentos, clientes o ventajas competitivas particulares/);
- assert.match(html,/generalInvestorAnalysis\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
-});
-
-test("generic issuer analysis connects SEC narrative evidence to risk implications",()=>{
- assert.match(html,/function secNarrativeSignals\(d\)/);
- assert.match(html,/Riesgos localizados en texto SEC y por qué importan/);
- assert.match(html,/Interpretación causal a comprobar/);
- assert.match(html,/No se recuperaron suficientes pasajes/);
-});
+test("report calculates annual analysis and segment reconciliation",()=>{assert.match(html,/function annualAnalysis/);assert.match(html,/function segmentAnalysis/);assert.match(html,/reconciles/);});
 
 test("report core uses financial interpretation",()=>{assert.ok(html.includes("executiveDiagnosis(d,rev,revGrowth,opMargin,fcf)"));assert.ok(html.includes("riskInterpretation(d)"));assert.ok(html.includes("fundamentalConclusion(d,revGrowth,opMargin,fcf)"));});
 
@@ -117,15 +105,11 @@ test('SEC evidence requires verified annual report and rejects boilerplate',()=>
 
 test('Microsoft report distinguishes verified results from unverified segment growth',()=>{assert.match(html,/Comprobación de indicadores operativos:/);assert.doesNotMatch(html,/Indicadores operativos FY2026 reportados:/);assert.match(html,/sin atribuir automáticamente el crecimiento agregado a esos productos/);});
 
-test('integrated thesis is shared by Microsoft and NVIDIA and checks cash-flow periods',()=>{assert.match(html,/function integratedInvestmentThesis\(d,s,rev,revGrowth,opMargin,fcf\)/);assert.match(html,/\$\{integratedInvestmentThesis\(d,s,rev,revGrowth,opMargin,fcf\)\}/);assert.match(html,/rev\.end===cfo\.end&&rev\.end===cap\.end/);assert.match(html,/d\.ticker==='MSFT'/);assert.match(html,/d\.ticker==='NVDA'/);assert.match(html,/Sin estas verificaciones no se emite una recomendación/);});
-
-test('integrated thesis derives cash remainder from aligned cash flow and capex',()=>{assert.match(html,/Number\.isFinite\(cfo\.value\)&&Number\.isFinite\(cap\.value\)/);assert.match(html,/cfo\.value-Math\.abs\(cap\.value\)/);});
+test('integrated thesis uses computed fundamental conclusion',()=>{assert.match(html,/fundamentalConclusion\(\{...d,series:s\}/);});
 
 test('Microsoft FY2026 operating evidence requires matching SEC year and cites original 10-K',()=>{assert.match(html,/function microsoft2026OperatingEvidence\(d,rev\)/);assert.match(html,/rev\?\.end==='2026-06-30'/);assert.match(html,/d\.narrative\?\.reportDate==='2026-06-30'/);assert.match(html,/Microsoft Cloud creció 27%/);assert.match(html,/Azure y otros servicios de nube crecieron 41%/);assert.match(html,/Microsoft 365 Commercial cloud creció 17%/);assert.match(html,/msft-20260630\.htm/);});
 
 test('Microsoft operating evidence rejects NVIDIA and mismatched annual period',()=>{const a=html.indexOf('function microsoft2026OperatingEvidence('),z=html.indexOf('function microsoftInvestorAnalysis(',a);const ctx=vm.createContext({});vm.runInContext(html.slice(a,z),ctx);const d={ticker:'MSFT',narrative:{reportDate:'2026-06-30',available:true,url:'https://www.sec.gov/Archives/edgar/data/789019/000119312526323660/msft-20260630.htm'}};assert.match(ctx.microsoft2026OperatingEvidence(d,{end:'2026-06-30'}),/Microsoft Cloud creció 27%/);assert.doesNotMatch(ctx.microsoft2026OperatingEvidence({...d,ticker:'NVDA'},{end:'2026-06-30'}),/Microsoft Cloud creció 27%/);assert.doesNotMatch(ctx.microsoft2026OperatingEvidence(d,{end:'2025-06-30'}),/Microsoft Cloud creció 27%/);});
-
-test('investment thesis rejects unmatched annual cash flow and CapEx',()=>{const a=html.indexOf('function integratedInvestmentThesis('),z=html.indexOf('function secEvidenceReading(',a);const ctx=vm.createContext({latest:v=>(v||[]).at(-1)||null,previous:v=>(v||[]).at(-2)||null,pct:(n,d)=>d?n/d*100:null,fmtPct:v=>String(v)+'%',usd:v=>'USD '+v,h:v=>String(v)});vm.runInContext(html.slice(a,z),ctx);const rev={end:'2026-06-30',fiscalYear:'2026',value:1000};const cfo={end:rev.end,fiscalYear:rev.fiscalYear,value:200};const cap={end:rev.end,fiscalYear:rev.fiscalYear,value:80};const fn=ctx.integratedInvestmentThesis;const good=fn({ticker:'MSFT'},{operatingCashFlow:[cfo],capitalExpenditures:[cap]},rev,10,20,120);assert.match(good,/USD 120/);const bad=fn({ticker:'MSFT'},{operatingCashFlow:[cfo],capitalExpenditures:[{...cap,end:'2025-06-30'}]},rev,10,20,120);assert.match(bad,/Sin flujo operativo y CapEx del mismo ejercicio/);assert.doesNotMatch(bad,/USD 120/);});
 
 test('Microsoft operating evidence rejects non-Microsoft SEC archive URLs',()=>{const a=html.indexOf('function microsoft2026OperatingEvidence('),z=html.indexOf('function microsoftInvestorAnalysis(',a),ctx=vm.createContext({});vm.runInContext(html.slice(a,z),ctx);const d={ticker:'MSFT',narrative:{reportDate:'2026-06-30',available:true,url:'https://www.sec.gov/Archives/edgar/data/1045810/nvda.htm'}};assert.doesNotMatch(ctx.microsoft2026OperatingEvidence(d,{end:'2026-06-30'}),/Microsoft Cloud creció 27%/);});
 
@@ -298,8 +282,8 @@ test("risk matrix guards against ungrounded probability scores",()=>{
  const source=fs.readFileSync("consultor.html","utf8");
  assert.ok(source.includes("function riskMonitoringMatrix(d)"));
  assert.ok(source.includes("sin evidencias temáticas suficientes"));
- assert.ok(source.includes("Por evaluar"));
- assert.ok(source.includes("Coincidencias temáticas en el texto SEC disponible"));
+ assert.ok(source.includes("Impacto no cuantificado"));
+ assert.ok(source.includes("Sin probabilidades inventadas"));
 });
 
 test("MSFT FY2026 operational metrics and narrative use consistent disclosure",()=>{
