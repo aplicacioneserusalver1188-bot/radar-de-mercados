@@ -309,3 +309,11 @@ test("MSFT FY2026 operational metrics and narrative use consistent disclosure",(
  assert.ok(source.includes("no tasas sumables"));
  assert.ok(!source.includes("No se presentan tasas operativas específicas sin extraer y verificar"));
 });
+
+test("risk matrix remains horizontally readable on narrow screens",()=>{
+ assert.match(html,/class="risk-table-scroll" role="region"/);
+ assert.match(html,/class="risk-table"/);
+ assert.match(html,/\.risk-table\{min-width:780px/);
+ assert.match(html,/\.risk-table-scroll\{max-width:100%;overflow-x:auto/);
+ assert.match(html,/tabindex="0"/);
+});
