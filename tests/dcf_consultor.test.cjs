@@ -301,3 +301,11 @@ test("risk matrix guards against ungrounded probability scores",()=>{
  assert.ok(source.includes("Por evaluar"));
  assert.ok(source.includes("Coincidencias temáticas en el texto SEC disponible"));
 });
+
+test("MSFT FY2026 operational metrics and narrative use consistent disclosure",()=>{
+ const source=fs.readFileSync("consultor.html","utf8");
+ assert.ok(source.includes("Microsoft Cloud (+27%)"));
+ assert.ok(source.includes("Azure y otros servicios de nube (+41%)"));
+ assert.ok(source.includes("no tasas sumables"));
+ assert.ok(!source.includes("No se presentan tasas operativas específicas sin extraer y verificar"));
+});
