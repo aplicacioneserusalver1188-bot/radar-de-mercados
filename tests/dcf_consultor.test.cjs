@@ -70,7 +70,7 @@ test("FCFE model refuses missing debt financing facts and does not double adjust
 test("Microsoft FY2026 analysis identifies actual businesses and SEC source",()=>{
  assert.match(html,/function microsoftInvestorAnalysis\(/);
  assert.match(html,/Productivity and Business Processes/);
- assert.match(html,/No se presentan tasas operativas específicas sin extraer y verificar/);
+ assert.match(html,/son métricas de líneas de negocio diferentes, no tasas sumables/);
  assert.match(html,/d\.narrative\?\.reportDate==='2026-06-30'/);
  assert.match(html,/microsoftInvestorAnalysis\(d,s,rev,revGrowth,grossMargin,opMargin,netMargin,fcf\)/);
 });
