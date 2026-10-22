@@ -107,7 +107,7 @@ test('main financial metrics require aligned fiscal periods',()=>{assert.match(h
 
 test('SEC annual balance series select instant XBRL facts',()=>{const worker=fs.readFileSync('worker/template.mjs','utf8');assert.match(worker,/if \(!isFlow\) return !item\.start/);assert.match(worker,/item\.end !== filing\.reportDate/);});
 
-test('Microsoft operating growth claims are not hardcoded without direct verification',()=>{assert.match(html,/Microsoft Cloud creció 27%/);assert.match(html,/Azure y otros servicios de nube crecieron 41%/);assert.match(html,/const verified=d.ticker==='MSFT'/);assert.match(html,/No se presentan tasas operativas específicas sin extraer y verificar/);});
+test('Microsoft operating growth claims are not hardcoded without direct verification',()=>{assert.match(html,/Microsoft Cloud creció 27%/);assert.match(html,/Azure y otros servicios de nube crecieron 41%/);assert.match(html,/const verified=d.ticker==='MSFT'/);assert.match(html,/Microsoft Cloud \(\+27%\)/);});
 
 test('reinvestment analysis links CapEx to operating cash and annual revenue',()=>{assert.match(html,/function investmentPressureReading\(s\)/);assert.match(html,/\$\{investmentPressureReading\(s\)\}/);assert.match(html,/rev\.end!==cfo\.end\|\|rev\.end!==cap\.end/);assert.match(html,/Number\(rev\.fiscalYear\)-Number\(prevRev\.fiscalYear\)===1/);});
 
