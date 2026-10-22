@@ -293,3 +293,11 @@ test("financial trend table aligns revenue, margin and CFO minus CapEx by SEC en
  assert.ok(!guarded.includes("66987"));
  assert.ok(guarded.includes("—"));
 });
+
+test("risk matrix guards against ungrounded probability scores",()=>{
+ const source=fs.readFileSync("consultor.html","utf8");
+ assert.ok(source.includes("function riskMonitoringMatrix(d)"));
+ assert.ok(source.includes("sin evidencias temáticas suficientes"));
+ assert.ok(source.includes("Por evaluar"));
+ assert.ok(source.includes("Coincidencias temáticas en el texto SEC disponible"));
+});
