@@ -99,7 +99,7 @@ test('risk interpretation identifies themes rather than claiming causal evidence
 
 test('ratios only divide SEC facts from matching fiscal periods',()=>{assert.match(html,/rev\.end===ni\.end&&rev\.fiscalYear===ni\.fiscalYear/);assert.match(html,/rev\.end===gross\.end&&rev\.fiscalYear===gross\.fiscalYear/);assert.match(html,/rev\.end===op\.end&&rev\.fiscalYear===op\.fiscalYear/);assert.match(html,/ni\.end===cfo\.end&&ni\.fiscalYear===cfo\.fiscalYear/);});
 
-test('Microsoft FY2026 metrics require retrieved 10-K narrative and source URL',()=>{assert.match(html,/d\.narrative\?\.available===true&&!!d\.narrative\?\.url/);assert.match(html,/Riesgos para contrastar con el 10-K/);});
+test('Microsoft FY2026 metrics require retrieved 10-K narrative and source URL',()=>{assert.match(html,/d\.narrative\?\.available===true&&d\.narrative\?\.url===/);assert.match(html,/Riesgos para contrastar con el 10-K/);});
 
 test('balance and growth comparisons respect matching dates and consecutive years',()=>{assert.match(html,/current\.fiscalYear===long\.fiscalYear/);assert.match(html,/assets\.fiscalYear===equity\.fiscalYear/);assert.match(html,/cash\.fiscalYear===current\.fiscalYear/);assert.match(html,/Number\(x\.fiscalYear\)-Number\(revenues\[i\]\.fiscalYear\)===1/);assert.match(html,/Number\(z\.year\)-Number\(a\.year\)!==1/);});
 
