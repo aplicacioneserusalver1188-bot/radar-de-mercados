@@ -261,3 +261,19 @@ test("SEC 403 is reported as upstream access denial, never invented financial da
  await assert.rejects(ctx.secJson({SEC_USER_AGENT:"Observatorio RM test contact test@example.org"},"https://data.sec.gov/submissions/CIK0000789019.json"),/HTTP 403.*data\.sec\.gov.*rechazó/);
  await assert.rejects(ctx.secJson({},"https://data.sec.gov/submissions/CIK0000789019.json"),/SEC_USER_AGENT no está configurado/);
 });
+
+test("executive panel distinguishes growth, cash trend and unverified valuation",()=>{
+ const start=html.indexOf("function executiveSignalPanel("),end=html.indexOf("function fundamentalQualityGate(",start);
+ assert.ok(start>=0&&end>start);
+ const ctx=vm.createContext({n:v=>String(Math.round(v*10)/10),h:v=>String(v),latest:v=>v?.at(-1)||null,previous:v=>v?.at(-2)||null,pct:(a,b)=>a/b*100,Number,Math});
+ vm.runInContext(html.slice(start,end),ctx);
+ const fact=(value,year)=>({value,fiscalYear:year,end:year+"-06-30"});
+ const s={operatingCashFlow:[fact(136162,2025),fact(182935,2026)],capitalExpenditures:[fact(64551,2025),fact(115948,2026)]};
+ const out=ctx.executiveSignalPanel({},s,fact(331839,2026),17.79,46.78,66987);
+ assert.ok(out.includes("Vigilancia"));
+ assert.ok(out.includes("6.5%")||out.includes("6.4%"));
+ assert.ok(out.includes("sin determinar"));
+ s.capitalExpenditures[0].end="2025-03-31";
+ const guarded=ctx.executiveSignalPanel({},s,fact(331839,2026),17.79,46.78,66987);
+ assert.ok(guarded.includes("Sin comparación anual verificable"));
+});
