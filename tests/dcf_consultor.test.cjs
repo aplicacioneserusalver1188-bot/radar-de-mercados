@@ -44,7 +44,7 @@ test("NVIDIA investor brief includes sourced segment distinction and risks",()=>
 });
 test("executive scope does not deny the illustrative DCF",()=>{
  assert.doesNotMatch(html,/no es valoración ni recomendación/);
- assert.match(html,/incluye una valoración DCF ilustrativa/);
+ assert.match(html,/Qué responde este informe/);
 });
 
 test("10-Q revenue section stays independent of annual DCF",()=>{
@@ -230,7 +230,7 @@ test("MSFT FY2026 full investor report renders from a realistic SEC API response
  const ctx=vm.createContext({fetch:async()=>({json:async()=>payload}),Intl,Number,Math,Date,n:v=>String(v)});
  vm.runInContext(html.slice(a,b),ctx);
  const output=await ctx.secAsset("MSFT");
- for(const term of ["Microsoft Corporation","Resumen ejecutivo","Rentabilidad, eficiencia y calidad del crecimiento:","Evidencia directa del informe anual","DCF simplificado","USD 66.987 millones","USD 71.611 millones","6,5%","No equivale necesariamente a EV"]){
+ for(const term of ["Microsoft Corporation","Resumen ejecutivo","Rentabilidad, eficiencia y calidad del crecimiento:","Evidencia directa del informe anual","descuento de flujos de caja simplificado","66.987 millones de dólares","71.611 millones de dólares","6,5%","No equivale necesariamente a valor total del negocio"]){
   assert.ok(output.includes(term),"missing report element: "+term);
  }
  assert.ok(!output.includes("DCF bloqueado"));
@@ -247,19 +247,15 @@ test("SEC 403 is reported as upstream access denial, never invented financial da
 });
 
 test("executive panel distinguishes growth, cash trend and unverified valuation",()=>{
- const start=html.indexOf("function executiveSignalPanel("),end=html.indexOf("function fundamentalQualityGate(",start);
- assert.ok(start>=0&&end>start);
- const ctx=vm.createContext({n:v=>String(Math.round(v*10)/10),h:v=>String(v),latest:v=>v?.at(-1)||null,previous:v=>v?.at(-2)||null,pct:(a,b)=>a/b*100,Number,Math});
- vm.runInContext(html.slice(start,end),ctx);
+ const ctx=vm.createContext({Intl,n:v=>String(Math.round(v*10)/10)});
+ vm.runInContext(html.slice(html.indexOf('function h(value)'),html.indexOf('async function secAsset(')),ctx);
  const fact=(value,year)=>({value,fiscalYear:year,end:year+"-06-30"});
- const s={operatingCashFlow:[fact(136162,2025),fact(182935,2026)],capitalExpenditures:[fact(64551,2025),fact(115948,2026)]};
+ const s={revenue:[fact(281724,2025),fact(331839,2026)],operatingCashFlow:[fact(136162,2025),fact(182935,2026)],capitalExpenditures:[fact(64551,2025),fact(115948,2026)]};
  const out=ctx.executiveSignalPanel({},s,fact(331839,2026),17.79,46.78,66987);
- assert.ok(out.includes("Vigilancia"));
- assert.ok(out.includes("6.5%")||out.includes("6.4%"));
- assert.ok(out.includes("sin determinar"));
+ assert.match(out,/dinero restante disminuyó 6.5%/);
+ assert.match(out,/No se puede establecer/);
  s.capitalExpenditures[0].end="2025-03-31";
- const guarded=ctx.executiveSignalPanel({},s,fact(331839,2026),17.79,46.78,66987);
- assert.ok(guarded.includes("Sin comparación anual verificable"));
+ assert.match(ctx.executiveSignalPanel({},s,fact(331839,2026),17.79,46.78,66987),/No hay dos años completos/);
 });
 
 test("financial trend table aligns revenue, margin and CFO minus CapEx by SEC end date",()=>{
@@ -313,7 +309,7 @@ test("fundamental signals are evidence-gated and valuation remains pending",()=>
  assert.match(html,/name:'Crecimiento'/);
  assert.match(html,/name:'Rentabilidad'/);
  assert.match(html,/name:'Generación de caja'/);
- assert.match(html,/name:'Valoración',state:'Pendiente'/);
+ assert.match(html,/name:'Precio de la acción',state:'No determinable'/);
  assert.match(html,/oldCfo\.end===oldCapex\.end/);
  assert.match(html,/Reglas descriptivas, no recomendaciones de compra o venta/);
 });

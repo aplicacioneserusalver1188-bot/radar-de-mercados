@@ -75,3 +75,21 @@ test('complete reports retain all sections and do not delegate the analysis',asy
  assert.doesNotMatch(out,/comparar con ejercicios|revisar disponibilidad|comparar inversión futura|la siguiente comprobación|debe comprobarse|hay que contrastarlo|requiere leer el MD&A|requiere consultar/);
  assert.match(out,/Modelo comercial identificado/);assert.match(out,/Resultado e interpretación del modelo/);
 });
+test('plain-language display expands financial abbreviations without changing links or original quotations',()=>{
+ const raw='<p>CFO − CapEx = FCF; FCFF, FCFE, DCF, ROE y ROA. SEC; XBRL.</p><a href="https://example.test/DCF">DCF</a><q>CFO reported</q>';
+ const out=ctx.plainFinancialLanguage(raw);
+ assert.match(out,/flujo de efectivo de las operaciones/);assert.match(out,/inversión en activos de largo plazo/);assert.match(out,/flujo de caja libre para el accionista/);assert.match(out,/rentabilidad sobre el patrimonio/);
+ assert.match(out,/href="https:\/\/example.test\/DCF"/);assert.match(out,/<q>CFO reported<\/q>/);
+ const prose=out.replace(/<q>[\s\S]*?<\/q>/g,'').replace(/<[^>]*>/g,'');
+ assert.doesNotMatch(prose,/\b(?:CFO|CapEx|FCF|FCFF|FCFE|DCF|ROE|ROA|XBRL)\b/);
+});
+test('solvency card explains cash coverage without claiming all debt is due now',()=>{
+ const s=series();Object.assign(s,{cash:[fact(20935e6,2026)],debtCurrent:[fact(10000e6,2026)],debtNoncurrent:[fact(30294e6,2026)]});
+ const out=ctx.fundamentalSignals(s,s.revenue.at(-1),20,25,20);
+ assert.match(out,/51.96% de esa deuda/);assert.match(out,/no demuestra impago/);assert.match(out,/vence en distintas fechas/);assert.match(out,/posibles restricciones/);
+ assert.match(out,/No determinable/);assert.doesNotMatch(out,/deuda no etiquetada/);
+});
+test('availability note explains the source count without presenting it as a company rating',()=>{
+ const out=ctx.fundamentalQualityGate({narrative:{business:'b',risks:'r',discussion:'d'}},series(),fact(120,2026),20);
+ assert.match(out,/6 de los 6 grupos/);assert.match(out,/no es una calificación de la empresa/);assert.doesNotMatch(out,/Control de calidad de evidencia/);
+});

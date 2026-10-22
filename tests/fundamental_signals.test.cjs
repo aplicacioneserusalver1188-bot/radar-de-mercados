@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const html=fs.readFileSync('consultor.html','utf8');
-const ctx=vm.createContext({h:String,latest:x=>x?.at(-1),previous:x=>x?.at(-2),usd:String,fmtPct:String});
+const ctx=vm.createContext({n:String,h:String,latest:x=>x?.at(-1),previous:x=>x?.at(-2),usd:String,fmtPct:String});
 vm.runInContext(html.slice(html.indexOf('function fundamentalSignals('),html.indexOf('function fundamentalQualityGate(')),ctx);
 const fact=(value,year='2026')=>({value,fiscalYear:year,end:year+'-06-30'});
 function fixture(){return {operatingCashFlow:[fact(50,'2025'),fact(70)],capitalExpenditures:[fact(100,'2025'),fact(100)],cash:[fact(200)],debtCurrent:[fact(20)],debtNoncurrent:[fact(80)]};}
