@@ -317,3 +317,9 @@ test("risk matrix remains horizontally readable on narrow screens",()=>{
  assert.match(html,/\.risk-table-scroll\{max-width:100%;overflow-x:auto/);
  assert.match(html,/tabindex="0"/);
 });
+
+test("mobile risk table keeps probability header intact and page width constrained",()=>{
+ assert.match(html,/\.risk-table th:nth-child\(4\)\{width:14%;white-space:nowrap\}/);
+ assert.match(html,/\.card,\.result,\.risk-table-scroll\{min-width:0\}/);
+ assert.match(html,/@media\(max-width:650px\)\{main\{padding-left:12px;padding-right:12px\}/);
+});
