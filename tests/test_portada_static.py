@@ -3,6 +3,8 @@
 from pathlib import Path
 import json
 import re
+from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 home = (ROOT / "portada-preview.html").read_text(encoding="utf-8")
@@ -32,5 +34,34 @@ for key in ('vix','treasury10y'):
     points = data['series'][key]['points']
     assert points and all('date' in x and 'value' in x for x in points)
 assert 'Sin datos conectados' in home
+assert 'Analiza · Detecta · Evalúa · Aprende · Invierte' in home
+assert 'class="globe"' in home
+assert 'Estado general del mercado' in home
+assert 'Lectura rápida de hoy' in home
+assert 'Tendencia por activo' in home
+assert 'Ideas del día' in home
+assert 'Agenda económica de la semana' in home
+assert 'id="quick-read"' in home
+assert 'd.series.treasury10y' in home
+assert 'd.series.vix' in home
+class LinkChecker(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links = []
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            link = dict(attrs).get("href")
+            if link:
+                self.links.append(link)
+for name, html in (("portada-preview.html", home), ("index.html", dashboard), ("consultor.html", consultor), ("oportunidades.html", oportunidades)):
+    checker = LinkChecker()
+    checker.feed(html)
+    for link in checker.links:
+        parts = urlsplit(link)
+        if parts.scheme or link.startswith(("#", "mailto:", "tel:", "javascript:")):
+            continue
+        target = (ROOT / parts.path)
+        assert target.exists(), f"{name}: enlace local inexistente: {link}"
+
 assert 'localStorage' in home
 print('OK: estructura, navegación, persistencia, fuentes y datos de respaldo.')
