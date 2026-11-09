@@ -7,10 +7,15 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 home = (ROOT / "portada-preview.html").read_text(encoding="utf-8")
 dashboard = (ROOT / "index.html").read_text(encoding="utf-8")
+consultor = (ROOT / "consultor.html").read_text(encoding="utf-8")
+oportunidades = (ROOT / "oportunidades.html").read_text(encoding="utf-8")
 data = json.loads((ROOT / "data/market.json").read_text(encoding="utf-8"))
 assert '<html lang="es"' in home
 assert 'name="viewport"' in home
-assert 'radar-theme' in home and 'radar-theme' in dashboard
+assert all('radar-theme' in page for page in (home, dashboard, consultor, oportunidades))
+assert 'consultor.html' in home and 'oportunidades.html' in home
+assert 'portada-preview.html' in consultor and 'portada-preview.html' in oportunidades
+assert "$('query').value='SPY'" in consultor
 assert "||'dark'" in dashboard
 assert 'data-symbol="vix"' not in home  # los identificadores se generan desde las series
 assert "['VIX','vix']" in home
