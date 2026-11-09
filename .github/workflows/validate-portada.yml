@@ -4,6 +4,8 @@ on:
     paths:
       - 'portada-preview.html'
       - 'index.html'
+      - 'consultor.html'
+      - 'oportunidades.html'
       - 'data/market.json'
       - 'tests/test_portada_static.py'
       - '.github/workflows/validate-portada.yml'
