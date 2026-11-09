@@ -1,0 +1,19 @@
+name: Validar portada de desarrollo
+on:
+  pull_request:
+    paths:
+      - 'portada-preview.html'
+      - 'index.html'
+      - 'data/market.json'
+      - 'tests/test_portada_static.py'
+      - '.github/workflows/validate-portada.yml'
+  workflow_dispatch:
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar estructura y fuentes
+        run: python3 tests/test_portada_static.py
