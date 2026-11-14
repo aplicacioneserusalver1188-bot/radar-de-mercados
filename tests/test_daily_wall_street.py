@@ -20,7 +20,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("variación mensual: +200,000 empleos",result)
         self.assertIn("Decisión de política",result)
         self.assertIn("No disponible",result)
-        self.assertIn("S&P 500",result)
+        self.assertIn("S&amp;P 500",result)
 
     def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
         facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
@@ -47,7 +47,7 @@ class ReportTests(unittest.TestCase):
     @patch.object(radar, "official_news", return_value=[])
     def test_missing_news_not_fabricated(self, _news):
         result=radar.render({"series":{}})
-        self.assertIn("No se recuperaron comunicados recientes",result)
+        self.assertIn("No se recuperaron comunicados verificables recientes",result)
         self.assertNotIn("mercados subieron",result)
 
 if __name__=="__main__":
