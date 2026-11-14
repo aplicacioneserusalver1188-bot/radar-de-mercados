@@ -15,6 +15,10 @@ def main():
     data = {"updated_at": datetime.now(timezone.utc).isoformat(), "series": {}}
     for key, fred_id, label, frequency in [
         ("vix", "VIXCLS", "VIX", "daily"),
+        ("sp500", "SP500", "S&P 500", "daily"),
+        ("nasdaq", "NASDAQCOM", "Nasdaq Composite", "daily"),
+        ("dow", "DJIA", "Dow Jones Industrial Average", "daily"),
+        ("russell", "RU2000PR", "Russell 2000 (precio)", "daily"),
         ("inflation", "CPIAUCSL", "Índice de precios al consumidor", "monthly"),
         ("claims", "ICSA", "Solicitudes iniciales de desempleo", "weekly"),
         ("consumer", "UMCSENT", "Sentimiento del consumidor", "monthly"),
