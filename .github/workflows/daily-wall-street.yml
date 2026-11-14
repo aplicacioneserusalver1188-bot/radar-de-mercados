@@ -15,6 +15,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validar código y pruebas del informe
+        run: |
+          python -m compileall -q scripts/daily_wall_street.py
+          python -m unittest discover -s tests -v
       - name: Actualizar indicadores públicos
         run: python scripts/update_data.py
       - name: Generar informe y enviar Gmail
