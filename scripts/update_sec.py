@@ -22,7 +22,7 @@ TAGS = {
     "operating_cash": ("NetCashProvidedByUsedInOperatingActivities",),
     "capital_expenditure": ("PaymentsToAcquirePropertyPlantAndEquipment",),
 }
-AGENT = os.getenv("SEC_USER_AGENT", "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)")
+AGENT = os.getenv("SEC_USER_AGENT") or "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)"
 
 def annual_values(facts, tags):
     """Only facts for full 10-K fiscal years, avoiding quarterly/YTD mixing."""
