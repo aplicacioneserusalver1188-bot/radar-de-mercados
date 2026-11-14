@@ -1,0 +1,32 @@
+name: Radar diario Wall Street (Gmail)
+on:
+  workflow_dispatch:
+  schedule:
+    # Venezuela UTC-4 todo el año: 07:00 = 11:00 UTC
+    - cron: '0 11 * * *'
+permissions:
+  contents: read
+jobs:
+  informe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Actualizar indicadores públicos
+        run: python scripts/update_data.py
+      - name: Generar informe y enviar Gmail
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          REPORT_TO: ${{ secrets.REPORT_TO }}
+        run: python scripts/daily_wall_street.py
+      - name: Conservar informe como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-wall-street
+          path: reports/wall-street-latest.html
+          if-no-files-found: warn
