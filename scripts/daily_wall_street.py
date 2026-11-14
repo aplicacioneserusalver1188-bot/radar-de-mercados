@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Informe diario basado en las series existentes; no inventa cotizaciones ni noticias."""
-import csv, html, io, json, os, pathlib, smtplib, ssl, urllib.request
+import html, json, os, pathlib, smtplib, ssl, urllib.request, xml.etree.ElementTree as ET
+from datetime import timedelta
+from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from zoneinfo import ZoneInfo
@@ -27,9 +29,35 @@ COMPANIES = [("NVDA","NVIDIA"),("MSFT","Microsoft"),("AAPL","Apple"),("AMZN","Am
 def esc(v): return html.escape(str(v))
 def format_point(p):
     return f"{p['value']:,.2f} ({p['date']})"
+def official_news():
+    """Últimos comunicados públicos de la Fed, con fecha y enlace; falla de forma segura."""
+    url = "https://www.federalreserve.gov/feeds/press_all.xml"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "ObservatorioRM/1.0 (public financial news digest)"})
+        with urllib.request.urlopen(req, timeout=12) as response:
+            root = ET.fromstring(response.read(1_000_000))
+        result = []
+        for item in root.findall(".//item"):
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            pub = (item.findtext("pubDate") or "").strip()
+            if not title or not link.startswith("https://www.federalreserve.gov/"):
+                continue
+            try:
+                dt = parsedate_to_datetime(pub).astimezone(timezone.utc)
+            except (ValueError, TypeError):
+                continue
+            if datetime.now(timezone.utc) - dt > timedelta(days=3):
+                continue
+            result.append((title, link, dt.strftime("%d/%m/%Y %H:%M UTC")))
+        return result[:8]
+    except (OSError, ET.ParseError, ValueError) as error:
+        print("Aviso: feed Fed no disponible:", type(error).__name__)
+        return []
+
 def render(data):
     now=datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y %H:%M")
-    items=[]; flags=[]
+    items=[]; flags=[]; news=official_news()
     for key,label,meaning in SERIES:
         obj=data.get("series",{}).get(key,{})
         pts=obj.get("points",[])
@@ -37,6 +65,12 @@ def render(data):
             last=pts[-1]; prior=pts[-2] if len(pts)>1 else None
             diff=f"; cambio frente al dato anterior: {last['value']-prior['value']:+,.2f}" if prior else ""
             value=format_point(last)+diff
+            if key=="inflation":
+                previous_year=next((p for p in reversed(pts[:-1]) if p["date"][:7]==f"{int(last['date'][:4])-1}{last['date'][4:7]}"),None)
+                if previous_year and previous_year["value"]:
+                    value+=f"; inflación interanual: {(last['value']/previous_year['value']-1)*100:+.2f}%"
+            if key=="payrolls" and prior:
+                value+=f"; variación mensual: {(last['value']-prior['value'])*1000:+,.0f} empleos"
             if (datetime.now(timezone.utc).date()-datetime.fromisoformat(last["date"]).date()).days>45:
                 flags.append(label+" presenta observación antigua")
         else:
@@ -44,8 +78,11 @@ def render(data):
         items.append(f"<tr><th>{esc(label)}</th><td>{esc(value)}</td><td>{esc(meaning)}</td></tr>")
     # No se presentan resultados o perspectivas empresariales sin fuentes actualizadas.
     companies="".join(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>: revisar resultados, guías y valoración en <a href="https://www.sec.gov/edgar/search/">SEC EDGAR</a>. Sin datos financieros verificados en este archivo: perspectiva no determinada.</li>' for ticker,name in COMPANIES)
+    news_html = "".join(f'<li><a href="{esc(link)}">{esc(title)}</a> — {esc(date)}. Comunicado oficial; su impacto bursátil requiere contexto.</li>' for title,link,date in news)
+    if not news_html:
+        news_html="<li>No se recuperaron comunicados recientes verificables de la Reserva Federal.</li>"
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR INTEGRAL DE WALL STREET</h1><p><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p><h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices y sectores bursátiles</h2><p>S&P 500, Nasdaq 100, Dow Jones, Russell 2000 y sectores: <strong>sin cotizaciones verificadas en el conjunto de datos actual</strong>. No se inventan variaciones, soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Seguimiento prioritario; se requiere integrar cotizaciones, resultados SEC, consenso y guías para emitir conclusiones empresariales sustentadas.</p><ul>{companies}</ul><h2>Noticias y catalizadores</h2><p>No se incluyen titulares no comprobados. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><p><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios. <strong>Neutral:</strong> señales contradictorias. <strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios. Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad</h2><p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR INTEGRAL DE WALL STREET</h1><p><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p><h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices y sectores bursátiles</h2><p>S&P 500, Nasdaq 100, Dow Jones, Russell 2000 y sectores: <strong>sin cotizaciones verificadas en el conjunto de datos actual</strong>. No se inventan variaciones, soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Seguimiento prioritario; se requiere integrar cotizaciones, resultados SEC, consenso y guías para emitir conclusiones empresariales sustentadas.</p><ul>{companies}</ul><h2>Noticias y catalizadores</h2><p>Comunicados oficiales recientes de la Reserva Federal (cuando estén disponibles):</p><ul>{news_html}</ul><p>Esta fuente no sustituye una cobertura completa de prensa económica. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><p><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios. <strong>Neutral:</strong> señales contradictorias. <strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios. Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad</h2><p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def main():
     if not DATA.exists(): raise SystemExit("No existe data/market.json; ejecutar scripts/update_data.py primero")
     data=json.loads(DATA.read_text(encoding="utf-8"))
@@ -53,8 +90,7 @@ def main():
     OUT.write_text(report,encoding="utf-8")
     user=os.getenv("GMAIL_USER"); password=os.getenv("GMAIL_APP_PASSWORD"); recipient=os.getenv("REPORT_TO")
     if not all([user,password,recipient]):
-        print("Informe generado en",OUT,"; envío omitido: faltan secretos GMAIL_USER, GMAIL_APP_PASSWORD o REPORT_TO")
-        return
+        raise SystemExit("Informe generado, pero ENVÍO NO REALIZADO: configurar secretos GMAIL_USER, GMAIL_APP_PASSWORD y REPORT_TO")
     msg=EmailMessage();msg["From"]=user;msg["To"]=recipient;msg["Subject"]="Radar Integral de Wall Street — "+datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y")
     msg.set_content("Informe diario de Wall Street en formato HTML adjunto al cuerpo del correo.")
     msg.add_alternative(report,subtype="html")
