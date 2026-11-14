@@ -40,30 +40,43 @@ def esc(v): return html.escape(str(v))
 def format_point(p):
     return f"{p['value']:,.2f} ({p['date']})"
 def official_news():
-    """Últimos comunicados públicos de la Fed, con fecha y enlace; falla de forma segura."""
-    url = "https://www.federalreserve.gov/feeds/press_all.xml"
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "ObservatorioRM/1.0 (public financial news digest)"})
-        with urllib.request.urlopen(req, timeout=12) as response:
-            root = ET.fromstring(response.read(1_000_000))
-        result = []
-        for item in root.findall(".//item"):
-            title = (item.findtext("title") or "").strip()
-            link = (item.findtext("link") or "").strip()
-            pub = (item.findtext("pubDate") or "").strip()
-            if not title or not link.startswith("https://www.federalreserve.gov/"):
-                continue
-            try:
-                dt = parsedate_to_datetime(pub).astimezone(timezone.utc)
-            except (ValueError, TypeError):
-                continue
-            if datetime.now(timezone.utc) - dt > timedelta(days=3):
-                continue
-            result.append((title, link, dt.strftime("%d/%m/%Y %H:%M UTC")))
-        return result[:8]
-    except (OSError, ET.ParseError, ValueError) as error:
-        print("Aviso: feed Fed no disponible:", type(error).__name__)
-        return []
+    """Fecha, fuente y enlace de comunicados reales; jamás fabricar titulares."""
+    feeds = (
+        ("Reserva Federal", "https://www.federalreserve.gov/feeds/press_all.xml", "www.federalreserve.gov"),
+        ("Oficina de Estadísticas Laborales", "https://www.bls.gov/feed/bls_latest.rss", "www.bls.gov"),
+        ("SEC", "https://www.sec.gov/news/pressreleases.rss", "www.sec.gov"),
+    )
+    items = []
+    for agency, url, host in feeds:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "ObservatorioRM/1.0 (financial digest)"})
+            with urllib.request.urlopen(req, timeout=12) as response:
+                root = ET.fromstring(response.read(1_000_000))
+            for item in root.findall(".//item"):
+                title = (item.findtext("title") or "").strip()
+                link = (item.findtext("link") or "").strip()
+                published = (item.findtext("pubDate") or "").strip()
+                if not title or not link.startswith("https://" + host + "/"):
+                    continue
+                try:
+                    publication = parsedate_to_datetime(published).astimezone(timezone.utc)
+                except (ValueError, TypeError, OverflowError):
+                    continue
+                age = datetime.now(timezone.utc) - publication
+                if not timedelta(0) <= age <= timedelta(days=4):
+                    continue
+                items.append((agency + ": " + title, link,
+                              publication.strftime("%d/%m/%Y %H:%M UTC"), publication))
+        except (OSError, ET.ParseError, ValueError) as error:
+            print("Feed oficial no disponible:", agency, type(error).__name__)
+    items.sort(key=lambda row: row[3], reverse=True)
+    seen = set()
+    unique = []
+    for title, link, date, _ in items:
+        if link not in seen:
+            unique.append((title, link, date))
+            seen.add(link)
+    return unique[:10]
 
 
 def sec_company_html(sec):
@@ -124,7 +137,7 @@ def render(data, sec=None):
     companies=sec_company_html(sec or {})
     news_html = "".join(f'<li><a href="{esc(link)}">{esc(title)}</a> — {esc(date)}. Comunicado oficial; su impacto bursátil requiere contexto.</li>' for title,link,date in news)
     if not news_html:
-        news_html="<li>No se recuperaron comunicados recientes verificables de la Reserva Federal.</li>"
+        news_html="<li>No se recuperaron comunicados verificables recientes de los canales oficiales consultados.</li>"
     index_rows=[]
     for key,label in INDICES:
         points=data.get("series",{}).get(key,{}).get("points",[])
@@ -141,7 +154,7 @@ def render(data, sec=None):
             value="No disponible; verificar cobertura de FRED"
         index_rows.append(f"<tr><th>{esc(label)}</th><td>{esc(value)}</td></tr>")
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR INTEGRAL DE WALL STREET</h1><p><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p><h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices y sectores bursátiles</h2><table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales recientes de la Reserva Federal (cuando estén disponibles):</p><ul>{news_html}</ul><p>Esta fuente no sustituye una cobertura completa de prensa económica. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><p><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios. <strong>Neutral:</strong> señales contradictorias. <strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios. Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad</h2><p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR INTEGRAL DE WALL STREET</h1><p><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p><h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices y sectores bursátiles</h2><table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Noticias y comunicados oficiales recientes de Fed, BLS y SEC (cuando estén disponibles):</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><p><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios. <strong>Neutral:</strong> señales contradictorias. <strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios. Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad</h2><p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def main():
     if not DATA.exists(): raise SystemExit("No existe data/market.json; ejecutar scripts/update_data.py primero")
     data=json.loads(DATA.read_text(encoding="utf-8"))
