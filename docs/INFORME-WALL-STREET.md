@@ -1,26 +1,36 @@
 # Informe diario Wall Street — módulo en desarrollo
 
-## Estado y alcance
-Este módulo reutiliza las 13 series FRED ya disponibles en el Radar de Mercados y produce un informe HTML con fecha de cada observación, interpretación prudente y seguimiento de nueve empresas. **No** cuenta aún con cotizaciones de índices, resultados financieros actualizados, noticias individuales verificadas ni motor de IA; no se simula que existan.
+## Avances implementados
+- Fuentes FRED: 13 indicadores originales más PIB, PCE, PCE subyacente, PPI de materias primas, desempleo, ventas minoristas, Fed, Tesoro a dos años e índices estadounidenses (según disponibilidad de cada serie).
+- Fuente SEC: `scripts/update_sec.py` intenta obtener datos XBRL oficiales de nueve empresas: NVIDIA, Microsoft, Apple, Amazon, Alphabet, Meta, Broadcom, JPMorgan y Tesla. Solo se incluyen cifras anuales de ejercicios completos de formularios 10-K, con fecha fiscal y variación frente al año anterior, cuando están disponibles.
+- Correo HTML con explicaciones, fuente, fecha de observación, resúmenes contables y comunicaciones Fed recientes verificadas.
+- Pruebas unitarias para inflación, empleo, registros fiscales SEC y cálculo de margen neto.
+- Controles que evitan el envío si los indicadores macroeconómicos esenciales son insuficientes o si faltan credenciales de correo.
 
-## Ejecución
-`python scripts/update_data.py && python scripts/daily_wall_street.py`
+## Ejecución local de desarrollo
+```bash
+python -m unittest discover -s tests -v
+python scripts/update_data.py
+python scripts/update_sec.py
+python scripts/daily_wall_street.py
+```
+Sin credenciales Gmail, el informe HTML se genera y el último comando sale con error para **evitar falsos positivos de entrega**. Los errores de consulta SEC se reflejan como falta de métricas, nunca como datos inventados.
 
-Sin secretos, se crea `reports/wall-street-latest.html` y se omite el envío. En GitHub Actions, el workflow `daily-wall-street.yml` está previsto para las **11:00 UTC = 07:00 Venezuela**, con posible retraso propio de GitHub Actions. Los eventos `schedule` de GitHub solo se ejecutan desde la rama predeterminada; **no funcionará automáticamente mientras el workflow permanezca en esta rama de desarrollo**.
+## Configuración antes de producción
+GitHub → Settings → Secrets and variables → Actions:
+- `GMAIL_USER`: Gmail que envía.
+- `GMAIL_APP_PASSWORD`: contraseña de aplicación Google, distinta de la contraseña principal.
+- `REPORT_TO`: dirección destinataria.
+- `SEC_USER_AGENT`: identificación de aplicación SEC y contacto válido, por ejemplo nombre de aplicación y correo de soporte.
 
-## Configuración segura antes de activar
-Crear en GitHub Settings → Secrets and variables → Actions los secretos:
-- `GMAIL_USER`: dirección de la cuenta emisora.
-- `GMAIL_APP_PASSWORD`: contraseña de aplicación de Google, nunca la contraseña principal; requiere configuración compatible de Google.
-- `REPORT_TO`: correo destinatario.
+**No se incluyen contraseñas en Git.** El workflow solicita fuentes oficiales cada día a las 11:00 UTC = 07:00 de Venezuela. GitHub Actions puede iniciar tarde. **Las tareas programadas solo se ejecutan desde la rama predeterminada**; este PR en desarrollo no activa los envíos. Tampoco se ha autorizado fusionar con la versión pública.
 
-No guardar secretos en archivos ni en el historial Git. Alternativa futura: Gmail API/OAuth con autorización y renovación adecuadas.
+## Limitaciones verificadas y tareas por cerrar
+1. **No se ha ejecutado el workflow real**: el entorno de desarrollo actual no permite una comprobación integral ni credenciales SMTP.
+2. SEC y FRED pueden limitar el acceso; los indicadores con errores se muestran como no disponibles.
+3. El informe incluye contabilidad histórica oficial, **no cotizaciones por empresa**, múltiplos de valoración, consenso de analistas ni guías futuras verificadas.
+4. El feed Fed solo cubre comunicados oficiales; **no sustituye 5–10 noticias contrastadas de medios independientes**.
+5. La cobertura sectorial y los índices negociables SPY, QQQ, DIA e IWM siguen pendientes; Nasdaq Composite no equivale a Nasdaq 100.
+6. Faltan prueba de Gmail real, calidad de datos y comprobación de horario antes de publicar.
 
-## Limitaciones y validación pendiente
-- Revisar cobertura, frescura y fallos de FRED.
-- Agregar datos bursátiles y empresariales con fuente, fecha y condiciones de uso.
-- Agregar noticias verificadas con enlaces directos y análisis (sin inventar titulares).
-- Probar ejecución real del workflow, correo y horarios antes de aprobar la publicación.
-- Evitar duplicar envíos; no activar la automatización hasta verificar secretos y confirmar que el informe tiene la profundidad requerida.
-- El envío depende de GitHub Actions y Google, no de ChatGPT Plus.
-- La rama principal, la portada y el tablero existente no se modifican en esta propuesta.
+La automatización propuesta utiliza GitHub Actions y Google y no depende de una suscripción a ChatGPT Plus.
