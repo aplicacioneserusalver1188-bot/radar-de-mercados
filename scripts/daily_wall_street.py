@@ -11,6 +11,14 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "market.json"
 OUT = ROOT / "reports" / "wall-street-latest.html"
 SERIES = [
+ ("pce", "Inflación PCE (nivel del índice)", "Variación interanual del deflactor del consumo personal; referencia clave para la Fed."),
+ ("corepce", "PCE subyacente (nivel del índice)", "Excluye alimentos y energía; su variación interanual ayuda a evaluar persistencia de inflación."),
+ ("ppi", "Precios al productor (índice de materias primas)", "Señal parcial de presiones de costes; no equivale al PPI de demanda final."),
+ ("unemployment", "Tasa de desempleo", "Porcentaje de fuerza laboral sin empleo que busca trabajo."),
+ ("gdp", "PIB real", "Actividad económica ajustada por inflación; se publica trimestralmente."),
+ ("retail", "Ventas minoristas (nivel)", "Indicador del consumo de bienes; debe distinguirse nivel y crecimiento."),
+ ("fedfunds", "Objetivo superior de fondos federales", "Límite superior de la banda objetivo fijada por la Fed."),
+ ("treasury2y", "Rendimiento del Tesoro a 2 años", "Muy sensible a expectativas de política monetaria."),
  ("inflation", "Inflación (IPC, nivel del índice)", "La variación interanual permite evaluar presiones de precios; el nivel del índice no es la tasa de inflación."),
  ("payrolls", "Empleo no agrícola (nivel)", "La variación mensual mide creación neta de puestos; el nivel por sí solo no es el cambio."),
  ("claims", "Solicitudes iniciales de desempleo", "Un aumento persistente puede anticipar debilitamiento del mercado laboral."),
@@ -66,10 +74,14 @@ def render(data):
             last=pts[-1]; prior=pts[-2] if len(pts)>1 else None
             diff=f"; cambio frente al dato anterior: {last['value']-prior['value']:+,.2f}" if prior else ""
             value=format_point(last)+diff
-            if key=="inflation":
+            if key in ("inflation","pce","corepce","ppi"):
                 previous_year=next((p for p in reversed(pts[:-1]) if p["date"][:7]==f"{int(last['date'][:4])-1}{last['date'][4:7]}"),None)
                 if previous_year and previous_year["value"]:
                     value+=f"; inflación interanual: {(last['value']/previous_year['value']-1)*100:+.2f}%"
+            if key=="treasury10y":
+                short=data.get("series",{}).get("treasury2y",{}).get("points",[])
+                if short and short[-1]["date"]==last["date"]:
+                    value+=f"; diferencial 10a–2a: {last['value']-short[-1]['value']:+.2f} puntos porcentuales"
             if key=="payrolls" and prior:
                 value+=f"; variación mensual: {(last['value']-prior['value'])*1000:+,.0f} empleos"
             if (datetime.now(timezone.utc).date()-datetime.fromisoformat(last["date"]).date()).days>45:
@@ -104,7 +116,7 @@ def main():
     data=json.loads(DATA.read_text(encoding="utf-8"))
     if sum(bool(data.get("series",{}).get(key,{}).get("points")) for key in ("inflation","payrolls","treasury10y","vix")) < 3:
         raise SystemExit("Datos esenciales insuficientes: no se enviará un informe potencialmente engañoso")
-    report=render(data); OUT.parent.mkdir(exist_ok=True)
+    report=render(data); OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(report,encoding="utf-8")
     user=os.getenv("GMAIL_USER"); password=os.getenv("GMAIL_APP_PASSWORD"); recipient=os.getenv("REPORT_TO")
     if not all([user,password,recipient]):
