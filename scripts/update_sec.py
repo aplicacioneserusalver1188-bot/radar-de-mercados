@@ -70,12 +70,15 @@ def main():
                 facts = json.loads(response.read(25_000_000))
             result["companies"][ticker] = summarize(facts, ticker)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
-            result["companies"][ticker] = {"ticker": ticker, "error": type(exc).__name__}
+            result["companies"][ticker] = {"ticker": ticker, "error": type(exc).__name__, "http_status": getattr(exc, "code", None)}
         time.sleep(0.15)  # Respect SEC limits, one sequential request per company.
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
     print("SEC: métricas empresariales disponibles:",
           sum(bool(c.get("metrics", {}).get("revenue")) for c in result["companies"].values()))
+    print("SEC: fallos por empresa (tipo y HTTP):",
+          {ticker: (item.get("error"), item.get("http_status"))
+           for ticker, item in result["companies"].items() if item.get("error")})
 
 if __name__ == "__main__":
     main()
