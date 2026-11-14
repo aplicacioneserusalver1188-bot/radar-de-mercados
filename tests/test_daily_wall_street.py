@@ -19,6 +19,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("variación mensual: +200,000 empleos",result)
         self.assertIn("Decisión de política",result)
         self.assertIn("No disponible",result)
+        self.assertIn("S&P 500",result)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_missing_news_not_fabricated(self, _news):
