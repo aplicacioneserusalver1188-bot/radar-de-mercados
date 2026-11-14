@@ -30,7 +30,7 @@ jobs:
         run: python scripts/update_data.py
       - name: Consultar SEC real sin credenciales
         env:
-          SEC_USER_AGENT: ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)
+          SEC_USER_AGENT: "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)"
         run: python scripts/update_sec.py
       - name: Generar informe con datos reales sin enviar correo
         env:
