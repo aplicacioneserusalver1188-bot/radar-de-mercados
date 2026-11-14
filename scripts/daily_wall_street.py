@@ -163,6 +163,9 @@ def main():
     sec=json.loads(SEC_DATA.read_text(encoding="utf-8")) if SEC_DATA.exists() else {}
     report=render(data,sec); OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(report,encoding="utf-8")
+    if os.getenv("RADAR_DRY_RUN") == "1":
+        print("Prueba de extremo a extremo: informe generado; correo desactivado expresamente")
+        return
     user=os.getenv("GMAIL_USER"); password=os.getenv("GMAIL_APP_PASSWORD"); recipient=os.getenv("REPORT_TO")
     if not all([user,password,recipient]):
         raise SystemExit("Informe generado, pero ENVÍO NO REALIZADO: configurar secretos GMAIL_USER, GMAIL_APP_PASSWORD y REPORT_TO")
