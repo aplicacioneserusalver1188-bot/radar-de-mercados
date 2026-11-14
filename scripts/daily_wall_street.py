@@ -166,6 +166,9 @@ def main():
     if os.getenv("RADAR_DRY_RUN") == "1":
         print("Prueba de extremo a extremo: informe generado; correo desactivado expresamente")
         return
+    valid_companies=sum(bool(info.get("metrics", {}).get("revenue") or info.get("metrics", {}).get("net_income")) for info in sec.get("companies", {}).values())
+    if valid_companies < 3:
+        raise SystemExit("ENVÍO CANCELADO: información empresarial SEC insuficiente (menos de tres empresas con cifras anuales)")
     user=os.getenv("GMAIL_USER"); password=os.getenv("GMAIL_APP_PASSWORD"); recipient=os.getenv("REPORT_TO")
     if not all([user,password,recipient]):
         raise SystemExit("Informe generado, pero ENVÍO NO REALIZADO: configurar secretos GMAIL_USER, GMAIL_APP_PASSWORD y REPORT_TO")
