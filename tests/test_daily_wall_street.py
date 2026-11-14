@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import daily_wall_street as radar
+import update_sec
 
 class ReportTests(unittest.TestCase):
     @patch.object(radar, "official_news", return_value=[("Decisión de política", "https://www.federalreserve.gov/newsevents/pressreleases/a.htm", "14/11/2026 11:00 UTC")])
@@ -20,6 +21,28 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Decisión de política",result)
         self.assertIn("No disponible",result)
         self.assertIn("S&P 500",result)
+
+    def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
+        facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
+            {"form": "10-Q", "fp": "Q1", "start": "2026-01-01", "end": "2026-03-31", "filed": "2026-04-20", "val": 5},
+            {"form": "10-K", "fp": "FY", "start": "2024-01-01", "end": "2024-12-31", "filed": "2025-02-01", "val": 80},
+            {"form": "10-K", "fp": "FY", "start": "2025-01-01", "end": "2025-12-31", "filed": "2026-02-01", "val": 100}
+        ]}}}}}
+        values = update_sec.annual_values(facts, ("Revenues",))
+        self.assertEqual([r["value"] for r in values], [100, 80])
+        summary = update_sec.summarize(facts, "NVDA")
+        self.assertEqual(summary["metrics"]["revenue"][0]["value"], 100)
+
+    @patch.object(radar, "official_news", return_value=[])
+    def test_sec_renders_numbers_without_inventing_missing_companies(self, _news):
+        sec = {"companies": {"NVDA": {"metrics": {
+            "revenue": [{"value": 10000000000, "end": "2025-12-31"}],
+            "net_income": [{"value": 2000000000, "end": "2025-12-31"}]
+        }, "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json"}}}
+        report = radar.render({"series": {}}, sec)
+        self.assertIn("Margen neto calculado: 20.0%", report)
+        self.assertIn("NVIDIA", report)
+        self.assertIn("sin métricas SEC comparables", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_missing_news_not_fabricated(self, _news):
