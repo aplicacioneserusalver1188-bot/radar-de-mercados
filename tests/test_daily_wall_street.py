@@ -44,6 +44,15 @@ class ReportTests(unittest.TestCase):
         self.assertIn("NVIDIA", report)
         self.assertIn("sin métricas SEC comparables", report)
 
+    def test_fred_source_is_linked_and_freshness_depends_on_frequency(self):
+        self.assertEqual(radar.freshness_limit("daily"), 7)
+        self.assertEqual(radar.freshness_limit("monthly"), 75)
+        self.assertEqual(radar.freshness_limit("quarterly"), 155)
+        label = radar.fred_link({"source_url": "https://fred.stlouisfed.org/series/DGS10"}, "Tesoro 10 años")
+        self.assertIn("https://fred.stlouisfed.org/series/DGS10", label)
+        unsafe = radar.fred_link({"source_url": "javascript:alert(1)"}, "Tesoro")
+        self.assertNotIn("<a", unsafe)
+
     def test_quantitative_diagnosis_only_uses_observed_values(self):
         result = radar.market_diagnosis({"series": {
             "vix": {"points": [{"value": 28.2, "date": "2026-11-13"}]},
