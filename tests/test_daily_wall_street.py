@@ -87,7 +87,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("macroeconómica", radar.edition_label({}))
         result=radar.render({"series": {}}, {})
         self.assertIn("cobertura empresarial pendiente", result)
-        self.assertIn("sin métricas SEC comparables", result)
+        self.assertIn("sin métricas anuales verificadas", result)
 
     def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
         facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
@@ -109,7 +109,7 @@ class ReportTests(unittest.TestCase):
         report = radar.render({"series": {}}, sec)
         self.assertIn("Margen neto calculado: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("sin métricas SEC comparables", report)
+        self.assertIn("sin métricas anuales verificadas", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):
