@@ -443,12 +443,14 @@ def chart_fragment(key, history=None, chart_keys=None):
     for n in (20,50,200):
         if "ma"+str(n) in measure:
             details.append(f'MA{n}: {measure["ma"+str(n)]:,.2f}')
+    proxy_warning=('<p style="color:#9b5d18;font-weight:bold">'+esc(asset["proxy"])+'</p>'
+                   if asset.get("proxy") else "")
     graphic=(f'<p><img src="cid:radar-{key.lower()}" alt="Gráfico histórico de {esc(key)}" '
              'style="width:100%;max-width:630px;height:auto;border:1px solid #e8edf2"></p>'
              if key in (chart_keys or ()) else '<p>Gráfico no disponible en esta ejecución.</p>')
     url=asset.get("source","")
     source=f'<a href="{esc(url)}">Histórico y fuente</a>' if url.startswith("https://") else ""
-    return ('<p>'+' · '.join(details)+'</p>'+graphic
+    return ('<p>'+' · '.join(details)+'</p>'+proxy_warning+graphic
             +'<p><strong>Qué muestra:</strong> '+esc(trend_interpretation(measure))+'</p>'
             +'<p style="font-size:12px">'+source+'</p>')
 
