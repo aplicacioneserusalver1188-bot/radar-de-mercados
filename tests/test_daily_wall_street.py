@@ -191,7 +191,8 @@ class ReportTests(unittest.TestCase):
         report=radar.render({"series":{}})
         self.assertIn("Relevancia potencial:",report)
         self.assertIn("Política monetaria:",report)
-        self.assertIn("consenso",report.lower() if "consenso" in report.lower() else radar.news_market_context("BLS CPI inflation").lower())
+        self.assertIn("expectativas previas", report)
+        self.assertIn("consenso", radar.news_market_context("BLS CPI inflation").lower())
         self.assertNotIn("las acciones subieron",report)
 
     def test_news_relevance_prioritizes_macro_topics_without_assigning_market_direction(self):
