@@ -212,18 +212,23 @@ def render(data, sec=None):
         pts=obj.get("points",[])
         if pts:
             last=pts[-1]; prior=pts[-2] if len(pts)>1 else None
-            diff=f"; cambio frente al dato anterior: {last['value']-prior['value']:+,.2f}" if prior else ""
+            valid_prior=prior is not None and prior["date"] < last["date"]
+            diff=f"; cambio frente al dato anterior: {last['value']-prior['value']:+,.2f}" if valid_prior else ""
             value=format_point(last)+diff
             if key in ("inflation","pce","corepce","ppi"):
                 previous_year=next((p for p in reversed(pts[:-1]) if p["date"][:7]==f"{int(last['date'][:4])-1}{last['date'][4:7]}"),None)
                 if previous_year and previous_year["value"]:
-                    value+=f"; inflación interanual: {(last['value']/previous_year['value']-1)*100:+.2f}%"
+                    name="variación interanual del índice de materias primas" if key=="ppi" else "inflación interanual"
+                    value+=f"; {name}: {(last['value']/previous_year['value']-1)*100:+.2f}%"
             if key=="treasury10y":
                 short=data.get("series",{}).get("treasury2y",{}).get("points",[])
                 if short and short[-1]["date"]==last["date"]:
                     value+=f"; diferencial 10a–2a: {last['value']-short[-1]['value']:+.2f} puntos porcentuales"
-            if key=="payrolls" and prior:
-                value+=f"; variación mensual: {(last['value']-prior['value'])*1000:+,.0f} empleos"
+            if key=="payrolls" and valid_prior:
+                last_month=int(last["date"][:4])*12+int(last["date"][5:7])
+                prior_month=int(prior["date"][:4])*12+int(prior["date"][5:7])
+                if last_month-prior_month==1:
+                    value+=f"; variación mensual: {(last['value']-prior['value'])*1000:+,.0f} empleos"
             if not is_recent(last["date"], freshness_limit(obj.get("frequency"))):
                 flags.append(label+" presenta observación antigua ("+last["date"]+")")
         else:
