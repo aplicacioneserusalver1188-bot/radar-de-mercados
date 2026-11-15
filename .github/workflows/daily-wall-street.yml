@@ -25,7 +25,7 @@ jobs:
           python -m compileall -q scripts/daily_wall_street.py scripts/update_sec.py
           python -m unittest discover -s tests -v
       - name: Actualizar indicadores públicos
-        run: python scripts/update_data.py
+        run: python scripts/update_wall_street_data.py
       - name: Obtener cifras empresariales SEC
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
@@ -35,7 +35,7 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           REPORT_TO: ${{ secrets.REPORT_TO }}
-          RADAR_DRY_RUN: ${{ inputs.preview_only && '1' || '0' }}
+          RADAR_DRY_RUN: ${{ (github.event_name == 'schedule' && vars.RADAR_ENABLE_EMAIL != 'true') && '1' || (github.event_name == 'workflow_dispatch' && inputs.preview_only) && '1' || '0' }}
         run: python scripts/daily_wall_street.py
       - name: Conservar informe como artefacto
         if: always()
