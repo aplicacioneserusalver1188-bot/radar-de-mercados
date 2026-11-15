@@ -221,6 +221,22 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(len(results),1)
         self.assertIn("Actualización oficial",results[0][0])
 
+    def test_bea_feed_accepts_only_approved_official_hosts(self):
+        from datetime import datetime, timezone
+        from email.utils import format_datetime
+        now=datetime.now(timezone.utc)
+        published=format_datetime(now)
+        xml=(f'<rss><channel><item><title>GDP advance estimate</title>'
+             f'<link>https://www.bea.gov/news/releases/gdp</link>'
+             f'<pubDate>{published}</pubDate></item>'
+             f'<item><title>Malicious mirror</title>'
+             f'<link>https://www.bea.gov.fake.example/story</link>'
+             f'<pubDate>{published}</pubDate></item></channel></rss>')
+        results=radar.parse_official_feed(xml.encode(), "BEA",
+                ("www.bea.gov", "bea.gov", "apps.bea.gov"), now=now)
+        self.assertEqual(len(results), 1)
+        self.assertIn("GDP advance estimate", results[0][0])
+
     def test_official_news_parser_rejects_future_and_unverified_dates(self):
         from datetime import datetime, timezone, timedelta
         from email.utils import format_datetime
