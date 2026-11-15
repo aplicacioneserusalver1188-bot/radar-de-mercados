@@ -66,6 +66,16 @@ class ReportTests(unittest.TestCase):
         self.assertIn("1 al alza, 1 a la baja",output)
         self.assertIn("No equivale a amplitud del mercado",output)
 
+    @patch.object(radar, "official_news", return_value=[])
+    def test_stale_index_level_is_historical_without_change(self, _news):
+        from datetime import datetime, timedelta, timezone
+        old=(datetime.now(timezone.utc).date()-timedelta(days=20)).isoformat()
+        older=(datetime.now(timezone.utc).date()-timedelta(days=21)).isoformat()
+        data={"series":{"sp500":{"points":[{"date":older,"value":100},{"date":old,"value":105}]}}}
+        report=radar.render(data)
+        self.assertIn("lectura histórica, no cotización vigente",report)
+        self.assertNotIn("variación entre observaciones: +5.00%",report)
+
     def test_quality_report_counts_current_stale_and_absent(self):
         from datetime import datetime, timedelta, timezone
         today=datetime.now(timezone.utc).date()
