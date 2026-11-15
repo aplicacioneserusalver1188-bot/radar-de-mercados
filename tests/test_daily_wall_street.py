@@ -180,7 +180,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in summary["quarterly_metrics"]["revenue"]],
                          [10000000000,8000000000])
         output=radar.sec_company_html({"companies":{"SPCX":summary}})
-        self.assertIn("Cifras trimestrales",output)
+        self.assertIn("Resultados trimestrales verificados",output)
         self.assertIn("10,000 millones USD",output)
         self.assertNotIn("25,000 millones USD",output)
 
@@ -404,7 +404,7 @@ class ReportTests(unittest.TestCase):
         with patch.object(radar, "local_news", return_value={}):
             report=radar.render({"series":{}})
         self.assertIn("Qué ocurrió:",report)
-        self.assertIn("No hay descripción verificable traducida",report)
+        self.assertIn("No se obtuvieron hechos adicionales verificables",report)
         self.assertIn("Por qué importa:",report)
 
     def test_offline_spanish_news_uses_source_excerpt_only(self):
