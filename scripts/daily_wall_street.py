@@ -113,6 +113,12 @@ def parse_official_feed(payload, agency, host, now=None, with_description=False)
 def news_relevance(title):
     """Orden editorial por temas económicos, sin presumir impacto de mercado."""
     normalized = title.casefold()
+    # Las tarifas administrativas bancarias no son catalizadores relevantes
+    # para el mercado global por el simple hecho de proceder de la Fed.
+    if any(topic in normalized for topic in (
+        "payment services", "check services", "pricing for payment",
+        "fees for payment services")):
+        return 0
     important = ("fomc", "monetary policy", "interest rate", "inflation", "consumer price",
                  "cpi", "pce", "payroll", "employment", "unemployment", "gdp",
                  "gross domestic product", "personal income", "retail sales",
