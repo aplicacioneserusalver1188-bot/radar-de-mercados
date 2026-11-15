@@ -16,6 +16,7 @@ from update_wall_street_data import series as fred_series
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/"data"/"price_history.json"
+INDEX_KEYS={"sp500":("S&P 500","SP500"),"nasdaq":("Nasdaq Composite","NASDAQCOM"),"dow":("Dow Jones Industrial Average","DJIA"),"russell":("Russell 2000","RU2000PR")}
 COMPANIES=("NVDA","MSFT","AAPL","AMZN","GOOGL","META","AVGO","JPM","TSLA","TSM","SPCX")
 
 def get(url):
@@ -73,7 +74,7 @@ def btc_history():
 
 def collect():
     result={"updated_at":datetime.now(timezone.utc).isoformat(),"assets":{}}
-    for key in ("gold","wti","btc",*COMPANIES):
+    for key in ("gold","wti","btc",*INDEX_KEYS,*COMPANIES):
         try:
             if key=="gold":
                 try:
@@ -100,6 +101,18 @@ def collect():
                 source="https://data-api.binance.vision/"
                 label="Bitcoin BTC/USDT"
                 unit="USDT/BTC"
+            elif key in INDEX_KEYS:
+                # Reutilizar la misma serie FRED de la tabla de índices;
+                # sin llamadas duplicadas ni riesgo de confundir Nasdaq Composite con Nasdaq 100.
+                label,fid=INDEX_KEYS[key]
+                market_path=ROOT/"data"/"market.json"
+                if not market_path.exists():
+                    raise ValueError("Sin archivo FRED de índices")
+                market=json.loads(market_path.read_text(encoding="utf-8"))
+                rows=market.get("series",{}).get(key,{}).get("points",[])
+                points=standardize((p["date"],p["value"]) for p in rows)
+                source="https://fred.stlouisfed.org/series/"+fid
+                unit="puntos"
             else:
                 try:
                     points=stooq(key.lower()+".us")
