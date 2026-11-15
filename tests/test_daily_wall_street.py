@@ -181,6 +181,57 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(news_story.official_details("https://attacker.example/test",request_fn=lambda u:page),"")
 
     @patch.object(radar,"official_news",return_value=[])
+    def test_company_weekly_and_daily_changes_with_news(self):
+        from datetime import datetime,timedelta,timezone
+        import company_pulse
+        today=datetime.now(timezone.utc).date()
+        points=[{"date":(today-timedelta(days=5-i)).isoformat(),
+                 "close":100+2*i} for i in range(6)]
+        p=company_pulse.momentum(points)
+        self.assertAlmostEqual(p["daily"],100*(110/108-1))
+        self.assertAlmostEqual(p["weekly"],10)
+        self.assertIn("Última sesión",company_pulse.reading(p))
+        self.assertIn("Continuación favorable",company_pulse.scenarios(p))
+        news=[{"title":"Company shares rose after an announcement",
+               "url":"https://news.google.com/rss/articles/example",
+               "source":"Financial Times","date":today.isoformat()}]
+        text=company_pulse.company_news_html(news,translator=lambda x:"Empresa anuncia novedades")
+        self.assertIn("Empresa anuncia novedades",text)
+        self.assertIn("no hechos confirmados",text)
+        self.assertNotIn("causó",text)
+
+    @patch.object(radar,"official_news",return_value=[])
+    def test_company_cards_focus_on_last_session_and_week(self,_news):
+        from datetime import datetime,timedelta,timezone
+        today=datetime.now(timezone.utc).date()
+        points=[{"date":(today-timedelta(days=220-i)).isoformat(),
+                 "close":100+i} for i in range(221)]
+        assets={"NVDA":{"points":points,"source":"https://stooq.com/q/?s=nvda.us","unit":"USD/acción"}}
+        report=radar.render({"series":{}},history={"assets":assets},chart_keys={"NVDA":"/tmp/nvda.png"},
+                            company_news={"companies":{}})
+        self.assertIn("Última sesión:",report)
+        self.assertIn("Últimas 5 sesiones:",report)
+        self.assertIn("Qué está haciendo la acción:",report)
+        self.assertIn("Escenario condicional:",report)
+        self.assertIn("Últimas 5 sesiones",report)
+        self.assertNotIn("Resultados financieros (contexto secundario)",report)
+
+    def test_company_news_feed_requires_recent_date_and_link(self):
+        import update_company_news
+        from datetime import datetime,timezone
+        now=datetime(2026,11,15,tzinfo=timezone.utc)
+        rss=b"""<rss><channel><item><title>Nvidia releases new GPU</title>
+        <link>https://news.google.com/rss/articles/yes</link>
+        <pubDate>Sat, 14 Nov 2026 12:00:00 GMT</pubDate><source>Reuters</source>
+        </item><item><title>Old company release</title>
+        <link>https://news.google.com/rss/articles/old</link>
+        <pubDate>Thu, 29 Oct 2026 12:00:00 GMT</pubDate></item>
+        <item><title>Unsafe link</title><link>https://attacker.example/bad</link>
+        <pubDate>Sat, 14 Nov 2026 12:00:00 GMT</pubDate></item></channel></rss>"""
+        rows=update_company_news.parse_feed(rss,now)
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["source"],"Reuters")
+
     def test_four_index_graphs_and_company_graphs_in_report(self,_news):
         from datetime import datetime,timedelta,timezone
         end=datetime.now(timezone.utc).date()
