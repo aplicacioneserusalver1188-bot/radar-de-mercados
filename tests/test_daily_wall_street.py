@@ -95,6 +95,21 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Datos insuficientes",radar.market_diagnosis(data))
         self.assertIn("Sin índices recientes suficientes",radar.index_breadth(data))
 
+    @patch.object(radar, "official_news", return_value=[])
+    def test_out_of_order_observations_do_not_create_changes(self, _news):
+        from datetime import datetime, timedelta, timezone
+        today=datetime.now(timezone.utc).date()
+        current=today.isoformat()
+        yesterday=(today-timedelta(days=1)).isoformat()
+        data={"series":{
+            "sp500":{"points":[{"date":current,"value":100},{"date":yesterday,"value":110}]},
+            "credit":{"points":[{"date":current,"value":3.0},{"date":yesterday,"value":4.0}]}
+        }}
+        self.assertIn("Sin índices recientes suficientes",radar.index_breadth(data))
+        self.assertIn("Datos insuficientes",radar.market_diagnosis(data))
+        report=radar.render(data)
+        self.assertNotIn("variación entre observaciones:",report)
+
     def test_quantitative_diagnosis_only_uses_observed_values(self):
         result = radar.market_diagnosis({"series": {
             "vix": {"points": [{"value": 28.2, "date": "2026-11-13"}]},
