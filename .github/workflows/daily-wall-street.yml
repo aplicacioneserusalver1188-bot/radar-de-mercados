@@ -28,12 +28,15 @@ jobs:
         run: python scripts/update_wall_street_data.py
       - name: Actualizar referencias de oro petróleo y Bitcoin
         run: python scripts/update_references.py
+      - name: Actualizar referencias oro petróleo y Bitcoin
+        run: python scripts/update_references.py
       - name: Obtener cifras empresariales SEC
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
         run: python scripts/update_sec.py
       - name: Generar informe y enviar Gmail
         env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           REPORT_TO: ${{ secrets.REPORT_TO }}
