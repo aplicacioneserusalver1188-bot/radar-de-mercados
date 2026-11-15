@@ -43,8 +43,10 @@ class ReportTests(unittest.TestCase):
         self.assertTrue((root/"scripts/update_wall_street_data.py").is_file())
         self.assertIn("scripts/update_wall_street_data.py", scheduled)
         self.assertIn("scripts/update_wall_street_data.py", testing)
-        self.assertIn("RADAR_ENABLE_EMAIL", scheduled)
-        self.assertIn("github.event_name == 'schedule'", scheduled)
+        self.assertIn("github.event_name == 'workflow_dispatch'", scheduled)
+        self.assertIn("inputs.preview_only", scheduled)
+        self.assertIn("cron: '0 11 * * *'", scheduled)
+        self.assertNotIn("RADAR_ENABLE_EMAIL", scheduled)
         self.assertNotIn("python scripts/update_data.py", scheduled)
 
     @patch.object(radar.smtplib, "SMTP_SSL")
