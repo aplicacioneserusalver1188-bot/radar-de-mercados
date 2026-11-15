@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/daily_wall_street.py'
+      - 'scripts/update_breadth.py'
       - 'scripts/update_sec.py'
       - 'scripts/update_wall_street_data.py'
       - 'tests/**'
@@ -27,6 +28,8 @@ jobs:
         run: python scripts/update_wall_street_data.py
       - name: Consultar referencias de activos
         run: python scripts/update_references.py
+      - name: Consultar amplitud de índices
+        run: python scripts/update_breadth.py
       - name: Consultar SEC real sin credenciales
         env:
           SEC_USER_AGENT: "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)"
