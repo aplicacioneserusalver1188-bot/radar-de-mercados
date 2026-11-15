@@ -349,7 +349,7 @@ class ReportTests(unittest.TestCase):
             report=radar.render({"series":{}})
         self.assertIn("Qué ocurrió:",report)
         self.assertIn("No hay descripción verificable traducida",report)
-        self.assertIn("Impacto potencial:",report)
+        self.assertIn("Por qué importa:",report)
 
     def test_offline_spanish_news_uses_source_excerpt_only(self):
         import news_offline_es as local
