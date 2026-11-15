@@ -139,7 +139,7 @@ def collect():
                 label=key
                 unit="USD/acción"
             result["assets"][key]={"label":label,"unit":unit,"source":source,"points":points}
-            if key in ("gold","russell") and "proxy" in locals() and proxy:
+            if proxy:
                 result["assets"][key]["proxy"]=proxy
         except (OSError,ValueError,KeyError,TypeError,IndexError) as error:
             result["assets"][key]={"error":type(error).__name__,"points":[]}
