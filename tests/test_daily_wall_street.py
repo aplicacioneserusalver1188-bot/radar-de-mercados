@@ -173,6 +173,23 @@ class ReportTests(unittest.TestCase):
         self.assertIn("curva invertida", result)
         self.assertNotIn("probabilidad", result)
 
+    @patch.object(radar, "official_news", return_value=[
+        ("Reserva Federal: FOMC monetary policy decision",
+         "https://www.federalreserve.gov/newsevents/pressreleases/monetary.htm",
+         "15/11/2026 10:00 UTC")])
+    def test_news_provides_conditional_context_not_unverified_market_outcome(self, _news):
+        report=radar.render({"series":{}})
+        self.assertIn("Relevancia potencial:",report)
+        self.assertIn("Política monetaria:",report)
+        self.assertIn("consenso",report.lower() if "consenso" in report.lower() else radar.news_market_context("BLS CPI inflation").lower())
+        self.assertNotIn("las acciones subieron",report)
+
+    def test_news_category_is_not_inferred_for_unknown_release(self):
+        context=radar.news_market_context("SEC: Agency announces new website")
+        self.assertIn("titular por sí solo no permite cuantificar",context)
+        context=radar.news_market_context("BLS: Consumer Price Index (CPI)")
+        self.assertIn("Inflación:",context)
+
     def test_official_news_parser_accepts_rss_and_atom_without_unsafe_links(self):
         from datetime import datetime, timezone
         from email.utils import format_datetime
