@@ -381,7 +381,13 @@ def main():
     if not all([user,password,recipient]):
         raise SystemExit("Informe generado, pero ENVÍO NO REALIZADO: configurar secretos GMAIL_USER, GMAIL_APP_PASSWORD y REPORT_TO")
     msg=build_email_message(report, user, recipient, sec)
-    with smtplib.SMTP_SSL("smtp.gmail.com",465,context=ssl.create_default_context(),timeout=30) as smtp:
-        smtp.login(user,password);smtp.send_message(msg)
-    print("Informe enviado a",recipient)
+    send_email_via_gmail(msg, user, password)
+    print("SMTP aceptó el informe para",recipient)
+
+def send_email_via_gmail(message, username, app_password):
+    """El servidor SMTP confirma aceptación; la recepción se verifica por separado."""
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465,
+                          context=ssl.create_default_context(), timeout=30) as smtp:
+        smtp.login(username, app_password)
+        smtp.send_message(message)
 if __name__=="__main__": main()
