@@ -100,6 +100,34 @@ class ReportTests(unittest.TestCase):
         summary = update_sec.summarize(facts, "NVDA")
         self.assertEqual(summary["metrics"]["revenue"][0]["value"], 100)
 
+    def test_tsm_ifrs_20f_keeps_twd_and_skips_short_periods(self):
+        facts={"facts":{"ifrs-full":{"Revenue":{"units":{"TWD":[
+            {"form":"20-F","fp":"FY","start":"2025-01-01","end":"2025-12-31","filed":"2026-03-10","val":3000000000000},
+            {"form":"20-F","fp":"FY","start":"2024-01-01","end":"2024-12-31","filed":"2025-03-10","val":2500000000000},
+            {"form":"20-F","fp":"FY","start":"2026-01-01","end":"2026-03-31","filed":"2026-05-01","val":900000000000}
+        ]}}}}}
+        summary=update_sec.summarize(facts,"TSM")
+        annual=summary["metrics"]["revenue"]
+        self.assertEqual([x["value"] for x in annual],[3000000000000,2500000000000])
+        self.assertTrue(all(x["currency"]=="TWD" for x in annual))
+        report=radar.sec_company_html({"companies":{"TSM":summary}})
+        self.assertIn("millones TWD",report)
+        self.assertNotIn("3,000,000 millones USD",report)
+
+    def test_spcx_quarterly_10q_keeps_three_months_and_skips_ytd(self):
+        facts={"facts":{"us-gaap":{"Revenues":{"units":{"USD":[
+            {"form":"10-Q","fp":"Q3","start":"2026-07-01","end":"2026-09-30","filed":"2026-11-01","val":10000000000},
+            {"form":"10-Q","fp":"Q3","start":"2026-01-01","end":"2026-09-30","filed":"2026-11-01","val":25000000000},
+            {"form":"10-Q","fp":"Q2","start":"2026-04-01","end":"2026-06-30","filed":"2026-08-01","val":8000000000}
+        ]}}}}}
+        summary=update_sec.summarize(facts,"SPCX")
+        self.assertEqual([x["value"] for x in summary["quarterly_metrics"]["revenue"]],
+                         [10000000000,8000000000])
+        output=radar.sec_company_html({"companies":{"SPCX":summary}})
+        self.assertIn("Cifras trimestrales",output)
+        self.assertIn("10,000 millones USD",output)
+        self.assertNotIn("25,000 millones USD",output)
+
     @patch.object(radar, "official_news", return_value=[])
     def test_sec_renders_numbers_without_inventing_missing_companies(self, _news):
         sec = {"companies": {"NVDA": {"metrics": {
