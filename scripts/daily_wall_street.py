@@ -67,7 +67,7 @@ def parse_official_feed(payload, agency, host, now=None, with_description=False)
         url = (item.findtext("link") or "").strip()
         date_text = (item.findtext("pubDate") or "").strip()
         description = (item.findtext("description") or "").strip()
-        rows.append((title, url, date_text, "rss", description)
+        rows.append((title, url, date_text, "rss", description))
     namespace = {"atom": "http://www.w3.org/2005/Atom"}
     for item in root.findall(".//atom:entry", namespace):
         title = (item.findtext("atom:title", default="", namespaces=namespace) or "").strip()
@@ -77,7 +77,7 @@ def parse_official_feed(payload, agency, host, now=None, with_description=False)
         date_text = (item.findtext("atom:published", default="", namespaces=namespace)
                      or item.findtext("atom:updated", default="", namespaces=namespace) or "").strip()
         summary = (item.findtext("atom:summary", default="", namespaces=namespace) or "").strip()
-        rows.append((title, url, date_text, "atom", summary)
+        rows.append((title, url, date_text, "atom", summary))
     valid = []
     for title, url, date_text, format_name, description in rows:
         location = urlsplit(url)
