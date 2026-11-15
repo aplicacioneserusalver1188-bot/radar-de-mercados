@@ -295,7 +295,7 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
         else:
             content+='<p>No se obtuvo un histórico reciente suficiente para describir la última sesión y semana.</p>'
         content+=chart_fragment(ticker,history,chart_keys)
-        content+=company_news_html(headlines.get(ticker,[]),translator=local_translation)
+        content+=company_news_html(headlines.get(ticker,[]),translator=local_translation,ticker=ticker)
         annual=company_metric_rows(info.get("metrics",{}))
         quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
         if annual or quarterly:
