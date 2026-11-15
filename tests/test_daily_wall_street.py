@@ -135,7 +135,7 @@ class ReportTests(unittest.TestCase):
             "vix":{"points":[{"date":recent,"value":20}]}
         }}
         self.assertEqual(radar.essential_macro_coverage(data),3)
-        data["vix"]["points"][0]["date"]=old_daily
+        data["series"]["vix"]["points"][0]["date"]=old_daily
         self.assertEqual(radar.essential_macro_coverage(data),2)
 
     def test_quantitative_diagnosis_only_uses_observed_values(self):
