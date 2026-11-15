@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/"data"/"breadth.json"
 SOURCES={
-    "sp500":("S&P 500","https://www.stocksxray.com/market-breadth"),
+    "sp500":("S&P 500","https://chartrow.com/sp500/market-breadth"),
     "nasdaq100":("Nasdaq 100","https://aveceasar.github.io/nasdaq100-percent-above-moving-averages/"),
 }
 
@@ -39,8 +39,9 @@ def parse_nasdaq(content):
 
 def parse_sp500(content):
     text=text_content(content)
-    date=read_date(text)
-    if not date:raise ValueError("Fecha S&P 500 no identificada")
+    raw_date=re.search(r"as of market close,\s+([A-Z][a-z]{2} \d{1,2}, 20\d\d)",text)
+    if not raw_date:raise ValueError("Fecha de cierre S&P 500 no identificada")
+    date=datetime.strptime(raw_date.group(1),"%b %d, %Y").date().isoformat()
     # Buscar el resumen compacto de 20/50/200 SMA, no textos sueltos que podrían tener otro periodo.
     patterns=[
       r"200d\s+([\d.]+)%\s*50d\s+([\d.]+)%\s*20d\s+([\d.]+)%",
