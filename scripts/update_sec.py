@@ -60,32 +60,36 @@ def financial_series(facts, namespaces, names, forms, months, currency):
 AGENT = os.getenv("SEC_USER_AGENT") or "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)"
 
 def annual_values(facts, tags):
-    """Only facts for full 10-K fiscal years, avoiding quarterly/YTD mixing."""
-    gaap = facts.get("facts", {}).get("us-gaap", {})
+    """Escoger el año fiscal más reciente ENTRE TODAS las etiquetas GAAP alternativas.
+
+    Antes se elegía la primera etiqueta con registros, incluso si era de 2012 o
+    2022, ignorando otra etiqueta con información de 2026.
+    """
+    gaap=facts.get("facts",{}).get("us-gaap",{})
+    candidates=[]
     for tag in tags:
-        units = gaap.get(tag, {}).get("units", {}).get("USD", [])
-        records = []
+        units=gaap.get(tag,{}).get("units",{}).get("USD",[])
         for row in units:
-            if row.get("form") != "10-K" or row.get("fp") != "FY":
+            if row.get("form")!="10-K" or row.get("fp")!="FY":
                 continue
-            start, end, filed = row.get("start"), row.get("end"), row.get("filed")
-            if not all((start, end, filed)) or not isinstance(row.get("val"), (int, float)):
+            start,end,filed=row.get("start"),row.get("end"),row.get("filed")
+            if not all((start,end,filed)) or not isinstance(row.get("val"),(int,float)):
                 continue
             try:
-                span = (datetime.fromisoformat(end) - datetime.fromisoformat(start)).days
-            except ValueError:
+                span=(datetime.fromisoformat(end)-datetime.fromisoformat(start)).days
+            except (TypeError,ValueError):
                 continue
-            if not 330 <= span <= 380:
-                continue
-            records.append({"end": end, "filed": filed, "value": row["val"],
-                            "accession": row.get("accn")})
-        if records:
-            # Latest filing for each fiscal period; keep recent two distinct years.
-            newest = {}
-            for r in sorted(records, key=lambda x: (x["end"], x["filed"])):
-                newest[r["end"]] = r
-            return sorted(newest.values(), key=lambda x: x["end"], reverse=True)[:2]
-    return []
+            if 330<=span<=380:
+                candidates.append({"end":end,"filed":filed,"value":row["val"],
+                                   "currency":"USD","form":"10-K","start":start,
+                                   "accession":row.get("accn"),"tag":tag})
+    newest={}
+    # Priorizar etiquetas listadas solo cuando pertenecen al mismo cierre.
+    tag_order={tag:i for i,tag in enumerate(tags)}
+    for row in sorted(candidates,key=lambda x:(x["end"],-tag_order[x["tag"]],x["filed"])):
+        newest[row["end"]]=row
+    dates=sorted(newest,reverse=True)
+    return [newest[x] for x in dates[:2]]
 
 def summarize(facts, ticker):
     metrics = {name: annual_values(facts, tags) for name, tags in TAGS.items()}
@@ -94,6 +98,17 @@ def summarize(facts, ticker):
         for name,tags in IFRS_TAGS.items():
             if not metrics[name]:
                 metrics[name]=financial_series(facts,("ifrs-full",),tags,("20-F",),12,"TWD")
+    # Una cifra aislada antigua de una etiqueta no se mezcla con los ejercicios
+    # recientes del resto de estados financieros de la misma compañía.
+    all_periods=[datetime.fromisoformat(rows[0]["end"])
+                 for rows in metrics.values() if rows]
+    if all_periods:
+        latest_period=max(all_periods)
+        for key,rows in metrics.items():
+            if rows:
+                gap=(latest_period-datetime.fromisoformat(rows[0]["end"])).days
+                if gap>400:
+                    metrics[key]=[]
     quarterly={}
     if ticker=="SPCX":
         # Solo periodos individuales de ~3 meses; no comparar acumulados 9M con trimestres.
