@@ -122,6 +122,22 @@ class ReportTests(unittest.TestCase):
         report=radar.render(data)
         self.assertNotIn("variación entre observaciones:",report)
 
+    def test_essential_macro_coverage_rejects_stale_series(self):
+        from datetime import datetime, timedelta, timezone
+        today=datetime.now(timezone.utc).date()
+        old_daily=(today-timedelta(days=20)).isoformat()
+        recent=today.isoformat()
+        monthly=(today-timedelta(days=45)).isoformat()
+        data={"series":{
+            "inflation":{"points":[{"date":monthly,"value":310}]},
+            "payrolls":{"points":[{"date":monthly,"value":150000}]},
+            "treasury10y":{"points":[{"date":old_daily,"value":4.2}]},
+            "vix":{"points":[{"date":recent,"value":20}]}
+        }}
+        self.assertEqual(radar.essential_macro_coverage(data),3)
+        data["vix"]["points"][0]["date"]=old_daily
+        self.assertEqual(radar.essential_macro_coverage(data),2)
+
     def test_quantitative_diagnosis_only_uses_observed_values(self):
         result = radar.market_diagnosis({"series": {
             "vix": {"points": [{"value": 28.2, "date": "2026-11-13"}]},
