@@ -241,6 +241,45 @@ class ReportTests(unittest.TestCase):
         context=radar.news_market_context("BLS: Consumer Price Index (CPI)")
         self.assertIn("Inflación:",context)
 
+    @patch.object(radar, "official_news", return_value=[])
+    def test_market_references_include_gold_oil_and_bitcoin_with_units(self, _news):
+        from datetime import datetime, timezone
+        current=datetime.now(timezone.utc).isoformat()
+        refs={"assets":{
+            "gold":{"value":4200,"timestamp":current,"unit":"USD/onza troy","source":"https://gold-api.com/"},
+            "wti":{"value":72,"date":current[:10],"unit":"USD/barril","source":"https://fred.stlouisfed.org/series/DCOILWTICO"},
+            "brent":{"value":76,"date":current[:10],"unit":"USD/barril","source":"https://fred.stlouisfed.org/series/DCOILBRENTEU"},
+            "btc":{"value":91000,"timestamp":current,"unit":"USDT/BTC","change_24h":2.5,"source":"https://www.binance.com/en/trade/BTC_USDT"}
+        }}
+        report=radar.render({"series":{}}, refs=refs)
+        self.assertIn("Oro XAU/USD",report)
+        self.assertIn("Petróleo WTI",report)
+        self.assertIn("Petróleo Brent",report)
+        self.assertIn("Bitcoin BTC/USDT",report)
+        self.assertIn("variación móvil 24 h: +2.50%",report)
+
+    @patch.object(radar, "official_news", return_value=[
+        ("Reserva Federal: Monetary policy statement","https://www.federalreserve.gov/test","15/11/2026 11:00 UTC","Published a statement")])
+    def test_news_labels_unknown_factual_summary_honestly(self, _news):
+        with patch.object(radar, "summarize_news", return_value={}):
+            report=radar.render({"series":{}})
+        self.assertIn("Resumen factual en español:",report)
+        self.assertIn("No disponible sin análisis de la fuente original",report)
+        self.assertIn("Impacto potencial:",report)
+
+    def test_news_parser_can_extract_official_description(self):
+        from datetime import datetime,timezone
+        from email.utils import format_datetime
+        now=datetime.now(timezone.utc)
+        raw=("<rss><channel><item><title>New report</title><link>https://www.federalreserve.gov/news</link>"
+             "<pubDate>"+format_datetime(now)+"</pubDate>"
+             "<description>Report on &lt;b&gt;economic conditions&lt;/b&gt;.</description></item></channel></rss>")
+        parsed=radar.parse_official_feed(raw.encode(),"Fed","www.federalreserve.gov",
+                                         now=now,with_description=True)
+        self.assertEqual(len(parsed),1)
+        self.assertIn("economic conditions",parsed[0][4])
+        self.assertNotIn("<b>",parsed[0][4])
+
     def test_official_news_parser_accepts_rss_and_atom_without_unsafe_links(self):
         from datetime import datetime, timezone
         from email.utils import format_datetime
