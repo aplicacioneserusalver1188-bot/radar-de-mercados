@@ -90,3 +90,9 @@ La variable opcional `RADAR_ENABLE_EMAIL` ya no controla el cron, porque el usua
 - Las cifras anuales se presentan en millones USD, con fecha fiscal, variación anual cuando sea comparable y margen neto explicado en términos sencillos.
 - El módulo `scripts/update_breadth.py` consulta porcentajes de acciones por encima de SMA20/SMA50/SMA200 de S&P 500 y Nasdaq-100, con origen y fecha: ChartRow para S&P 500 y ChartVault para Nasdaq-100. Son publicaciones de proveedores independientes, **no datos certificados por los gestores del índice**. Las series históricas basadas en componentes actuales pueden tener sesgo de supervivencia; el denominador válido puede variar según la media. Los resultados se omiten si falta el trío o si tienen más de 7 días.
 - CI de la rama verificó 32 pruebas, ambas fuentes de amplitud disponibles y generación HTML en modo de prueba.
+
+## Soporte internacional y trimestral — 15/11/2026
+
+Se amplía la lectura SEC para **TSM**: cuando no haya hechos US-GAAP anuales, el extractor busca hechos IFRS (`ifrs-full`) de formularios 20-F, con unidad **TWD** y periodos completos de 330–380 días. No convierte TWD a USD ni mezcla monedas. Para **SPCX**, se muestran por separado importes de formularios 10-Q con periodos individuales de 70–105 días; se descartan totales acumulados de varios trimestres. Las comparaciones son entre los periodos disponibles, no necesariamente interanuales. Si SEC bloquea el acceso HTTP 403, el informe sigue mostrando ausencia de datos sin inventarlos.
+
+La redacción automatizada de noticias sigue dependiendo del secreto opcional `GEMINI_API_KEY`; la ausencia de este secreto no está resuelta con estos cambios. Se conserva el cron del envío diario por Gmail.
