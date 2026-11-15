@@ -8,6 +8,7 @@ from email.message import EmailMessage
 from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
 from news_offline_es import local_news
+from render_charts import metrics as chart_metrics, interpretation as trend_interpretation, build_charts
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "market.json"
@@ -15,6 +16,7 @@ OUT = ROOT / "reports" / "wall-street-latest.html"
 SEC_DATA = ROOT / "data" / "sec_company_summary.json"
 REFERENCES = ROOT / "data" / "references.json"
 BREADTH = ROOT / "data" / "breadth.json"
+PRICE_HISTORY = ROOT / "data" / "price_history.json"
 SERIES = [
  ("pce", "Inflación PCE (nivel del índice)", "Variación interanual del deflactor del consumo personal; referencia clave para la Fed."),
  ("corepce", "PCE subyacente (nivel del índice)", "Excluye alimentos y energía; su variación interanual ayuda a evaluar persistencia de inflación."),
@@ -345,45 +347,56 @@ def render_stock_breadth(breadth):
             '<p>Un porcentaje superior a 50% significa que la mayoría de los valores evaluados está '
             'sobre esa media. No es garantía de tendencia futura ni señal automática de compra.</p>')
 
-def render_market_references(refs):
-    """Tabla con unidades, fecha y límites de actualidad de cada mercado."""
-    assets=refs.get("assets",{})
-    rows=[]
-    for key,label,context in (
-        ("gold","Oro XAU/USD","Referencia de refugio y tipos reales; no implica alza de acciones."),
-        ("wti","Petróleo WTI","Energía de EE. UU.; puede influir en expectativas de inflación."),
-        ("brent","Petróleo Brent","Referencia internacional de petróleo; refleja tensiones de oferta y demanda."),
-        ("btc","Bitcoin BTC/USDT","Mercado de criptomonedas; par cotizado contra USDT, no USD.")):
-        obj=assets.get(key,{})
-        if not isinstance(obj,dict) or "value" not in obj:
-            value="No disponible: fuente sin datos verificables"
-            source=""
-        else:
-            date_text=obj.get("timestamp",obj.get("date",""))
-            try:
-                measured=datetime.fromisoformat(date_text.replace("Z","+00:00"))
-                if measured.tzinfo is None: measured=measured.replace(tzinfo=timezone.utc)
-                age=(datetime.now(timezone.utc)-measured.astimezone(timezone.utc)).total_seconds()
-                recent=0<=age<=(86400*7 if key in ("wti","brent") else 86400)
-            except ValueError:
-                recent=False
-            value=f'{obj["value"]:,.2f} {obj.get("unit","")} (dato: {date_text})'
-            if not recent: value+="; dato histórico o sin vigencia confirmada"
-            if key=="btc" and recent and "change_24h" in obj:
-                value+=f'; variación móvil 24 h: {obj["change_24h"]:+.2f}%'
-            if key in ("wti","brent") and recent and obj.get("previous") and obj["previous"]["value"]>0:
-                pct=(obj["value"]/obj["previous"]["value"]-1)*100
-                value+=f'; variación entre observaciones: {pct:+.2f}%'
-            url=obj.get("source","")
-            source=f' <a href="{esc(url)}">Fuente</a>' if url.startswith("https://") else ""
-        rows.append(f"<tr><th>{esc(label)}</th><td>{esc(value)}{source}</td><td>{esc(context)}</td></tr>")
-    return ('<h2>Tablero de referencia: oro, petróleo y Bitcoin</h2>'
-            '<p>Precios de fuentes independientes y horarios diferentes. No representan un cierre simultáneo.'
-            ' WTI y Brent se publican con retraso; Bitcoin es BTC/USDT, distinto de BTC/USD.</p>'
-            '<table border="1" cellpadding="8"><tr><th>Activo</th><th>Referencia</th><th>Interpretación</th></tr>'
-            + "".join(rows) + "</table>")
+def chart_fragment(key, history=None, chart_keys=None):
+    """Imagen CID incrustada en Gmail, más conclusión calculada con los cierres."""
+    asset=(history or {}).get("assets",{}).get(key,{})
+    points=asset.get("points",[])
+    measure=chart_metrics(points)
+    if not measure:
+        return '<p style="color:#65758a">Sin precios históricos verificables: no se dibuja una tendencia ficticia.</p>'
+    if measure.get("stale"):
+        return f'<p>El último cierre ({esc(measure.get("date",""))}) está desactualizado. No se presenta como cotización actual.</p>'
+    details=[f'Último cierre: <strong>{measure["close"]:,.2f} {esc(asset.get("unit",""))}</strong> ({esc(measure["date"])})']
+    if "change20" in measure:
+        details.append(f'Cambio de 20 sesiones: <strong>{measure["change20"]:+.1f}%</strong>')
+    for n in (20,50,200):
+        if "ma"+str(n) in measure:
+            details.append(f'MA{n}: {measure["ma"+str(n)]:,.2f}')
+    graphic=(f'<p><img src="cid:radar-{key.lower()}" alt="Gráfico histórico de {esc(key)}" '
+             'style="width:100%;max-width:630px;height:auto;border:1px solid #e8edf2"></p>'
+             if key in (chart_keys or ()) else '<p>Gráfico no disponible en esta ejecución.</p>')
+    url=asset.get("source","")
+    source=f'<a href="{esc(url)}">Histórico y fuente</a>' if url.startswith("https://") else ""
+    return ('<p>'+' · '.join(details)+'</p>'+graphic
+            +'<p><strong>Qué muestra:</strong> '+esc(trend_interpretation(measure))+'</p>'
+            +'<p style="font-size:12px">'+source+'</p>')
 
-def render(data, sec=None, refs=None, breadth=None):
+def render_market_references(refs,history=None,chart_keys=None):
+    """Tres referencias clave, cada una con conclusión y gráfico individual."""
+    assets=refs.get("assets",{})
+    blocks=[]
+    for key,name,context in (
+        ("gold","Oro XAU/USD","Activo de referencia de refugio; se compara su propia tendencia, no se deduce miedo a partir de un solo precio."),
+        ("wti","Petróleo WTI — Estados Unidos","Referencia de energía que puede presionar costes e inflación; interpretar movimiento de varias sesiones."),
+        ("btc","Bitcoin BTC/USDT","Activo digital sensible a la liquidez y al apetito por riesgo; USDT no equivale exactamente a USD.")):
+        obj=assets.get(key,{})
+        if "value" in obj:
+            last=(obj.get("timestamp") or obj.get("date") or "")[:10]
+            price=f'{obj["value"]:,.2f} {obj.get("unit","")}'
+            latest=f'<p style="font-size:24px;font-weight:bold;margin:8px 0">{esc(price)}</p><p>Referencia: {esc(last)}</p>'
+        else:
+            latest='<p>Precio actual no disponible en la fuente consultada.</p>'
+        blocks.append('<div style="margin:14px 0;padding:18px;border:1px solid #dfe5ec;border-radius:12px">'
+                      f'<h3 style="margin:0">{esc(name)}</h3>'+latest+
+                      '<p style="color:#455267">'+esc(context)+'</p>'
+                      +chart_fragment(key,history,chart_keys)+'</div>')
+    return ('<h2>Pulso de los mercados: oro, petróleo WTI y Bitcoin</h2>'
+            '<p>Comparaciones de cierre con periodos y horarios distintos. Los gráficos muestran tendencias, '
+            'no precios en tiempo real. El petróleo internacional Brent queda excluido.</p>'
+            +''.join(blocks))
+
+
+def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=None):
     now=datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y %H:%M")
     items=[]; flags=[]; news=official_news()
     for key,label,meaning in SERIES:
@@ -413,7 +426,7 @@ def render(data, sec=None, refs=None, breadth=None):
         else:
             value="No disponible"; flags.append(label+" sin datos")
         items.append(f"<tr><th>{fred_link(obj,label)}</th><td>{esc(value)}</td><td>{esc(meaning)}</td></tr>")
-    companies=sec_company_html(sec or {})
+    companies=sec_company_html(sec or {},history,chart_keys)
     cleaned_news=[(item[0],item[1],item[2],item[3] if len(item)>3 else "") for item in news]
     try:
         translations=local_news([(title.split(": ",1)[-1],title.split(":",1)[0],description)
@@ -457,7 +470,7 @@ def render(data, sec=None, refs=None, breadth=None):
             value="No disponible; verificar cobertura de FRED"
         index_rows.append(f"<tr><th>{fred_link(data.get('series',{}).get(key,{}),label)}</th><td>{esc(value)}</td></tr>")
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {})}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices y sectores bursátiles</h2>{index_breadth(data)}<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días. Los extractos se traducen localmente al español, sin costos de API ni interpretación de hechos adicionales. Cuando no hay descripción oficial se indica expresamente:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {},history,chart_keys)}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices y sectores bursátiles</h2>{index_breadth(data)}<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días. Los extractos se traducen localmente al español, sin costos de API ni interpretación de hechos adicionales. Cuando no hay descripción oficial se indica expresamente:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
