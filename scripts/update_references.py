@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Referencias independientes: oro XAU/USD, WTI/Brent FRED y BTC/USDT Binance."""
+"""Referencias independientes: oro XAU/USD, WTI de EE. UU. en FRED y BTC/USDT Binance."""
 import json, pathlib, urllib.request
 from datetime import datetime, timezone
 from update_wall_street_data import series as fred_series
@@ -32,7 +32,7 @@ def parse_btc(obj):
 
 def collect():
     data={"updated_at":datetime.now(timezone.utc).isoformat(),"assets":{}}
-    for key,fid,label in (("wti","DCOILWTICO","Petróleo WTI"),("brent","DCOILBRENTEU","Petróleo Brent")):
+    for key,fid,label in (("wti","DCOILWTICO","Petróleo WTI"),):
         try:
             points=fred_series(fid)
             if not points: raise ValueError("sin observaciones")

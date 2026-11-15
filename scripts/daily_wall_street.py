@@ -8,6 +8,8 @@ from email.message import EmailMessage
 from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
 from news_offline_es import local_news
+from render_charts import metrics as chart_metrics, interpretation as trend_interpretation, build_charts
+from news_story import official_details
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "market.json"
@@ -15,6 +17,7 @@ OUT = ROOT / "reports" / "wall-street-latest.html"
 SEC_DATA = ROOT / "data" / "sec_company_summary.json"
 REFERENCES = ROOT / "data" / "references.json"
 BREADTH = ROOT / "data" / "breadth.json"
+PRICE_HISTORY = ROOT / "data" / "price_history.json"
 SERIES = [
  ("pce", "Inflación PCE (nivel del índice)", "Variación interanual del deflactor del consumo personal; referencia clave para la Fed."),
  ("corepce", "PCE subyacente (nivel del índice)", "Excluye alimentos y energía; su variación interanual ayuda a evaluar persistencia de inflación."),
@@ -110,6 +113,12 @@ def parse_official_feed(payload, agency, host, now=None, with_description=False)
 def news_relevance(title):
     """Orden editorial por temas económicos, sin presumir impacto de mercado."""
     normalized = title.casefold()
+    # Las tarifas administrativas bancarias no son catalizadores relevantes
+    # para el mercado global por el simple hecho de proceder de la Fed.
+    if any(topic in normalized for topic in (
+        "payment services", "check services", "pricing for payment",
+        "fees for payment services")):
+        return 0
     important = ("fomc", "monetary policy", "interest rate", "inflation", "consumer price",
                  "cpi", "pce", "payroll", "employment", "unemployment", "gdp",
                  "gross domestic product", "personal income", "retail sales",
@@ -147,86 +156,140 @@ def official_news():
         if link not in seen:
             unique.append((title, link, date, description))
             seen.add(link)
-    return unique[:10]
+    # Solo comunicados con contenido económico identificable. No llenar el
+    # informe con notas administrativas ajenas al movimiento de los activos.
+    selected=[item for item in unique if news_relevance(item[0])>0][:7]
+    enriched=[]
+    for i,(title,link,date,description) in enumerate(selected):
+        headline=title.split(": ",1)[-1]
+        similar=(description[:130].casefold().strip() in headline.casefold() or
+                 headline[:100].casefold() in description.casefold())
+        if i<5 and (len(description)<180 or similar):
+            try:
+                details=official_details(link,headline)
+                if len(details)>len(description)+60:
+                    description=details
+            except (OSError,ValueError,UnicodeError) as error:
+                print("Texto íntegro no disponible:",type(error).__name__)
+        enriched.append((title,link,date,description))
+    return enriched
 
 def news_market_context(title):
-    """Contexto condicional por palabras del titular; no deduce el resultado del comunicado."""
-    headline = title.casefold()
-    categories = (
-        (("federal funds", "interest rate", "fomc", "monetary policy", "tasas de interés", "política monetaria"),
-         "Política monetaria: contrastar la decisión o el tono del comunicado con las expectativas previas. Puede influir en rendimientos, dólar y valoración de acciones."),
-        (("consumer price", "cpi", "inflation", "personal consumption expenditures", "pce", "precios al consumidor", "inflación"),
-         "Inflación: comparar el dato publicado con el consenso y la lectura anterior. Su sorpresa puede modificar las expectativas de tipos de interés."),
-        (("employment", "payroll", "job openings", "unemployment", "labor market", "empleo", "desempleo"),
-         "Empleo: evaluar creación de puestos, desempleo y revisiones frente al consenso. La interpretación depende de su efecto sobre actividad e inflación."),
-        (("gross domestic product", "gdp", "retail sales", "economic activity", "producto interno bruto", "ventas minoristas"),
-         "Actividad: comparar el crecimiento y las revisiones con las previsiones. Un dato aislado no determina la dirección del mercado."),
-        (("enforcement", "securities", "fraud", "litigation", "disclosure", "regulation", "regulación", "sanción"),
-         "Regulación: identificar empresas y normas realmente afectadas antes de inferir repercusiones bursátiles."),
-    )
-    for terms, explanation in categories:
-        if any(term in headline for term in terms):
-            return explanation
-    return ("Comunicado institucional: examinar el texto original, su alcance y la reacción observada. "
-            "El titular por sí solo no permite cuantificar un impacto en bolsa.")
+    """Impacto específico condicionado al hecho; nunca instrucciones editoriales."""
+    t=title.casefold()
+    if any(s in t for s in ("payment services","check services","pricing","fees")):
+        return ("Afecta principalmente a costes de servicios bancarios. "
+                "Sin cuantificar las nuevas tarifas no hay evidencia de un impacto "
+                "material sobre S&P 500 o Nasdaq 100; catalizador de baja prioridad.")
+    if any(s in t for s in ("fomc","interest rate","monetary policy","federal funds")):
+        return ("Puede modificar las expectativas sobre tipos de interés, "
+                "el precio de los bonos, el dólar y las valoraciones bursátiles. "
+                "El efecto concreto depende de la decisión, el tono y las expectativas previas.")
+    if any(s in t for s in ("cpi","consumer price","inflation","pce","price index")):
+        return ("Un dato de inflación diferente de lo esperado puede cambiar "
+                "las expectativas de tipos de la Fed y repercutir en bonos, "
+                "acciones y oro. Sin consenso verificable no se infiere la dirección.")
+    if any(s in t for s in ("payroll","employment","unemployment","job openings")):
+        return ("La fortaleza o debilidad del empleo influye en las expectativas "
+                "de actividad económica y política monetaria. El impacto requiere "
+                "comparar cifras reales con previsiones y revisiones.")
+    if any(s in t for s in ("gdp","gross domestic product","retail sales","consumer spending")):
+        return ("Señal sobre crecimiento y consumo. Puede afectar perspectivas "
+                "de beneficios, pero el efecto bursátil depende de las sorpresas "
+                "frente a las expectativas.")
+    if any(s in t for s in ("regulation","fraud","enforcement","securities")):
+        return ("Podría afectar directamente a las compañías y actividades "
+                "mencionadas en el comunicado; no se extrapola automáticamente "
+                "al mercado general.")
+    return ("La repercusión financiera no está demostrada con la información "
+            "disponible; no se presenta como catalizador bursátil.")
+
 
 def financial_value(value):
     """Expresar magnitudes contables en millones de dólares."""
     return f'{value / 1_000_000:,.0f} millones USD'
 
-def company_metric_rows(metrics, period="anual"):
-    rows=[]
-    currency=None
+def company_metric_rows(metrics,period="anual"):
+    """Solo mostrar magnitudes del mismo ejercicio fiscal, sin cifras antiguas."""
+    all_latest=[x[0]["end"] for x in metrics.values() if x]
+    if not all_latest:
+        return []
+    end=max(all_latest)
+    chosen={key:next((row for row in rows if row["end"]==end),None)
+            for key,rows in metrics.items()}
+    rows_html=[]
     for key,label in (("revenue","Ingresos"),("net_income","Beneficio neto"),
                       ("operating_cash","Flujo de caja operativo"),
                       ("capital_expenditure","Inversión en activos fijos")):
-        vals=metrics.get(key,[])
-        if not vals: continue
-        latest=vals[0]
-        unit=latest.get("currency","USD")
-        currency=currency or unit
-        amount=f'{latest["value"]/1_000_000:,.0f} millones {unit}'
-        value=f'{amount} (periodo terminado {latest["end"]})'
-        if len(vals)>=2 and vals[1]["value"] and vals[1].get("currency","USD")==unit:
-            change=(latest["value"]/vals[1]["value"]-1)*100
-            value+=f'; variación entre periodos disponibles: {change:+.1f}%'
-        rows.append(f'<li><strong>{esc(label)}:</strong> {esc(value)}</li>')
-    revenue=metrics.get("revenue",[])
-    profit=metrics.get("net_income",[])
-    if revenue and profit and revenue[0]["end"]==profit[0]["end"] and revenue[0]["value"]>0:
-        if revenue[0].get("currency","USD")==profit[0].get("currency","USD"):
-            margin=100*profit[0]["value"]/revenue[0]["value"]
-            unit=revenue[0].get("currency","USD")
-            rows.append(f'<li><strong>Margen neto calculado: {margin:.1f}%</strong>. '
-                        f'De cada 100 {esc(unit)} de ingresos quedan aproximadamente '
-                        f'{margin:.1f} {esc(unit)} de beneficio neto.</li>')
-    return rows
+        current=chosen.get(key)
+        if not current:
+            continue
+        unit=current.get("currency","USD")
+        value=f'{current["value"]/1_000_000:,.0f} millones {unit}'
+        all_rows=metrics.get(key,[])
+        previous=next((r for r in all_rows if r["end"]!=end and
+                       r.get("currency","USD")==unit and
+                       330<=(datetime.fromisoformat(end)-datetime.fromisoformat(r["end"])).days<=400),
+                      None) if period=="anual" else None
+        if previous and previous["value"]>0:
+            value+=f'; cambio interanual: {(current["value"]/previous["value"]-1)*100:+.1f}%'
+        rows_html.append(f'<li><strong>{esc(label)}:</strong> {esc(value)}</li>')
+    rev=chosen.get("revenue")
+    profit=chosen.get("net_income")
+    cash=chosen.get("operating_cash")
+    if rev and rev["value"]>0 and profit and rev.get("currency","USD")==profit.get("currency","USD"):
+        margin=100*profit["value"]/rev["value"]
+        rows_html.append(f'<li><strong>Margen neto: {margin:.1f}%</strong>. '
+                         f'Beneficio de {margin:.1f} por cada 100 {esc(rev.get("currency","USD"))} de ingresos.</li>')
+    if cash and profit and profit["value"]>0 and cash.get("currency","USD")==profit.get("currency","USD"):
+        coverage=cash["value"]/profit["value"]
+        result=("supera" if coverage>=1 else "queda por debajo de")
+        rows_html.append(f'<li><strong>Conversión de beneficio en efectivo:</strong> '
+                         f'el flujo operativo {result} al beneficio neto (relación {coverage:.2f}x).</li>')
+    rows_html.insert(0,f'<li><strong>Periodo comparable:</strong> cierre {esc(end)}.</li>')
+    return rows_html
 
-def sec_company_html(sec):
+def company_conclusion(metrics):
+    rev=metrics.get("revenue",[])
+    profit=metrics.get("net_income",[])
+    if not rev:
+        return "Sin ingresos del último ejercicio comparables: no es responsable concluir si el negocio mejora."
+    end=rev[0]["end"]
+    profit_current=next((x for x in profit if x["end"]==end),None)
+    prev=next((x for x in rev[1:] if 330<=(datetime.fromisoformat(end)-datetime.fromisoformat(x["end"])).days<=400),None)
+    if not prev or prev["value"]<=0:
+        return "Hay cifras del último ejercicio, pero faltan dos años consecutivos para evaluar crecimiento."
+    growth=100*(rev[0]["value"]/prev["value"]-1)
+    movement="crecieron" if growth>0 else "retrocedieron" if growth<0 else "se mantuvieron"
+    diagnosis=f"Los ingresos {movement} {abs(growth):.1f}% frente al ejercicio anterior."
+    if profit_current and rev[0]["value"]>0:
+        margin=100*profit_current["value"]/rev[0]["value"]
+        diagnosis+=f" El margen neto de este ejercicio fue {margin:.1f}%."
+    return diagnosis+" El movimiento bursátil se analiza por separado; los resultados contables no predicen el precio."
+
+def sec_company_html(sec,history=None,chart_keys=None):
     companies=sec.get("companies",{})
     blocks=[]
     for ticker,name in COMPANIES:
         info=companies.get(ticker,{})
         annual=company_metric_rows(info.get("metrics",{}))
-        quarterly=company_metric_rows(info.get("quarterly_metrics",{})) if ticker=="SPCX" else []
-        if annual or quarterly:
-            src=info.get("source","https://www.sec.gov/edgar/search/")
-            sections=[]
-            if annual: sections.append('<strong>Cifras anuales:</strong><ul>'+''.join(annual)+'</ul>')
-            if quarterly: sections.append('<strong>Cifras trimestrales (10-Q, periodos de tres meses):</strong><ul>'+''.join(quarterly)+'</ul>')
-            caveat=(' Cifras en TWD si la fuente publica estados IFRS en dólares taiwaneses; no son USD.'
-                    if ticker=="TSM" else
-                    ' Las cifras trimestrales no equivalen a resultados anuales.'
-                    if ticker=="SPCX" else '')
-            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>'
-                          +''.join(sections)+f'<a href="{esc(src)}">Fuente SEC XBRL</a>. '
-                          +'Datos históricos, no pronósticos.'+esc(caveat)+'</li>')
-        else:
-            explanation=("TSMC declara mediante 20-F/IFRS; no hubo cifras comparables accesibles." if ticker=="TSM"
-                         else "SpaceX presenta 10-Q, pero sus datos trimestrales no estaban disponibles o completos." if ticker=="SPCX"
-                         else "La SEC no entregó información financiera verificable en esta ejecución.")
-            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>: sin métricas anuales verificadas. {esc(explanation)}</li>')
-    return "<ul>"+"".join(blocks)+"</ul>"
+        quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
+        content=f'<h3 style="margin:0 0 8px">{esc(name)} ({esc(ticker)})</h3>'
+        content+=chart_fragment(ticker,history,chart_keys)
+        if annual:
+            content+='<p><strong>Resultados anuales verificados</strong></p><ul>'+''.join(annual)+'</ul>'
+            content+='<p><strong>Lectura empresarial:</strong> '+esc(company_conclusion(info.get("metrics",{})))+'</p>'
+        if quarterly:
+            content+='<p><strong>Resultados trimestrales verificados (10-Q, no anualizados)</strong></p><ul>'+''.join(quarterly)+'</ul>'
+        if not annual and not quarterly:
+            content+='<p><strong>Resultados fundamentales:</strong> sin datos SEC comparables verificados. '
+            content+='El gráfico de precios, si existe, no sustituye los estados financieros.</p>'
+        source=info.get("source","")
+        if source.startswith("https://"):
+            content+=f'<p style="font-size:12px"><a href="{esc(source)}">Fuente contable SEC</a></p>'
+        blocks.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
+                      +content+'</div>')
+    return "".join(blocks)
 
 def data_quality_summary(data, sec=None, news_count=0):
     """Informe auditable de cobertura, frescura y límites, no una nota de confianza inventada."""
@@ -291,6 +354,32 @@ def market_diagnosis(data):
             + "<p><strong>Conclusión de los indicadores:</strong> " + esc(summary)
             + ". Es una lectura de condiciones financieras; no determina por sí sola la dirección futura de las acciones.</p>")
 
+def macro_pulse(data):
+    """Síntesis del PCE anual sobre variación interanual real, no sobre nivel índice."""
+    details=[]
+    for key,label in (("pce","Inflación PCE general"),("corepce","Inflación PCE subyacente")):
+        series=data.get("series",{}).get(key,{})
+        points=series.get("points",[])
+        if not points or not is_recent(points[-1]["date"],75):
+            continue
+        latest=points[-1]
+        earlier=next((p for p in reversed(points[:-1]) if
+                      p["date"][:7]==f"{int(latest['date'][:4])-1}{latest['date'][4:7]}"),None)
+        if not earlier or earlier["value"]<=0:
+            continue
+        rate=(latest["value"]/earlier["value"]-1)*100
+        movement=("por encima" if rate>2 else "por debajo" if rate<2 else "en torno")
+        details.append(f'{label}: {rate:.2f}% anual al {latest["date"]}, {movement} '
+                       'del objetivo de inflación de 2% de la Fed.')
+    if not details:
+        return '<p><strong>Lectura macro:</strong> faltan comparaciones interanuales recientes para evaluar la inflación.</p>'
+    return ('<div style="padding:14px;background:#f1f5fa;border-radius:9px">'
+            '<strong>Qué está pasando con la inflación:</strong> '
+            +esc(" ".join(details))
+            +'<p><strong>Posible implicación:</strong> una inflación persistentemente superior al 2% '
+            'puede dificultar los recortes de tipos, afectando a bonos y valoraciones bursátiles. '
+            'Sin la lectura anterior y el consenso no podemos afirmar si sorprendió al mercado.</p></div>')
+
 def index_breadth(data):
     """Resumen descriptivo de índices, no amplitud interna de mercado."""
     up = down = flat = 0
@@ -322,9 +411,19 @@ def render_stock_breadth(breadth):
     """SMA: porcentaje de componentes sobre su propia media móvil simple."""
     indices=breadth.get("indices",{})
     rows=[]
+    interpretations=[]
     for key,label in (("sp500","S&P 500"),("nasdaq100","Nasdaq 100")):
         entry=indices.get(key,{})
         if all("ma"+str(n) in entry for n in (20,50,200)):
+            short,medium,long=[float(entry["ma"+str(n)]) for n in (20,50,200)]
+            if min(short,medium,long)>50:
+                reading="participación mayoritaria en los tres plazos"
+            elif max(short,medium,long)<50:
+                reading="participación minoritaria en los tres plazos"
+            else:
+                reading="señales mixtas entre corto, mediano y largo plazo"
+            near=("; el plazo corto está cerca del equilibrio del 50%" if 45<=short<=55 else "")
+            interpretations.append(f'{label}: {reading}{near} (MA20 {short:.1f}%, MA50 {medium:.1f}%, MA200 {long:.1f}%).')
             values=[]
             for n in (20,50,200):
                 values.append(f'{entry["ma"+str(n)]:.1f}%')
@@ -342,48 +441,64 @@ def render_stock_breadth(breadth):
             'Las cifras no proceden de los administradores de los índices y dependen de la cobertura del proveedor.</p>'
             '<table border="1" cellpadding="8"><tr><th>Índice</th><th>MA20</th><th>MA50</th><th>MA200</th>'
             '<th>Fecha y fuente</th></tr>'+"".join(rows)+'</table>'
-            '<p>Un porcentaje superior a 50% significa que la mayoría de los valores evaluados está '
-            'sobre esa media. No es garantía de tendencia futura ni señal automática de compra.</p>')
+            '<p><strong>Conclusión de amplitud:</strong> '
+            +esc(" ".join(interpretations) if interpretations else
+                 "Los proveedores no entregaron información suficiente para evaluar la participación de las empresas.")
+            +'</p><p>Por encima del 50% equivale a mayoría de los valores evaluados, '
+            'pero no garantiza movimientos futuros ni supone una señal de compra.</p>')
 
-def render_market_references(refs):
-    """Tabla con unidades, fecha y límites de actualidad de cada mercado."""
+def chart_fragment(key, history=None, chart_keys=None):
+    """Imagen CID incrustada en Gmail, más conclusión calculada con los cierres."""
+    asset=(history or {}).get("assets",{}).get(key,{})
+    points=asset.get("points",[])
+    measure=chart_metrics(points)
+    if not measure:
+        return '<p style="color:#65758a">Sin precios históricos verificables: no se dibuja una tendencia ficticia.</p>'
+    if measure.get("stale"):
+        return f'<p>El último cierre ({esc(measure.get("date",""))}) está desactualizado. No se presenta como cotización actual.</p>'
+    details=[f'Último cierre: <strong>{measure["close"]:,.2f} {esc(asset.get("unit",""))}</strong> ({esc(measure["date"])})']
+    if "change20" in measure:
+        details.append(f'Cambio de 20 sesiones: <strong>{measure["change20"]:+.1f}%</strong>')
+    for n in (20,50,200):
+        if "ma"+str(n) in measure:
+            details.append(f'MA{n}: {measure["ma"+str(n)]:,.2f}')
+    proxy_warning=('<p style="color:#9b5d18;font-weight:bold">'+esc(asset["proxy"])+'</p>'
+                   if asset.get("proxy") else "")
+    graphic=(f'<p><img src="cid:radar-{key.lower()}" alt="Gráfico histórico de {esc(key)}" '
+             'style="width:100%;max-width:630px;height:auto;border:1px solid #e8edf2"></p>'
+             if key in (chart_keys or ()) else '<p>Gráfico no disponible en esta ejecución.</p>')
+    url=asset.get("source","")
+    source=f'<a href="{esc(url)}">Histórico y fuente</a>' if url.startswith("https://") else ""
+    return ('<p>'+' · '.join(details)+'</p>'+proxy_warning+graphic
+            +'<p><strong>Qué muestra:</strong> '+esc(trend_interpretation(measure))+'</p>'
+            +'<p style="font-size:12px">'+source+'</p>')
+
+def render_market_references(refs,history=None,chart_keys=None):
+    """Tres referencias clave, cada una con conclusión y gráfico individual."""
     assets=refs.get("assets",{})
-    rows=[]
-    for key,label,context in (
-        ("gold","Oro XAU/USD","Referencia de refugio y tipos reales; no implica alza de acciones."),
-        ("wti","Petróleo WTI","Energía de EE. UU.; puede influir en expectativas de inflación."),
-        ("brent","Petróleo Brent","Referencia internacional de petróleo; refleja tensiones de oferta y demanda."),
-        ("btc","Bitcoin BTC/USDT","Mercado de criptomonedas; par cotizado contra USDT, no USD.")):
+    blocks=[]
+    for key,name,context in (
+        ("gold","Oro XAU/USD","Activo de referencia de refugio; se compara su propia tendencia, no se deduce miedo a partir de un solo precio."),
+        ("wti","Petróleo WTI — Estados Unidos","Referencia de energía que puede presionar costes e inflación; interpretar movimiento de varias sesiones."),
+        ("btc","Bitcoin BTC/USDT","Activo digital sensible a la liquidez y al apetito por riesgo; USDT no equivale exactamente a USD.")):
         obj=assets.get(key,{})
-        if not isinstance(obj,dict) or "value" not in obj:
-            value="No disponible: fuente sin datos verificables"
-            source=""
+        if "value" in obj:
+            last=(obj.get("timestamp") or obj.get("date") or "")[:10]
+            price=f'{obj["value"]:,.2f} {obj.get("unit","")}'
+            latest=f'<p style="font-size:24px;font-weight:bold;margin:8px 0">{esc(price)}</p><p>Referencia: {esc(last)}</p>'
         else:
-            date_text=obj.get("timestamp",obj.get("date",""))
-            try:
-                measured=datetime.fromisoformat(date_text.replace("Z","+00:00"))
-                if measured.tzinfo is None: measured=measured.replace(tzinfo=timezone.utc)
-                age=(datetime.now(timezone.utc)-measured.astimezone(timezone.utc)).total_seconds()
-                recent=0<=age<=(86400*7 if key in ("wti","brent") else 86400)
-            except ValueError:
-                recent=False
-            value=f'{obj["value"]:,.2f} {obj.get("unit","")} (dato: {date_text})'
-            if not recent: value+="; dato histórico o sin vigencia confirmada"
-            if key=="btc" and recent and "change_24h" in obj:
-                value+=f'; variación móvil 24 h: {obj["change_24h"]:+.2f}%'
-            if key in ("wti","brent") and recent and obj.get("previous") and obj["previous"]["value"]>0:
-                pct=(obj["value"]/obj["previous"]["value"]-1)*100
-                value+=f'; variación entre observaciones: {pct:+.2f}%'
-            url=obj.get("source","")
-            source=f' <a href="{esc(url)}">Fuente</a>' if url.startswith("https://") else ""
-        rows.append(f"<tr><th>{esc(label)}</th><td>{esc(value)}{source}</td><td>{esc(context)}</td></tr>")
-    return ('<h2>Tablero de referencia: oro, petróleo y Bitcoin</h2>'
-            '<p>Precios de fuentes independientes y horarios diferentes. No representan un cierre simultáneo.'
-            ' WTI y Brent se publican con retraso; Bitcoin es BTC/USDT, distinto de BTC/USD.</p>'
-            '<table border="1" cellpadding="8"><tr><th>Activo</th><th>Referencia</th><th>Interpretación</th></tr>'
-            + "".join(rows) + "</table>")
+            latest='<p>Precio actual no disponible en la fuente consultada.</p>'
+        blocks.append('<div style="margin:14px 0;padding:18px;border:1px solid #dfe5ec;border-radius:12px">'
+                      f'<h3 style="margin:0">{esc(name)}</h3>'+latest+
+                      '<p style="color:#455267">'+esc(context)+'</p>'
+                      +chart_fragment(key,history,chart_keys)+'</div>')
+    return ('<h2>Pulso de los mercados: oro, petróleo WTI y Bitcoin</h2>'
+            '<p>Comparaciones de cierre con periodos y horarios distintos. Los gráficos muestran tendencias, '
+            'no precios en tiempo real. El petróleo internacional Brent queda excluido.</p>'
+            +''.join(blocks))
 
-def render(data, sec=None, refs=None, breadth=None):
+
+def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=None):
     now=datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y %H:%M")
     items=[]; flags=[]; news=official_news()
     for key,label,meaning in SERIES:
@@ -413,7 +528,7 @@ def render(data, sec=None, refs=None, breadth=None):
         else:
             value="No disponible"; flags.append(label+" sin datos")
         items.append(f"<tr><th>{fred_link(obj,label)}</th><td>{esc(value)}</td><td>{esc(meaning)}</td></tr>")
-    companies=sec_company_html(sec or {})
+    companies=sec_company_html(sec or {},history,chart_keys)
     cleaned_news=[(item[0],item[1],item[2],item[3] if len(item)>3 else "") for item in news]
     try:
         translations=local_news([(title.split(": ",1)[-1],title.split(":",1)[0],description)
@@ -423,15 +538,23 @@ def render(data, sec=None, refs=None, breadth=None):
         print("Traductor local no disponible:",type(error).__name__)
     parts=[]
     for i,(title,link,date,description) in enumerate(cleaned_news):
+        agency,_,original_title=title.partition(": ")
         translated=translations.get(i,{})
-        spanish_title=translated.get("title_es") or title
-        summary=translated.get("summary_es")
-        fact=("<strong>Qué ocurrió (extracto oficial traducido automáticamente):</strong> "+esc(summary)
-              if summary else "<strong>Qué ocurrió:</strong> No hay descripción verificable traducida; consultar fuente original.")
-        original_label=('<small>Título original (inglés): '+esc(title)+'</small>. ' if summary else '')
-        parts.append(f'<li><a href="{esc(link)}">{esc(spanish_title)}</a> — {esc(date)}. '
-                     +original_label+fact
-                     +f' <strong>Por qué importa:</strong> {esc(news_market_context(title))}</li>')
+        spanish_title=(translated.get("title_es") or original_title or title).strip()
+        summary=(translated.get("summary_es") or "").strip()
+        # Los feeds que solo repiten el titular no aportan un resumen válido.
+        simplified=lambda s: "".join(ch for ch in s.casefold() if ch.isalnum())
+        repeated=bool(summary) and (simplified(summary) in simplified(spanish_title)
+                                      or simplified(spanish_title) in simplified(summary))
+        fact=(esc(summary) if summary and not repeated else
+              "No se obtuvieron hechos adicionales verificables; el titular por sí solo no permite profundizar.")
+        impact=news_market_context(title)
+        parts.append('<li style="margin:14px 0;padding:12px;border-bottom:1px solid #e4eaf0">'
+                     +f'<strong><a href="{esc(link)}">{esc(spanish_title)}</a></strong>'
+                     +f'<p style="color:#687587;font-size:12px;margin:4px 0">{esc(agency)} · {esc(date)}</p>'
+                     +'<p><strong>Qué ocurrió:</strong> '+fact+'</p>'
+                     +'<p><strong>Por qué importa:</strong> '+esc(impact)+'</p>'
+                     +'</li>')
     news_html="".join(parts)
     if not news_html:
         news_html="<li>No se recuperaron comunicados verificables recientes de los canales oficiales consultados.</li>"
@@ -457,7 +580,7 @@ def render(data, sec=None, refs=None, breadth=None):
             value="No disponible; verificar cobertura de FRED"
         index_rows.append(f"<tr><th>{fred_link(data.get('series',{}).get(key,{}),label)}</th><td>{esc(value)}</td></tr>")
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {})}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices y sectores bursátiles</h2>{index_breadth(data)}<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días. Los extractos se traducen localmente al español, sin costos de API ni interpretación de hechos adicionales. Cuando no hay descripción oficial se indica expresamente:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {},history,chart_keys)}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2>{macro_pulse(data)}<table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices y sectores bursátiles</h2>{index_breadth(data)}<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Se distingue comportamiento bursátil de resultados de ejercicios comparables. Cifras contables solo cuando la fuente SEC es verificable, sin pronósticos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días. Los extractos se traducen localmente al español, sin costos de API ni interpretación de hechos adicionales. Cuando no hay descripción oficial se indica expresamente:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
@@ -480,7 +603,7 @@ def edition_label(sec):
             if annual_company_coverage(sec) < 3 else
             "edición con información empresarial parcial")
 
-def build_email_message(report, sender, recipient, sec):
+def build_email_message(report, sender, recipient, sec, charts=None):
     """Construir el correo sin acceder a red ni afirmar entrega."""
     edition = edition_label(sec)
     message = EmailMessage()
@@ -491,6 +614,14 @@ def build_email_message(report, sender, recipient, sec):
     message.set_content("Edición: " + edition +
                         ". Los datos ausentes y las limitaciones se indican en el informe HTML.")
     message.add_alternative(report, subtype="html")
+    # Gmail elimina a menudo SVG y URLs externas, pero admite imágenes PNG CID.
+    html_part=message.get_body(preferencelist=("html",))
+    for key,path in (charts or {}).items():
+        if f"cid:radar-{key.lower()}" not in report:
+            continue
+        with open(path,"rb") as image_file:
+            html_part.add_related(image_file.read(),maintype="image",subtype="png",
+                                  cid=f"<radar-{key.lower()}>")
     return message
 
 def main():
@@ -501,7 +632,13 @@ def main():
     sec=json.loads(SEC_DATA.read_text(encoding="utf-8")) if SEC_DATA.exists() else {}
     refs=json.loads(REFERENCES.read_text(encoding="utf-8")) if REFERENCES.exists() else {}
     breadth=json.loads(BREADTH.read_text(encoding="utf-8")) if BREADTH.exists() else {}
-    report=render(data,sec,refs,breadth); OUT.parent.mkdir(parents=True,exist_ok=True)
+    history=json.loads(PRICE_HISTORY.read_text(encoding="utf-8")) if PRICE_HISTORY.exists() else {}
+    try:
+        charts=build_charts(history)
+    except (ImportError,RuntimeError,OSError,ValueError) as error:
+        print("Gráficos no disponibles:",type(error).__name__)
+        charts={}
+    report=render(data,sec,refs,breadth,history,charts); OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(report,encoding="utf-8")
     if os.getenv("RADAR_DRY_RUN") == "1":
         print("Prueba de extremo a extremo: informe generado; correo desactivado expresamente")
@@ -514,7 +651,7 @@ def main():
     user=os.getenv("GMAIL_USER"); password=os.getenv("GMAIL_APP_PASSWORD"); recipient=os.getenv("REPORT_TO")
     if not all([user,password,recipient]):
         raise SystemExit("Informe generado, pero ENVÍO NO REALIZADO: configurar secretos GMAIL_USER, GMAIL_APP_PASSWORD y REPORT_TO")
-    msg=build_email_message(report, user, recipient, sec)
+    msg=build_email_message(report, user, recipient, sec, charts)
     send_email_via_gmail(msg, user, password)
     print("SMTP aceptó el informe para",recipient)
 
