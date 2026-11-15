@@ -47,6 +47,28 @@ class ReportTests(unittest.TestCase):
         self.assertIn("github.event_name == 'schedule'", scheduled)
         self.assertNotIn("python scripts/update_data.py", scheduled)
 
+    @patch.object(radar.smtplib, "SMTP_SSL")
+    def test_gmail_transport_uses_tls_and_authenticates_before_sending(self, smtp_cls):
+        message=radar.build_email_message("<p>Prueba</p>", "sender@example.com",
+                                          "recipient@example.com", {})
+        smtp=smtp_cls.return_value.__enter__.return_value
+        radar.send_email_via_gmail(message, "sender@example.com", "app-pass-example")
+        smtp_cls.assert_called_once()
+        self.assertEqual(smtp_cls.call_args.args[:2], ("smtp.gmail.com", 465))
+        smtp.login.assert_called_once_with("sender@example.com", "app-pass-example")
+        smtp.send_message.assert_called_once_with(message)
+        self.assertLess(smtp.mock_calls.index(__import__("unittest.mock", fromlist=["call"]).call.login(
+            "sender@example.com", "app-pass-example")),
+            smtp.mock_calls.index(__import__("unittest.mock", fromlist=["call"]).call.send_message(message)))
+
+    @patch.object(radar.smtplib, "SMTP_SSL")
+    def test_gmail_login_failure_does_not_claim_delivery(self, smtp_cls):
+        smtp=smtp_cls.return_value.__enter__.return_value
+        smtp.login.side_effect=radar.smtplib.SMTPAuthenticationError(535, b"Authentication failed")
+        with self.assertRaises(radar.smtplib.SMTPAuthenticationError):
+            radar.send_email_via_gmail("message", "sender@example.com", "bad-password")
+        smtp.send_message.assert_not_called()
+
     def test_email_message_marks_incomplete_coverage_and_has_html(self):
         msg=radar.build_email_message("<html><body>Informe parcial</body></html>",
                                       "sender@example.com", "recipient@example.com", {})
