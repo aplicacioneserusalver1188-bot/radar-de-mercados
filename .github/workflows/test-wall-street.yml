@@ -1,8 +1,5 @@
 name: Validar informe de Wall Street (sin correo)
 on:
-  push:
-    branches:
-      - feature/informe-wall-street-diario-20261114
   pull_request:
     paths:
       - 'scripts/daily_wall_street.py'
