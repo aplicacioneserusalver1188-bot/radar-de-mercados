@@ -162,7 +162,8 @@ def market_diagnosis(data):
         label = "alta" if x >= 25 else "moderada" if x < 20 else "intermedia"
         lines.append(f'VIX {x:.2f} ({vix["date"]}): volatilidad implícita {label}; no predice por sí sola si el mercado subirá o bajará.')
     credit = series.get("credit", {}).get("points", [])
-    if len(credit) >= 2 and is_recent(credit[-1]["date"], 7):
+    if (len(credit) >= 2 and is_recent(credit[-1]["date"], 7)
+            and credit[-2]["date"] < credit[-1]["date"]):
         first, second = credit[-2], credit[-1]
         change = second["value"] - first["value"]
         reading = "aumenta la prima de riesgo" if change > 0 else "disminuye la prima de riesgo" if change < 0 else "permanece estable"
@@ -185,7 +186,8 @@ def index_breadth(data):
         if len(points) < 2:
             continue
         latest, previous = points[-1], points[-2]
-        if previous["value"] <= 0 or not is_recent(latest["date"], 7):
+        if (previous["value"] <= 0 or previous["date"] >= latest["date"]
+                or not is_recent(latest["date"], 7)):
             continue
         change = (latest["value"] / previous["value"] - 1) * 100
         names.append(f'{label}: {change:+.2f}% ({latest["date"]})')
@@ -239,7 +241,7 @@ def render(data, sec=None):
             age=age_days(last["date"])
             if not is_recent(last["date"], 7):
                 flags.append(label+" presenta observación fuera de vigencia ("+str(age)+" días respecto de hoy)")
-            change=(last["value"]/prior["value"]-1)*100 if prior["value"] else None
+            change=(last["value"]/prior["value"]-1)*100 if prior["value"] and prior["date"] < last["date"] else None
             value=f'{last["value"]:,.2f} ({last["date"]})'
             if change is not None:
                 value+=f'; variación entre observaciones: {change:+.2f}%'
