@@ -16,8 +16,9 @@ class ReportTests(unittest.TestCase):
             "payrolls":{"points":[{"date":"2026-09-01","value":150000},{"date":"2026-10-01","value":150200}]}
         }}
         result=radar.render(data)
-        self.assertIn("inflación interanual: +3.00%",result)
-        self.assertIn("variación mensual: +200,000 empleos",result)
+        self.assertIn("IPC: precios al consumidor",result)
+        self.assertIn("+3.00% interanual",result)
+        self.assertIn("+200,000 puestos frente al mes anterior",result)
         self.assertIn("Decisión de política",result)
         self.assertIn("No disponible",result)
         self.assertIn("S&amp;P 500",result)
@@ -26,7 +27,7 @@ class ReportTests(unittest.TestCase):
     def test_ppi_is_not_reported_as_consumer_inflation(self, _news):
         data={"series":{"ppi":{"points":[{"date":"2025-10-01","value":200},{"date":"2026-10-01","value":210}]}}}
         result=radar.render(data)
-        self.assertIn("variación interanual del índice de materias primas: +5.00%",result)
+        self.assertIn("PPI de materias primas cambió +5.00% interanual",result)
         self.assertNotIn("inflación interanual: +5.00%",result)
 
     @patch.object(radar, "official_news", return_value=[])
@@ -87,7 +88,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("macroeconómica", radar.edition_label({}))
         result=radar.render({"series": {}}, {})
         self.assertIn("cobertura empresarial pendiente", result)
-        self.assertIn("sin datos SEC comparables verificados", result)
+        self.assertIn("No se obtuvo un histórico reciente suficiente", result)
 
     def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
         facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
@@ -179,6 +180,96 @@ class ReportTests(unittest.TestCase):
         self.assertIn("bond yields",item)
         self.assertEqual(news_story.official_details("https://attacker.example/test",request_fn=lambda u:page),"")
 
+    def test_company_weekly_and_daily_changes_with_news(self):
+        from datetime import datetime,timedelta,timezone
+        import company_pulse
+        today=datetime.now(timezone.utc).date()
+        points=[{"date":(today-timedelta(days=5-i)).isoformat(),
+                 "close":100+2*i} for i in range(6)]
+        p=company_pulse.momentum(points)
+        self.assertAlmostEqual(p["daily"],100*(110/108-1))
+        self.assertAlmostEqual(p["weekly"],10)
+        self.assertIn("última sesión",company_pulse.reading(p))
+        self.assertIn("Continuación favorable",company_pulse.scenarios(p))
+        news=[{"title":"Company shares rose after an announcement",
+               "url":"https://news.google.com/rss/articles/example",
+               "source":"Financial Times","date":today.isoformat()}]
+        text=company_pulse.company_news_html(news,translator=lambda x:"Empresa anuncia novedades")
+        self.assertIn("Empresa anuncia novedades",text)
+        self.assertIn("no hechos confirmados",text)
+        self.assertIn("Posible repercusión:",text)
+        self.assertNotIn("causó",text)
+
+    @patch.object(radar,"official_news",return_value=[])
+    def test_company_cards_focus_on_last_session_and_week(self,_news):
+        from datetime import datetime,timedelta,timezone
+        today=datetime.now(timezone.utc).date()
+        points=[{"date":(today-timedelta(days=220-i)).isoformat(),
+                 "close":100+i} for i in range(221)]
+        assets={"NVDA":{"points":points,"source":"https://stooq.com/q/?s=nvda.us","unit":"USD/acción"}}
+        report=radar.render({"series":{}},history={"assets":assets},chart_keys={"NVDA":"/tmp/nvda.png"},
+                            company_news={"companies":{}})
+        self.assertIn("Última sesión:",report)
+        self.assertIn("Últimas 5 sesiones:",report)
+        self.assertIn("Qué está haciendo la acción:",report)
+        self.assertIn("Escenario condicional:",report)
+        self.assertIn("Últimas 5 sesiones",report)
+        self.assertNotIn("Resultados financieros (contexto secundario)",report)
+
+    def test_company_news_feed_requires_recent_date_and_link(self):
+        import update_company_news
+        from datetime import datetime,timezone
+        now=datetime(2026,11,15,tzinfo=timezone.utc)
+        rss=b"""<rss><channel><item><title>Nvidia releases new GPU</title>
+        <link>https://news.google.com/rss/articles/yes</link>
+        <pubDate>Sat, 14 Nov 2026 12:00:00 GMT</pubDate><source>Reuters</source>
+        </item><item><title>Old company release</title>
+        <link>https://news.google.com/rss/articles/old</link>
+        <pubDate>Thu, 29 Oct 2026 12:00:00 GMT</pubDate></item>
+        <item><title>Unsafe link</title><link>https://attacker.example/bad</link>
+        <pubDate>Sat, 14 Nov 2026 12:00:00 GMT</pubDate></item></channel></rss>"""
+        rows=update_company_news.parse_feed(rss,now)
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["source"],"Reuters")
+
+    @patch.object(radar,"official_news",return_value=[])
+    def test_four_index_graphs_and_company_graphs_in_report(self,_news):
+        from datetime import datetime,timedelta,timezone
+        end=datetime.now(timezone.utc).date()
+        points=[{"date":(end-timedelta(days=240-i)).isoformat(),"close":4000+i}
+                for i in range(241)]
+        source="https://fred.stlouisfed.org/series/SP500"
+        history={"assets":{key:{"points":points,"unit":"puntos",
+                                 "source":source,"label":key}
+                           for key in ("sp500","nasdaq","dow","russell","NVDA")}}
+        keys={key:"/tmp/"+key+".png" for key in history["assets"]}
+        report=radar.render({"series":{}},history=history,chart_keys=keys)
+        for key in ("sp500","nasdaq","dow","russell","nvda"):
+            self.assertIn("cid:radar-"+key,report)
+        self.assertIn("Qué muestra:",report)
+        self.assertIn("Nasdaq Composite",report)
+        self.assertNotIn("Última lectura y cambio",report)
+
+    def test_macro_stories_replace_dictionary_table(self):
+        from datetime import datetime,timezone
+        import macro_story
+        now=datetime(2026,11,15,tzinfo=timezone.utc)
+        data={"series":{
+            "pce":{"source_url":"https://fred.stlouisfed.org/series/PCEPI","points":[
+                {"date":"2025-09-01","value":100},
+                {"date":"2026-09-01","value":103.65}]},
+            "corepce":{"points":[{"date":"2025-09-01","value":100},
+                                 {"date":"2026-09-01","value":103.12}]},
+            "unemployment":{"points":[{"date":"2026-09-01","value":3.9},
+                                        {"date":"2026-10-01","value":4.1}]},
+        }}
+        report=macro_story.macro_story(data,now=now)
+        self.assertIn("PCE general 3.65%",report)
+        self.assertIn("PCE subyacente 3.12%",report)
+        self.assertIn("Inflación por encima del 2% y desempleo en aumento",report)
+        self.assertIn("Por qué importa",report)
+        self.assertNotIn("nivel del índice",report)
+
     def test_tsm_ifrs_20f_keeps_twd_and_skips_short_periods(self):
         facts={"facts":{"ifrs-full":{"Revenue":{"units":{"TWD":[
             {"form":"20-F","fp":"FY","start":"2025-01-01","end":"2025-12-31","filed":"2026-03-10","val":3000000000000},
@@ -203,7 +294,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in summary["quarterly_metrics"]["revenue"]],
                          [10000000000,8000000000])
         output=radar.sec_company_html({"companies":{"SPCX":summary}})
-        self.assertIn("Resultados trimestrales verificados",output)
+        self.assertIn("Resultados financieros (contexto secundario)",output)
         self.assertIn("10,000 millones USD",output)
         self.assertNotIn("25,000 millones USD",output)
 
@@ -216,7 +307,7 @@ class ReportTests(unittest.TestCase):
         report = radar.render({"series": {}}, sec)
         self.assertIn("Margen neto: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("sin datos SEC comparables verificados", report)
+        self.assertIn("Resultados financieros (contexto secundario)", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):
@@ -281,7 +372,7 @@ class ReportTests(unittest.TestCase):
         older=(datetime.now(timezone.utc).date()-timedelta(days=21)).isoformat()
         data={"series":{"sp500":{"points":[{"date":older,"value":100},{"date":old,"value":105}]}}}
         report=radar.render(data)
-        self.assertIn("lectura histórica, no cotización vigente",report)
+        self.assertIn("presenta observación fuera de vigencia",report)
         self.assertNotIn("variación entre observaciones: +5.00%",report)
 
     def test_quality_report_counts_current_stale_and_absent(self):
