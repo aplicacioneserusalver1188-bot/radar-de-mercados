@@ -241,6 +241,26 @@ class ReportTests(unittest.TestCase):
         context=radar.news_market_context("BLS: Consumer Price Index (CPI)")
         self.assertIn("Inflación:",context)
 
+    def test_reference_parsers_validate_gold_and_bitcoin(self):
+        from datetime import datetime,timezone
+        import update_references
+        now=datetime.now(timezone.utc)
+        gold=update_references.parse_gold({
+            "symbol":"XAU","currency":"USD","price":4123.45,"updatedAt":now.isoformat()})
+        self.assertEqual(gold["unit"],"USD/onza troy")
+        self.assertEqual(gold["value"],4123.45)
+        with self.assertRaises(ValueError):
+            update_references.parse_gold({"price":0,"updatedAt":now.isoformat()})
+        btc=update_references.parse_btc({
+            "symbol":"BTCUSDT","lastPrice":"91500.0","closeTime":int(now.timestamp()*1000),
+            "priceChangePercent":"1.5"})
+        self.assertEqual(btc["unit"],"USDT/BTC")
+        self.assertEqual(btc["change_24h"],1.5)
+        with self.assertRaises(ValueError):
+            update_references.parse_btc({
+                "symbol":"BTCUSD","lastPrice":"91500","closeTime":int(now.timestamp()*1000),
+                "priceChangePercent":"1.5"})
+
     @patch.object(radar, "official_news", return_value=[])
     def test_market_references_include_gold_oil_and_bitcoin_with_units(self, _news):
         from datetime import datetime, timezone
