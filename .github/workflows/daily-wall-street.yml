@@ -7,7 +7,7 @@ on:
         type: boolean
         default: true
   schedule:
-    # Venezuela UTC-4 todo el año: 07:00 = 11:00 UTC
+    # Venezuela UTC-4 todo el año: 07:00 = 11:00 UTC. Cron envia correo real.
     - cron: '0 11 * * *'
 permissions:
   contents: read
@@ -35,7 +35,7 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           REPORT_TO: ${{ secrets.REPORT_TO }}
-          RADAR_DRY_RUN: ${{ (github.event_name == 'schedule' && vars.RADAR_ENABLE_EMAIL != 'true') && '1' || (github.event_name == 'workflow_dispatch' && inputs.preview_only) && '1' || '0' }}
+          RADAR_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.preview_only) && '1' || '0' }}
         run: python scripts/daily_wall_street.py
       - name: Conservar informe como artefacto
         if: always()

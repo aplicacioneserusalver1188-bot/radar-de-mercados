@@ -68,3 +68,9 @@ La automatización propuesta utiliza GitHub Actions y Google y no depende de una
 2. GitHub → Actions → `Radar diario Wall Street (Gmail)` → Run workflow: seleccionar `preview_only=false` para una prueba de SMTP real **solo después de configurar secretos**. Verificar la recepción en Gmail.
 3. GitHub → Settings → Secrets and variables → Actions → Variables → agregar `RADAR_ENABLE_EMAIL` con valor `true` **solo tras recibir el correo de prueba**. Hasta entonces, el cron de las 11:00 UTC genera únicamente previsualizaciones.
 4. La captura FRED de este informe utiliza `scripts/update_wall_street_data.py`, independiente del actualizador público `scripts/update_data.py`, para conservar el comportamiento existente del sitio.
+
+## Activación autorizada del envío diario — 15/11/2026
+
+El usuario confirmó la recepción real de un correo de prueba el 15/11/2026 (GitHub Actions 43739855377, SMTP aceptó el envío) y autorizó activar la entrega diaria. A partir de la incorporación de este cambio en `main`, el evento `schedule` a las **11:00 UTC (07:00 de Venezuela)** ejecuta el envío SMTP real. Las ejecuciones manuales mantienen `preview_only=true` por defecto; elegir `false` realiza un envío real. GitHub Actions no garantiza ejecución al minuto exacto: el inicio puede retrasarse. Si faltan secretos o datos macro esenciales, la ejecución falla explícitamente sin fingir entrega. Los límites de SEC y fuentes de noticias permanecen; se identifica la edición macroeconómica parcial.
+
+La variable opcional `RADAR_ENABLE_EMAIL` ya no controla el cron, porque el usuario autorizó explícitamente el envío después de confirmar la recepción. Las instrucciones de activación por variable anteriores quedan reemplazadas por esta sección.
