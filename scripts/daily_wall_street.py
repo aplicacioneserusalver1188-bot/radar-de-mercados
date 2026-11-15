@@ -41,6 +41,9 @@ def age_days(date_text):
     return (datetime.now(timezone.utc).date() - datetime.fromisoformat(date_text).date()).days
 def freshness_limit(frequency):
     return FRESHNESS_LIMITS.get(frequency, 45)
+def is_recent(date_text, limit):
+    """Las observaciones futuras o antiguas no son lecturas actuales."""
+    return 0 <= age_days(date_text) <= limit
 def fred_link(obj, label):
     url = obj.get("source_url", "")
     if not (url.startswith("https://fred.stlouisfed.org/series/") and
@@ -131,7 +134,7 @@ def data_quality_summary(data, sec=None, news_count=0):
         points = entry.get("points", [])
         if not points:
             absent += 1
-        elif age_days(points[-1]["date"]) > freshness_limit(entry.get("frequency")):
+        elif not is_recent(points[-1]["date"], 7 if key in dict(INDICES) else freshness_limit(entry.get("frequency"))):
             old += 1
         else:
             current += 1
@@ -154,18 +157,18 @@ def market_diagnosis(data):
         pts = series.get(key, {}).get("points", [])
         return pts[-1] if pts else None
     vix = last("vix")
-    if vix and age_days(vix["date"]) <= 7:
+    if vix and is_recent(vix["date"], 7):
         x = vix["value"]
         label = "alta" if x >= 25 else "moderada" if x < 20 else "intermedia"
         lines.append(f'VIX {x:.2f} ({vix["date"]}): volatilidad implícita {label}; no predice por sí sola si el mercado subirá o bajará.')
     credit = series.get("credit", {}).get("points", [])
-    if len(credit) >= 2 and age_days(credit[-1]["date"]) <= 7:
+    if len(credit) >= 2 and is_recent(credit[-1]["date"], 7):
         first, second = credit[-2], credit[-1]
         change = second["value"] - first["value"]
         reading = "aumenta la prima de riesgo" if change > 0 else "disminuye la prima de riesgo" if change < 0 else "permanece estable"
         lines.append(f'Diferencial de crédito {second["value"]:.2f} puntos ({second["date"]}), cambio {change:+.2f}: {reading}.')
     y10, y2 = last("treasury10y"), last("treasury2y")
-    if y10 and y2 and y10["date"] == y2["date"] and age_days(y10["date"]) <= 7:
+    if y10 and y2 and y10["date"] == y2["date"] and is_recent(y10["date"], 7):
         spread = y10["value"] - y2["value"]
         reading = "curva invertida, señal histórica de riesgo económico que no fija fechas" if spread < 0 else "curva no invertida, sin garantizar expansión futura"
         lines.append(f'Diferencial Tesoro 10 menos 2 años {spread:+.2f} puntos porcentuales ({y10["date"]}): {reading}.')
@@ -182,7 +185,7 @@ def index_breadth(data):
         if len(points) < 2:
             continue
         latest, previous = points[-1], points[-2]
-        if previous["value"] <= 0 or age_days(latest["date"]) > 7:
+        if previous["value"] <= 0 or not is_recent(latest["date"], 7):
             continue
         change = (latest["value"] / previous["value"] - 1) * 100
         names.append(f'{label}: {change:+.2f}% ({latest["date"]})')
@@ -219,7 +222,7 @@ def render(data, sec=None):
                     value+=f"; diferencial 10a–2a: {last['value']-short[-1]['value']:+.2f} puntos porcentuales"
             if key=="payrolls" and prior:
                 value+=f"; variación mensual: {(last['value']-prior['value'])*1000:+,.0f} empleos"
-            if age_days(last["date"]) > freshness_limit(obj.get("frequency")):
+            if not is_recent(last["date"], freshness_limit(obj.get("frequency"))):
                 flags.append(label+" presenta observación antigua ("+last["date"]+")")
         else:
             value="No disponible"; flags.append(label+" sin datos")
@@ -234,8 +237,8 @@ def render(data, sec=None):
         if len(points)>=2:
             last,prior=points[-1],points[-2]
             age=age_days(last["date"])
-            if age>7:
-                flags.append(label+" presenta cotización antigua ("+str(age)+" días)")
+            if not is_recent(last["date"], 7):
+                flags.append(label+" presenta observación fuera de vigencia ("+str(age)+" días respecto de hoy)")
             change=(last["value"]/prior["value"]-1)*100 if prior["value"] else None
             value=f'{last["value"]:,.2f} ({last["date"]})'
             if change is not None:
