@@ -119,6 +119,27 @@ def official_news():
             seen.add(link)
     return unique[:10]
 
+def news_market_context(title):
+    """Contexto condicional por palabras del titular; no deduce el resultado del comunicado."""
+    headline = title.casefold()
+    categories = (
+        (("federal funds", "interest rate", "fomc", "monetary policy", "tasas de interés", "política monetaria"),
+         "Política monetaria: contrastar la decisión o el tono del comunicado con las expectativas previas. Puede influir en rendimientos, dólar y valoración de acciones."),
+        (("consumer price", "cpi", "inflation", "personal consumption expenditures", "pce", "precios al consumidor", "inflación"),
+         "Inflación: comparar el dato publicado con el consenso y la lectura anterior. Su sorpresa puede modificar las expectativas de tipos de interés."),
+        (("employment", "payroll", "job openings", "unemployment", "labor market", "empleo", "desempleo"),
+         "Empleo: evaluar creación de puestos, desempleo y revisiones frente al consenso. La interpretación depende de su efecto sobre actividad e inflación."),
+        (("gross domestic product", "gdp", "retail sales", "economic activity", "producto interno bruto", "ventas minoristas"),
+         "Actividad: comparar el crecimiento y las revisiones con las previsiones. Un dato aislado no determina la dirección del mercado."),
+        (("enforcement", "securities", "fraud", "litigation", "disclosure", "regulation", "regulación", "sanción"),
+         "Regulación: identificar empresas y normas realmente afectadas antes de inferir repercusiones bursátiles."),
+    )
+    for terms, explanation in categories:
+        if any(term in headline for term in terms):
+            return explanation
+    return ("Comunicado institucional: examinar el texto original, su alcance y la reacción observada. "
+            "El titular por sí solo no permite cuantificar un impacto en bolsa.")
+
 def sec_company_html(sec):
     companies = sec.get("companies", {})
     blocks = []
@@ -261,7 +282,7 @@ def render(data, sec=None):
             value="No disponible"; flags.append(label+" sin datos")
         items.append(f"<tr><th>{fred_link(obj,label)}</th><td>{esc(value)}</td><td>{esc(meaning)}</td></tr>")
     companies=sec_company_html(sec or {})
-    news_html = "".join(f'<li><a href="{esc(link)}">{esc(title)}</a> — {esc(date)}. Comunicado oficial; su impacto bursátil requiere contexto.</li>' for title,link,date in news)
+    news_html = "".join(f'<li><a href="{esc(link)}">{esc(title)}</a> — {esc(date)}. <strong>Relevancia potencial:</strong> {esc(news_market_context(title))}</li>' for title,link,date in news)
     if not news_html:
         news_html="<li>No se recuperaron comunicados verificables recientes de los canales oficiales consultados.</li>"
     index_rows=[]
