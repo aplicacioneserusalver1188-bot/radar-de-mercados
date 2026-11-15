@@ -176,59 +176,87 @@ def financial_value(value):
     """Expresar magnitudes contables en millones de dólares."""
     return f'{value / 1_000_000:,.0f} millones USD'
 
-def company_metric_rows(metrics, period="anual"):
-    rows=[]
-    currency=None
+def company_metric_rows(metrics,period="anual"):
+    """Solo mostrar magnitudes del mismo ejercicio fiscal, sin cifras antiguas."""
+    all_latest=[x[0]["end"] for x in metrics.values() if x]
+    if not all_latest:
+        return []
+    end=max(all_latest)
+    chosen={key:next((row for row in rows if row["end"]==end),None)
+            for key,rows in metrics.items()}
+    rows_html=[]
     for key,label in (("revenue","Ingresos"),("net_income","Beneficio neto"),
                       ("operating_cash","Flujo de caja operativo"),
                       ("capital_expenditure","Inversión en activos fijos")):
-        vals=metrics.get(key,[])
-        if not vals: continue
-        latest=vals[0]
-        unit=latest.get("currency","USD")
-        currency=currency or unit
-        amount=f'{latest["value"]/1_000_000:,.0f} millones {unit}'
-        value=f'{amount} (periodo terminado {latest["end"]})'
-        if len(vals)>=2 and vals[1]["value"] and vals[1].get("currency","USD")==unit:
-            change=(latest["value"]/vals[1]["value"]-1)*100
-            value+=f'; variación entre periodos disponibles: {change:+.1f}%'
-        rows.append(f'<li><strong>{esc(label)}:</strong> {esc(value)}</li>')
-    revenue=metrics.get("revenue",[])
-    profit=metrics.get("net_income",[])
-    if revenue and profit and revenue[0]["end"]==profit[0]["end"] and revenue[0]["value"]>0:
-        if revenue[0].get("currency","USD")==profit[0].get("currency","USD"):
-            margin=100*profit[0]["value"]/revenue[0]["value"]
-            unit=revenue[0].get("currency","USD")
-            rows.append(f'<li><strong>Margen neto calculado: {margin:.1f}%</strong>. '
-                        f'De cada 100 {esc(unit)} de ingresos quedan aproximadamente '
-                        f'{margin:.1f} {esc(unit)} de beneficio neto.</li>')
-    return rows
+        current=chosen.get(key)
+        if not current:
+            continue
+        unit=current.get("currency","USD")
+        value=f'{current["value"]/1_000_000:,.0f} millones {unit}'
+        all_rows=metrics.get(key,[])
+        previous=next((r for r in all_rows if r["end"]!=end and
+                       r.get("currency","USD")==unit and
+                       330<=(datetime.fromisoformat(end)-datetime.fromisoformat(r["end"])).days<=400),
+                      None) if period=="anual" else None
+        if previous and previous["value"]>0:
+            value+=f'; cambio interanual: {(current["value"]/previous["value"]-1)*100:+.1f}%'
+        rows_html.append(f'<li><strong>{esc(label)}:</strong> {esc(value)}</li>')
+    rev=chosen.get("revenue")
+    profit=chosen.get("net_income")
+    cash=chosen.get("operating_cash")
+    if rev and rev["value"]>0 and profit and rev.get("currency","USD")==profit.get("currency","USD"):
+        margin=100*profit["value"]/rev["value"]
+        rows_html.append(f'<li><strong>Margen neto: {margin:.1f}%</strong>. '
+                         f'Beneficio de {margin:.1f} por cada 100 {esc(rev.get("currency","USD"))} de ingresos.</li>')
+    if cash and profit and profit["value"]>0 and cash.get("currency","USD")==profit.get("currency","USD"):
+        coverage=cash["value"]/profit["value"]
+        result=("supera" if coverage>=1 else "queda por debajo de")
+        rows_html.append(f'<li><strong>Conversión de beneficio en efectivo:</strong> '
+                         f'el flujo operativo {result} al beneficio neto (relación {coverage:.2f}x).</li>')
+    rows_html.insert(0,f'<li><strong>Periodo comparable:</strong> cierre {esc(end)}.</li>')
+    return rows_html
 
-def sec_company_html(sec):
+def company_conclusion(metrics):
+    rev=metrics.get("revenue",[])
+    profit=metrics.get("net_income",[])
+    if not rev:
+        return "Sin ingresos del último ejercicio comparables: no es responsable concluir si el negocio mejora."
+    end=rev[0]["end"]
+    profit_current=next((x for x in profit if x["end"]==end),None)
+    prev=next((x for x in rev[1:] if 330<=(datetime.fromisoformat(end)-datetime.fromisoformat(x["end"])).days<=400),None)
+    if not prev or prev["value"]<=0:
+        return "Hay cifras del último ejercicio, pero faltan dos años consecutivos para evaluar crecimiento."
+    growth=100*(rev[0]["value"]/prev["value"]-1)
+    movement="crecieron" if growth>0 else "retrocedieron" if growth<0 else "se mantuvieron"
+    diagnosis=f"Los ingresos {movement} {abs(growth):.1f}% frente al ejercicio anterior."
+    if profit_current and rev[0]["value"]>0:
+        margin=100*profit_current["value"]/rev[0]["value"]
+        diagnosis+=f" El margen neto de este ejercicio fue {margin:.1f}%."
+    return diagnosis+" El movimiento bursátil se analiza por separado; los resultados contables no predicen el precio."
+
+def sec_company_html(sec,history=None,chart_keys=None):
     companies=sec.get("companies",{})
     blocks=[]
     for ticker,name in COMPANIES:
         info=companies.get(ticker,{})
         annual=company_metric_rows(info.get("metrics",{}))
-        quarterly=company_metric_rows(info.get("quarterly_metrics",{})) if ticker=="SPCX" else []
-        if annual or quarterly:
-            src=info.get("source","https://www.sec.gov/edgar/search/")
-            sections=[]
-            if annual: sections.append('<strong>Cifras anuales:</strong><ul>'+''.join(annual)+'</ul>')
-            if quarterly: sections.append('<strong>Cifras trimestrales (10-Q, periodos de tres meses):</strong><ul>'+''.join(quarterly)+'</ul>')
-            caveat=(' Cifras en TWD si la fuente publica estados IFRS en dólares taiwaneses; no son USD.'
-                    if ticker=="TSM" else
-                    ' Las cifras trimestrales no equivalen a resultados anuales.'
-                    if ticker=="SPCX" else '')
-            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>'
-                          +''.join(sections)+f'<a href="{esc(src)}">Fuente SEC XBRL</a>. '
-                          +'Datos históricos, no pronósticos.'+esc(caveat)+'</li>')
-        else:
-            explanation=("TSMC declara mediante 20-F/IFRS; no hubo cifras comparables accesibles." if ticker=="TSM"
-                         else "SpaceX presenta 10-Q, pero sus datos trimestrales no estaban disponibles o completos." if ticker=="SPCX"
-                         else "La SEC no entregó información financiera verificable en esta ejecución.")
-            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>: sin métricas anuales verificadas. {esc(explanation)}</li>')
-    return "<ul>"+"".join(blocks)+"</ul>"
+        quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
+        content=f'<h3 style="margin:0 0 8px">{esc(name)} ({esc(ticker)})</h3>'
+        content+=chart_fragment(ticker,history,chart_keys)
+        if annual:
+            content+='<p><strong>Resultados anuales verificados</strong></p><ul>'+''.join(annual)+'</ul>'
+            content+='<p><strong>Lectura empresarial:</strong> '+esc(company_conclusion(info.get("metrics",{})))+'</p>'
+        if quarterly:
+            content+='<p><strong>Resultados trimestrales verificados (10-Q, no anualizados)</strong></p><ul>'+''.join(quarterly)+'</ul>'
+        if not annual and not quarterly:
+            content+='<p><strong>Resultados fundamentales:</strong> sin datos SEC comparables verificados. '
+            content+='El gráfico de precios, si existe, no sustituye los estados financieros.</p>'
+        source=info.get("source","")
+        if source.startswith("https://"):
+            content+=f'<p style="font-size:12px"><a href="{esc(source)}">Fuente contable SEC</a></p>'
+        blocks.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
+                      +content+'</div>')
+    return "".join(blocks)
 
 def data_quality_summary(data, sec=None, news_count=0):
     """Informe auditable de cobertura, frescura y límites, no una nota de confianza inventada."""
@@ -470,7 +498,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
             value="No disponible; verificar cobertura de FRED"
         index_rows.append(f"<tr><th>{fred_link(data.get('series',{}).get(key,{}),label)}</th><td>{esc(value)}</td></tr>")
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {},history,chart_keys)}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices y sectores bursátiles</h2>{index_breadth(data)}<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días. Los extractos se traducen localmente al español, sin costos de API ni interpretación de hechos adicionales. Cuando no hay descripción oficial se indica expresamente:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {},history,chart_keys)}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices y sectores bursátiles</h2>{index_breadth(data)}<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Se distingue comportamiento bursátil de resultados de ejercicios comparables. Cifras contables solo cuando la fuente SEC es verificable, sin pronósticos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días. Los extractos se traducen localmente al español, sin costos de API ni interpretación de hechos adicionales. Cuando no hay descripción oficial se indica expresamente:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
