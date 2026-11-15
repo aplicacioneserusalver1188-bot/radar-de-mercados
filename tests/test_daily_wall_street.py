@@ -53,6 +53,17 @@ class ReportTests(unittest.TestCase):
         unsafe = radar.fred_link({"source_url": "javascript:alert(1)"}, "Tesoro")
         self.assertNotIn("<a", unsafe)
 
+    def test_index_breadth_is_not_stock_market_breadth(self):
+        from datetime import datetime, timezone
+        today=datetime.now(timezone.utc).date().isoformat()
+        data={"series":{
+            "sp500":{"points":[{"date":today,"value":100},{"date":today,"value":102}]},
+            "dow":{"points":[{"date":today,"value":100},{"date":today,"value":98}]}
+        }}
+        output=radar.index_breadth(data)
+        self.assertIn("1 al alza, 1 a la baja",output)
+        self.assertIn("No equivale a amplitud del mercado",output)
+
     def test_quantitative_diagnosis_only_uses_observed_values(self):
         result = radar.market_diagnosis({"series": {
             "vix": {"points": [{"value": 28.2, "date": "2026-11-13"}]},
