@@ -23,6 +23,40 @@ TAGS = {
     "operating_cash": ("NetCashProvidedByUsedInOperatingActivities",),
     "capital_expenditure": ("PaymentsToAcquirePropertyPlantAndEquipment",),
 }
+# Presentación internacional: SEC puede publicar información de emisores extranjeros en IFRS y TWD.
+IFRS_TAGS = {
+    "revenue": ("Revenue", "RevenueFromContractsWithCustomers"),
+    "net_income": ("ProfitLoss", "ProfitLossAttributableToOwnersOfParent"),
+    "operating_cash": ("CashFlowsFromUsedInOperatingActivities",),
+    "capital_expenditure": ("PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",),
+}
+def financial_series(facts, namespaces, names, forms, months, currency):
+    """Dos periodos completos comparables; nunca mezclar moneda ni duración."""
+    for namespace in namespaces:
+        section=facts.get("facts",{}).get(namespace,{})
+        for name in names:
+            units=section.get(name,{}).get("units",{}).get(currency,[])
+            periods=[]
+            for row in units:
+                if row.get("form") not in forms or row.get("fp") not in ("FY", "Q1", "Q2", "Q3", "Q4"):
+                    continue
+                try:
+                    start,end=row["start"],row["end"]
+                    duration=(datetime.fromisoformat(end)-datetime.fromisoformat(start)).days
+                    allowed=(330<=duration<=380 if months==12 else 70<=duration<=105)
+                    if not allowed or not isinstance(row.get("val"),(int,float)) or not row.get("filed"):
+                        continue
+                    periods.append({"end":end,"filed":row["filed"],"value":row["val"],
+                                    "currency":currency,"form":row["form"],"start":start})
+                except (KeyError,TypeError,ValueError):
+                    continue
+            if periods:
+                latest={}
+                for row in sorted(periods,key=lambda x:(x["end"],x["filed"])):
+                    latest[row["end"]]=row
+                return sorted(latest.values(),key=lambda x:x["end"],reverse=True)[:2]
+    return []
+
 AGENT = os.getenv("SEC_USER_AGENT") or "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)"
 
 def annual_values(facts, tags):
@@ -55,8 +89,18 @@ def annual_values(facts, tags):
 
 def summarize(facts, ticker):
     metrics = {name: annual_values(facts, tags) for name, tags in TAGS.items()}
+    if ticker=="TSM":
+        # TSM reporta como emisor extranjero: datos IFRS de 20-F, generalmente en TWD.
+        for name,tags in IFRS_TAGS.items():
+            if not metrics[name]:
+                metrics[name]=financial_series(facts,("ifrs-full",),tags,("20-F",),12,"TWD")
+    quarterly={}
+    if ticker=="SPCX":
+        # Solo periodos individuales de ~3 meses; no comparar acumulados 9M con trimestres.
+        quarterly={name:financial_series(facts,("us-gaap",),tags,("10-Q",),3,"USD")
+                   for name,tags in TAGS.items()}
     return {"ticker": ticker, "entity_name": facts.get("entityName", ticker),
-            "cik": facts.get("cik"), "metrics": metrics,
+            "cik": facts.get("cik"), "metrics": metrics,"quarterly_metrics":quarterly,
             "source": f"https://data.sec.gov/api/xbrl/companyfacts/CIK{COMPANIES[ticker]:010d}.json"}
 
 def main():
