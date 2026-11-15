@@ -194,6 +194,13 @@ class ReportTests(unittest.TestCase):
         self.assertIn("consenso",report.lower() if "consenso" in report.lower() else radar.news_market_context("BLS CPI inflation").lower())
         self.assertNotIn("las acciones subieron",report)
 
+    def test_news_relevance_prioritizes_macro_topics_without_assigning_market_direction(self):
+        self.assertEqual(radar.news_relevance("BLS Consumer Price Index CPI"), 2)
+        self.assertEqual(radar.news_relevance("BEA Gross Domestic Product GDP"), 2)
+        self.assertEqual(radar.news_relevance("SEC Agency redesigns website"), 0)
+        self.assertEqual(radar.news_relevance("Treasury securities market"), 1)
+        self.assertNotIn("subieron", radar.news_market_context("BLS CPI inflation"))
+
     def test_news_category_is_not_inferred_for_unknown_release(self):
         context=radar.news_market_context("SEC: Agency announces new website")
         self.assertIn("titular por sí solo no permite cuantificar",context)
