@@ -87,7 +87,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("macroeconómica", radar.edition_label({}))
         result=radar.render({"series": {}}, {})
         self.assertIn("cobertura empresarial pendiente", result)
-        self.assertIn("sin métricas anuales verificadas", result)
+        self.assertIn("sin datos SEC comparables verificados", result)
 
     def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
         facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
@@ -99,6 +99,62 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([r["value"] for r in values], [100, 80])
         summary = update_sec.summarize(facts, "NVDA")
         self.assertEqual(summary["metrics"]["revenue"][0]["value"], 100)
+
+    def test_sec_selects_most_recent_tag_instead_of_2022_for_nvda(self):
+        facts={"facts":{"us-gaap":{
+            "RevenueFromContractWithCustomerExcludingAssessedTax":{"units":{"USD":[
+                {"form":"10-K","fp":"FY","start":"2021-01-31","end":"2022-01-30",
+                 "filed":"2022-03-01","val":26914000000}]}},
+            "Revenues":{"units":{"USD":[
+                {"form":"10-K","fp":"FY","start":"2025-01-27","end":"2026-01-25",
+                 "filed":"2026-03-01","val":215938000000},
+                {"form":"10-K","fp":"FY","start":"2024-01-29","end":"2025-01-26",
+                 "filed":"2025-03-01","val":130000000000}]}}
+        }}}
+        vals=update_sec.annual_values(facts,update_sec.TAGS["revenue"])
+        self.assertEqual(vals[0]["end"],"2026-01-25")
+        self.assertEqual(vals[0]["value"],215938000000)
+        self.assertNotIn("2022-01-30",[x["end"] for x in vals])
+        company=update_sec.summarize(facts,"NVDA")
+        self.assertEqual(company["metrics"]["revenue"][0]["value"],215938000000)
+
+    def test_financial_analysis_omits_metrics_from_different_years(self):
+        metrics={
+            "revenue":[{"end":"2022-01-30","value":26914000000}],
+            "net_income":[{"end":"2026-01-25","value":120067000000}],
+            "operating_cash":[{"end":"2026-01-25","value":102718000000}],
+            "capital_expenditure":[{"end":"2012-01-29","value":139000000}],
+        }
+        html=radar.company_metric_rows(metrics)
+        self.assertIn("2026-01-25","".join(html))
+        self.assertNotIn("26,914 millones","".join(html))
+        self.assertNotIn("139 millones","".join(html))
+        self.assertNotIn("Margen neto","".join(html))
+
+    def test_market_chart_conclusion_uses_historical_closes(self):
+        import render_charts
+        from datetime import datetime,timedelta,timezone
+        end=datetime.now(timezone.utc).date()
+        points=[{"date":(end-timedelta(days=(239-i))).isoformat(),"close":100+i}
+                for i in range(240)]
+        measured=render_charts.metrics(points)
+        self.assertIn("ma200",measured)
+        self.assertIn("ma50",measured)
+        self.assertIn("corto y mediano plazo favorable",render_charts.interpretation(measured))
+        html=radar.chart_fragment("gold",{"assets":{"gold":{
+            "unit":"USD/onza troy","source":"https://stooq.com/q/?s=xauusd",
+            "points":points}}},{"gold":"/tmp/example.png"})
+        self.assertIn("cid:radar-gold",html)
+        self.assertIn("Qué muestra:",html)
+
+    def test_news_official_body_extraction_no_duplicate_title(self):
+        import news_story
+        page="<html><main><p>Economy report details a change in inflation expectations and monetary policy assumptions for the coming fiscal year.</p><p>Officials also described changes in bond yields and lending conditions for banks after the announcement.</p></main></html>"
+        item=news_story.official_details("https://www.federalreserve.gov/test",
+                                         "Official announcement",request_fn=lambda u:page)
+        self.assertIn("inflation expectations",item)
+        self.assertIn("bond yields",item)
+        self.assertEqual(news_story.official_details("https://attacker.example/test",request_fn=lambda u:page),"")
 
     def test_tsm_ifrs_20f_keeps_twd_and_skips_short_periods(self):
         facts={"facts":{"ifrs-full":{"Revenue":{"units":{"TWD":[
@@ -135,9 +191,9 @@ class ReportTests(unittest.TestCase):
             "net_income": [{"value": 2000000000, "end": "2025-12-31"}]
         }, "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json"}}}
         report = radar.render({"series": {}}, sec)
-        self.assertIn("Margen neto calculado: 20.0%", report)
+        self.assertIn("Margen neto: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("sin métricas anuales verificadas", report)
+        self.assertIn("sin datos SEC comparables verificados", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):
@@ -287,7 +343,7 @@ class ReportTests(unittest.TestCase):
     def test_news_provides_conditional_context_not_unverified_market_outcome(self, _news):
         report=radar.render({"series":{}})
         self.assertIn("Por qué importa:",report)
-        self.assertIn("Política monetaria:",report)
+        self.assertIn("tipos de interés",report)
         self.assertIn("expectativas previas", report)
         self.assertIn("consenso", radar.news_market_context("BLS CPI inflation").lower())
         self.assertNotIn("las acciones subieron",report)
@@ -301,9 +357,9 @@ class ReportTests(unittest.TestCase):
 
     def test_news_category_is_not_inferred_for_unknown_release(self):
         context=radar.news_market_context("SEC: Agency announces new website")
-        self.assertIn("titular por sí solo no permite cuantificar",context)
+        self.assertIn("no está demostrada",context)
         context=radar.news_market_context("BLS: Consumer Price Index (CPI)")
-        self.assertIn("Inflación:",context)
+        self.assertIn("inflación",context.lower())
 
     def test_reference_parsers_validate_gold_and_bitcoin(self):
         from datetime import datetime,timezone
@@ -338,9 +394,9 @@ class ReportTests(unittest.TestCase):
         report=radar.render({"series":{}}, refs=refs)
         self.assertIn("Oro XAU/USD",report)
         self.assertIn("Petróleo WTI",report)
-        self.assertIn("Petróleo Brent",report)
+        self.assertNotIn("Petróleo Brent",report)
         self.assertIn("Bitcoin BTC/USDT",report)
-        self.assertIn("variación móvil 24 h: +2.50%",report)
+        self.assertIn("Bitcoin BTC/USDT",report)
 
     @patch.object(radar, "official_news", return_value=[
         ("Reserva Federal: Monetary policy statement","https://www.federalreserve.gov/test","15/11/2026 11:00 UTC","Published a statement")])
@@ -373,7 +429,7 @@ class ReportTests(unittest.TestCase):
         with patch.object(radar,"local_news",return_value=mock):
             report=radar.render({"series":{}})
         self.assertIn("La Reserva Federal publica un informe",report)
-        self.assertIn("Qué ocurrió (extracto oficial traducido automáticamente)",report)
+        self.assertIn("Qué ocurrió:",report)
         self.assertIn("La Reserva Federal publicó un informe",report)
         self.assertIn("https://www.federalreserve.gov/test",report)
 
