@@ -53,3 +53,11 @@ La automatización propuesta utiliza GitHub Actions y Google y no depende de una
 - **Se mantiene la protección** que cancela el informe con indicadores macroeconómicos esenciales insuficientes o vencidos.
 - Enviar correos sigue requiriendo secretos Gmail configurados, una prueba real de recepción y el workflow en la rama predeterminada. Ninguno de esos pasos se sustituye por la prueba automática sin correo.
 - No fusionar a `main` ni modificar la página pública sin permiso explícito.
+
+## Validación editorial y de correo — 15/11/2026
+
+- Se incorporó la fuente oficial **BEA** (`https://apps.bea.gov/rss/rss.xml`) junto a los feeds oficiales de Fed, BLS y SEC. Se aceptan solamente enlaces HTTPS de dominios institucionales permitidos. Una fuente no accesible se identifica como tal y no se sustituye por artículos inventados.
+- La lista de comunicados oficiales se ordena por **relevancia temática** (Fed, inflación, empleo, PIB, actividad) y después por fecha; es un orden editorial automático, **no una evaluación verificada del impacto bursátil**.
+- Cada noticia recuperada presenta su fuente, fecha y enlace, más una nota de *relevancia potencial* basada en el tema del título. Sin leer la publicación completa no se puede afirmar el dato publicado, su sorpresa respecto al consenso ni la reacción efectiva de los mercados.
+- La estructura del correo HTML se prueba sin enviar mensajes. La entrega efectiva requiere que el usuario configure las tres credenciales de Gmail y compruebe recepción; **no se afirma que hubo envío** si GitHub solo generó un artefacto.
+- Restricciones pendientes: SEC HTTP 403 desde GitHub Actions, fallos de acceso al feed BLS, cobertura de empresas/sectores incompleta y falta de un proveedor de cotizaciones actualizadas con términos autorizados. La modalidad macroeconómica parcial debe mantener avisos visibles.
