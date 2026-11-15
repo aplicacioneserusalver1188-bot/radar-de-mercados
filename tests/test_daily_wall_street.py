@@ -179,6 +179,44 @@ class ReportTests(unittest.TestCase):
         self.assertIn("bond yields",item)
         self.assertEqual(news_story.official_details("https://attacker.example/test",request_fn=lambda u:page),"")
 
+    @patch.object(radar,"official_news",return_value=[])
+    def test_four_index_graphs_and_company_graphs_in_report(self,_news):
+        from datetime import datetime,timedelta,timezone
+        end=datetime.now(timezone.utc).date()
+        points=[{"date":(end-timedelta(days=240-i)).isoformat(),"close":4000+i}
+                for i in range(241)]
+        source="https://fred.stlouisfed.org/series/SP500"
+        history={"assets":{key:{"points":points,"unit":"puntos",
+                                 "source":source,"label":key}
+                           for key in ("sp500","nasdaq","dow","russell","NVDA")}}
+        keys={key:"/tmp/"+key+".png" for key in history["assets"]}
+        report=radar.render({"series":{}},history=history,chart_keys=keys)
+        for key in ("sp500","nasdaq","dow","russell","nvda"):
+            self.assertIn("cid:radar-"+key,report)
+        self.assertIn("Qué muestra:",report)
+        self.assertIn("Nasdaq Composite",report)
+        self.assertNotIn("Última lectura y cambio",report)
+
+    def test_macro_stories_replace_dictionary_table(self):
+        from datetime import datetime,timezone
+        import macro_story
+        now=datetime(2026,11,15,tzinfo=timezone.utc)
+        data={"series":{
+            "pce":{"source_url":"https://fred.stlouisfed.org/series/PCEPI","points":[
+                {"date":"2025-09-01","value":100},
+                {"date":"2026-09-01","value":103.65}]},
+            "corepce":{"points":[{"date":"2025-09-01","value":100},
+                                 {"date":"2026-09-01","value":103.12}]},
+            "unemployment":{"points":[{"date":"2026-09-01","value":3.9},
+                                        {"date":"2026-10-01","value":4.1}]},
+        }}
+        report=macro_story.macro_story(data,now=now)
+        self.assertIn("PCE general 3.65%",report)
+        self.assertIn("PCE subyacente 3.12%",report)
+        self.assertIn("Inflación por encima del 2% y desempleo en aumento",report)
+        self.assertIn("Por qué importa",report)
+        self.assertNotIn("nivel del índice",report)
+
     def test_tsm_ifrs_20f_keeps_twd_and_skips_short_periods(self):
         facts={"facts":{"ifrs-full":{"Revenue":{"units":{"TWD":[
             {"form":"20-F","fp":"FY","start":"2025-01-01","end":"2025-12-31","filed":"2026-03-10","val":3000000000000},
