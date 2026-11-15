@@ -96,3 +96,12 @@ La variable opcional `RADAR_ENABLE_EMAIL` ya no controla el cron, porque el usua
 Se amplía la lectura SEC para **TSM**: cuando no haya hechos US-GAAP anuales, el extractor busca hechos IFRS (`ifrs-full`) de formularios 20-F, con unidad **TWD** y periodos completos de 330–380 días. No convierte TWD a USD ni mezcla monedas. Para **SPCX**, se muestran por separado importes de formularios 10-Q con periodos individuales de 70–105 días; se descartan totales acumulados de varios trimestres. Las comparaciones son entre los periodos disponibles, no necesariamente interanuales. Si SEC bloquea el acceso HTTP 403, el informe sigue mostrando ausencia de datos sin inventarlos.
 
 La redacción automatizada de noticias sigue dependiendo del secreto opcional `GEMINI_API_KEY`; la ausencia de este secreto no está resuelta con estos cambios. Se conserva el cron del envío diario por Gmail.
+
+## Noticias en español sin facturación — 15/11/2026
+
+Con la exigencia de costo **$0**, el flujo diario usa **Argos Translate**, software abierto que se ejecuta localmente en el runner público de GitHub Actions, para traducir al español los extractos de las descripciones oficiales RSS/Atom. El informe distingue:
+- «Qué ocurrió»: una o dos frases presentes en la descripción de la fuente oficial, traducidas localmente; **no** añade datos ni constituye análisis independiente
+- «Por qué importa»: contexto macroeconómico condicional, sin atribuir al titular cifras ni reacciones verificadas
+- Titular traducido, título original y enlace directo oficial
+
+No se utilizan llamadas a la API de Gemini ni servicios de pago en la tarea programada. No se requiere `GEMINI_API_KEY`, tarjeta, cuenta nueva ni facturación. La instalación del paquete y del modelo en-es se realiza únicamente en el entorno de ejecución, puede fallar por disponibilidad de red/modelo y no interrumpe el informe; en tal caso se indica claramente que no hay traducción disponible. La traducción automática puede tener errores y debe contrastarse con la fuente. GitHub Actions es gratuito para repositorios públicos con ejecutores estándar, sujeto a las políticas vigentes del proveedor. Los repositorios privados y otros recursos pueden implicar cargos y quedan fuera del alcance.
