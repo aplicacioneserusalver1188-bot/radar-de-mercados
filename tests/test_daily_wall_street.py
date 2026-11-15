@@ -222,7 +222,7 @@ class ReportTests(unittest.TestCase):
          "15/11/2026 10:00 UTC")])
     def test_news_provides_conditional_context_not_unverified_market_outcome(self, _news):
         report=radar.render({"series":{}})
-        self.assertIn("Relevancia potencial:",report)
+        self.assertIn("Impacto potencial:",report)
         self.assertIn("Política monetaria:",report)
         self.assertIn("expectativas previas", report)
         self.assertIn("consenso", radar.news_market_context("BLS CPI inflation").lower())
