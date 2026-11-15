@@ -201,7 +201,10 @@ def sec_company_html(sec):
             src = info.get("source", "https://www.sec.gov/edgar/search/")
             blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong><ul>{"".join(rows)}</ul><a href="{esc(src)}">Fuente SEC XBRL</a>. Datos contables históricos, no pronóstico.</li>')
         else:
-            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>: sin métricas SEC comparables verificadas en esta ejecución.</li>')
+            explanation=("TSMC presenta informes extranjeros 20-F: no deben confundirse con los 10-K estadounidenses." if ticker=="TSM"
+                         else "SpaceX empezó a cotizar en 2026 y puede no tener dos ejercicios anuales comparables." if ticker=="SPCX"
+                         else "La fuente SEC no entregó cifras comprobables en esta ejecución.")
+            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>: sin métricas anuales verificadas. {esc(explanation)}</li>')
     return "<ul>" + "".join(blocks) + "</ul>"
 
 
