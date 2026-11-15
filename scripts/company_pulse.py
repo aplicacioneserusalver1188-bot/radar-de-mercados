@@ -14,7 +14,9 @@ def momentum(points,benchmark=None):
     weekly=100*(close/points[-6]["close"]-1)
     result={"close":close,"date":points[-1]["date"],"daily":daily,"weekly":weekly,
             "ma20":chart.get("ma20"),"ma50":chart.get("ma50"),"ma200":chart.get("ma200")}
-    if benchmark and len(benchmark)>=6 and benchmark[-1]["date"]==points[-1]["date"]:
+    if (benchmark and len(benchmark)>=6 and
+            benchmark[-1]["date"]==points[-1]["date"] and
+            benchmark[-6]["date"]==points[-6]["date"]):
         result["sp500_weekly"]=100*(benchmark[-1]["close"]/benchmark[-6]["close"]-1)
         result["relative_weekly"]=weekly-result["sp500_weekly"]
     return result
@@ -56,7 +58,42 @@ def scenarios(p):
     return ("Posible consolidación; un movimiento sostenido y confirmado por MA20 "
             "sería necesario para hablar de dirección más definida.")
 
-def company_news_html(items,translator=None):
+def possible_news_impact(title,ticker):
+    """Mecanismo sectorial plausible, no reacción de precio verificada."""
+    t=title.casefold()
+    if any(w in t for w in ("earnings","results","revenue","profit","guidance","outlook")):
+        return ("Puede modificar las expectativas de ingresos y márgenes. Para determinar "
+                "el efecto real faltan cifras, consenso y reacción del precio.")
+    if any(w in t for w in ("chip","semiconductor","gpu","fab","ai infrastructure","data center")):
+        return ("Podría afectar demanda, inversión o capacidad de producción de "
+                "semiconductores e infraestructura de IA. No demuestra por sí solo "
+                "cambios de beneficios ni explica una variación concreta.")
+    if any(w in t for w in ("regulat","lawsuit","antitrust","investigation","tariff","export ban")):
+        return ("Introduce posibles costes, restricciones o incertidumbre regulatoria. "
+                "El efecto depende de su alcance y de si la noticia ya estaba descontada.")
+    if any(w in t for w in ("launch","contract","order","partnership","customer","product")):
+        return ("Podría modificar expectativas sobre ventas o posicionamiento competitivo; "
+                "se necesita conocer el valor, calendario y rentabilidad del acuerdo.")
+    if any(w in t for w in ("interest rate","fed","bond","inflation","bank")):
+        return ("Podría repercutir en el coste del capital, crédito o valoración del sector. "
+                "El impacto específico no está confirmado.")
+    sectors={
+        "NVDA":"Demanda de aceleradores de IA y márgenes",
+        "MSFT":"Crecimiento de Azure, IA y gasto en infraestructura",
+        "AAPL":"Ventas de dispositivos, servicios y márgenes",
+        "AMZN":"AWS, comercio electrónico y margen operativo",
+        "GOOGL":"Publicidad digital, nube y monetización de IA",
+        "META":"Publicidad, uso de plataformas y gasto en IA",
+        "AVGO":"Demanda de chips personalizados y conectividad",
+        "JPM":"Crédito, tipos de interés y calidad de préstamos",
+        "TSLA":"Entregas, precios, márgenes y competencia",
+        "TSM":"Pedidos de fabricación avanzada y capacidad de producción",
+        "SPCX":"Lanzamientos, contratos y necesidades de inversión",
+    }
+    return (f"Vigilar {sectors.get(ticker,'beneficios y competencia').lower()}; "
+            "con este titular no está acreditado que haya causado el movimiento de la acción.")
+
+def company_news_html(items,translator=None,ticker=""):
     if not items:
         return '<p><strong>Noticias 7 días:</strong> No se obtuvieron titulares fechados para esta empresa; no se atribuye causa al precio.</p>'
     rows=[]
@@ -73,7 +110,9 @@ def company_news_html(items,translator=None):
         url=item.get("url","")
         if not url.startswith("https://news.google.com/"):continue
         rows.append('<li><a href="'+e(url)+'">'+e(shown)+'</a>'
-                    +' — '+e(item.get("source","Agregador"))+' ('+e(item.get("date",""))+')</li>')
+                    +' — '+e(item.get("source","Agregador"))+' ('+e(item.get("date",""))+')'
+                    +'<p style="font-size:12px"><strong>Posible repercusión:</strong> '
+                    +e(possible_news_impact(title,ticker))+'</p></li>')
     if not rows:
         return '<p>Sin noticias recientes con fuente y fecha verificables.</p>'
     return ('<p><strong>Noticias de los últimos siete días:</strong></p><ul>'
