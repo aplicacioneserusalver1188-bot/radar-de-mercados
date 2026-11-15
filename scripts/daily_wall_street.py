@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
+from news_spanish import summarize_news
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "market.json"
@@ -55,7 +56,7 @@ def fred_link(obj, label):
 def esc(v): return html.escape(str(v))
 def format_point(p):
     return f"{p['value']:,.2f} ({p['date']})"
-def parse_official_feed(payload, agency, host, now=None):
+def parse_official_feed(payload, agency, host, now=None, with_description=False):
     """Extrae solo comunicados fechados con enlaces HTTPS del dominio oficial."""
     root = ET.fromstring(payload)
     trusted_hosts = (host,) if isinstance(host, str) else tuple(host)
@@ -65,7 +66,8 @@ def parse_official_feed(payload, agency, host, now=None):
         title = (item.findtext("title") or "").strip()
         url = (item.findtext("link") or "").strip()
         date_text = (item.findtext("pubDate") or "").strip()
-        rows.append((title, url, date_text, "rss"))
+        description = (item.findtext("description") or "").strip()
+        rows.append((title, url, date_text, "rss", description)
     namespace = {"atom": "http://www.w3.org/2005/Atom"}
     for item in root.findall(".//atom:entry", namespace):
         title = (item.findtext("atom:title", default="", namespaces=namespace) or "").strip()
@@ -74,9 +76,10 @@ def parse_official_feed(payload, agency, host, now=None):
                     if link.get("rel", "alternate") == "alternate"), "")
         date_text = (item.findtext("atom:published", default="", namespaces=namespace)
                      or item.findtext("atom:updated", default="", namespaces=namespace) or "").strip()
-        rows.append((title, url, date_text, "atom"))
+        summary = (item.findtext("atom:summary", default="", namespaces=namespace) or "").strip()
+        rows.append((title, url, date_text, "atom", summary)
     valid = []
-    for title, url, date_text, format_name in rows:
+    for title, url, date_text, format_name, description in rows:
         location = urlsplit(url)
         if not title or location.scheme != "https" or location.hostname not in trusted_hosts:
             continue
@@ -91,8 +94,15 @@ def parse_official_feed(payload, agency, host, now=None):
         age = current - publication
         if not timedelta(0) <= age <= timedelta(days=4):
             continue
-        valid.append((agency + ": " + title, url,
-                      publication.strftime("%d/%m/%Y %H:%M UTC"), publication))
+        row=(agency + ": " + title, url,
+             publication.strftime("%d/%m/%Y %H:%M UTC"), publication)
+        if with_description:
+            # No se confía en HTML incluido en feeds ajenos.
+            import re
+            description=re.sub(r"<[^>]*>", " ", html.unescape(description))
+            description=" ".join(description.split())[:1100]
+            row += (description,)
+        valid.append(row)
     return valid
 
 
@@ -126,15 +136,15 @@ def official_news():
             req = urllib.request.Request(url, headers={"User-Agent": "ObservatorioRM/1.0 (financial digest)"})
             with urllib.request.urlopen(req, timeout=12) as response:
                 payload = response.read(1_000_000)
-            items.extend(parse_official_feed(payload, agency, host))
+            items.extend(parse_official_feed(payload, agency, host, with_description=True))
         except (OSError, ET.ParseError, ValueError) as error:
             print("Feed oficial no disponible:", agency, type(error).__name__)
     items.sort(key=lambda row: (news_relevance(row[0]), row[3]), reverse=True)
     seen = set()
     unique = []
-    for title, link, date, _ in items:
+    for title, link, date, _, description in items:
         if link not in seen:
-            unique.append((title, link, date))
+            unique.append((title, link, date, description))
             seen.add(link)
     return unique[:10]
 
@@ -339,7 +349,21 @@ def render(data, sec=None, refs=None):
             value="No disponible"; flags.append(label+" sin datos")
         items.append(f"<tr><th>{fred_link(obj,label)}</th><td>{esc(value)}</td><td>{esc(meaning)}</td></tr>")
     companies=sec_company_html(sec or {})
-    news_html = "".join(f'<li><a href="{esc(link)}">{esc(title)}</a> — {esc(date)}. <strong>Relevancia potencial:</strong> {esc(news_market_context(title))}</li>' for title,link,date in news)
+    cleaned_news=[(item[0],item[1],item[2],item[3] if len(item)>3 else "") for item in news]
+    try:
+        summaries=summarize_news([(title.split(": ",1)[-1],title.split(":",1)[0],description)
+                                  for title,link,date,description in cleaned_news])
+    except (OSError,ValueError,KeyError,TypeError,IndexError) as error:
+        summaries={}
+        print("Síntesis automática no disponible:",type(error).__name__)
+    parts=[]
+    for i,(title,link,date,description) in enumerate(cleaned_news):
+        summary=summaries.get(i)
+        fact=("<strong>Resumen en español (síntesis automática):</strong> "+esc(summary)
+              if summary else "<strong>Resumen factual en español:</strong> No disponible sin análisis de la fuente original; no se inventan detalles.")
+        parts.append(f'<li><a href="{esc(link)}">{esc(title)}</a> — {esc(date)}. '
+                     +fact+f' <strong>Impacto potencial:</strong> {esc(news_market_context(title))}</li>')
+    news_html="".join(parts)
     if not news_html:
         news_html="<li>No se recuperaron comunicados verificables recientes de los canales oficiales consultados.</li>"
     index_rows=[]
