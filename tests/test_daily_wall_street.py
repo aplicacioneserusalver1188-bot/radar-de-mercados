@@ -286,7 +286,7 @@ class ReportTests(unittest.TestCase):
          "15/11/2026 10:00 UTC")])
     def test_news_provides_conditional_context_not_unverified_market_outcome(self, _news):
         report=radar.render({"series":{}})
-        self.assertIn("Impacto potencial:",report)
+        self.assertIn("Por qué importa:",report)
         self.assertIn("Política monetaria:",report)
         self.assertIn("expectativas previas", report)
         self.assertIn("consenso", radar.news_market_context("BLS CPI inflation").lower())
@@ -345,11 +345,37 @@ class ReportTests(unittest.TestCase):
     @patch.object(radar, "official_news", return_value=[
         ("Reserva Federal: Monetary policy statement","https://www.federalreserve.gov/test","15/11/2026 11:00 UTC","Published a statement")])
     def test_news_labels_unknown_factual_summary_honestly(self, _news):
-        with patch.object(radar, "summarize_news", return_value={}):
+        with patch.object(radar, "local_news", return_value={}):
             report=radar.render({"series":{}})
-        self.assertIn("Resumen factual en español:",report)
-        self.assertIn("No disponible sin análisis de la fuente original",report)
+        self.assertIn("Qué ocurrió:",report)
+        self.assertIn("No hay descripción verificable traducida",report)
         self.assertIn("Impacto potencial:",report)
+
+    def test_offline_spanish_news_uses_source_excerpt_only(self):
+        import news_offline_es as local
+        payload=[("Federal Reserve releases financial stability report","Reserva Federal",
+                  "The Federal Reserve published a new report. It describes conditions in financial markets. "
+                  "This is a third sentence that should not be included.")]
+        translated=local.local_news(payload, translate_fn=lambda s: "ES: "+s)
+        self.assertEqual(translated[0]["title_es"],"ES: Federal Reserve releases financial stability report")
+        self.assertIn("ES: The Federal Reserve published a new report.",translated[0]["summary_es"])
+        self.assertNotIn("third sentence",translated[0]["summary_es"])
+        self.assertEqual(local.local_news([("Notice","Fed","")],
+                                          translate_fn=lambda s:"ES: "+s),{})
+
+    @patch.object(radar, "official_news", return_value=[
+        ("Reserva Federal: Federal Reserve publishes a report",
+         "https://www.federalreserve.gov/test","15/11/2026 11:00 UTC",
+         "The Federal Reserve published a report on financial stability.")])
+    def test_news_renders_spanish_title_summary_and_original_source(self, _news):
+        mock={0:{"title_es":"La Reserva Federal publica un informe",
+                 "summary_es":"La Reserva Federal publicó un informe de estabilidad financiera."}}
+        with patch.object(radar,"local_news",return_value=mock):
+            report=radar.render({"series":{}})
+        self.assertIn("La Reserva Federal publica un informe",report)
+        self.assertIn("Qué ocurrió (extracto oficial traducido automáticamente)",report)
+        self.assertIn("La Reserva Federal publicó un informe",report)
+        self.assertIn("https://www.federalreserve.gov/test",report)
 
     def test_news_parser_can_extract_official_description(self):
         from datetime import datetime,timezone
