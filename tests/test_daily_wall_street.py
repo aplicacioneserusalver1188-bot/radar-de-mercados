@@ -36,6 +36,14 @@ class ReportTests(unittest.TestCase):
         data["series"]["payrolls"]["points"].reverse()
         self.assertNotIn("cambio frente al dato anterior:",radar.render(data))
 
+    @patch.object(radar, "official_news", return_value=[])
+    def test_partial_macro_edition_when_sec_unavailable(self, _news):
+        self.assertEqual(radar.annual_company_coverage({}), 0)
+        self.assertIn("macroeconómica", radar.edition_label({}))
+        result=radar.render({"series": {}}, {})
+        self.assertIn("cobertura empresarial pendiente", result)
+        self.assertIn("sin métricas SEC comparables", result)
+
     def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
         facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
             {"form": "10-Q", "fp": "Q1", "start": "2026-01-01", "end": "2026-03-31", "filed": "2026-04-20", "val": 5},
