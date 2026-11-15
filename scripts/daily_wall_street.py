@@ -45,7 +45,7 @@ SERIES = [
  ("consumer", "Sentimiento del consumidor", "Contexto para gasto y expectativas de hogares."),
  ("diesel", "Precio minorista del diésel", "Señal parcial de costos energéticos y transporte.")
 ]
-INDICES = [("sp500","S&P 500"),("nasdaq","Nasdaq Composite"),("dow","Dow Jones Industrial Average"),("russell","Russell 2000")]
+INDICES = [("sp500","S&P 500"),("nasdaq","Nasdaq Composite"),("nasdaq100","Nasdaq 100"),("dow","Dow Jones Industrial Average"),("russell","Russell 2000")]
 COMPANIES = [("NVDA","NVIDIA"),("MSFT","Microsoft"),("AAPL","Apple"),("AMZN","Amazon"),("GOOGL","Alphabet"),("META","Meta"),("AVGO","Broadcom"),("JPM","JPMorgan"),("TSLA","Tesla"),("TSM","Taiwan Semiconductor (TSMC)"),("SPCX","SpaceX")]
 FRESHNESS_LIMITS = {"daily": 7, "weekly": 17, "monthly": 75, "quarterly": 155}
 def age_days(date_text):
