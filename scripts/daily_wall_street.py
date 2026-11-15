@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
 from news_offline_es import local_news
 from render_charts import metrics as chart_metrics, interpretation as trend_interpretation, build_charts
+from news_story import official_details
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "market.json"
@@ -149,28 +150,54 @@ def official_news():
         if link not in seen:
             unique.append((title, link, date, description))
             seen.add(link)
-    return unique[:10]
+    # Solo comunicados con contenido económico identificable. No llenar el
+    # informe con notas administrativas ajenas al movimiento de los activos.
+    selected=[item for item in unique if news_relevance(item[0])>0][:7]
+    enriched=[]
+    for i,(title,link,date,description) in enumerate(selected):
+        headline=title.split(": ",1)[-1]
+        similar=(description[:130].casefold().strip() in headline.casefold() or
+                 headline[:100].casefold() in description.casefold())
+        if i<5 and (len(description)<180 or similar):
+            try:
+                details=official_details(link,headline)
+                if len(details)>len(description)+60:
+                    description=details
+            except (OSError,ValueError,UnicodeError) as error:
+                print("Texto íntegro no disponible:",type(error).__name__)
+        enriched.append((title,link,date,description))
+    return enriched
 
 def news_market_context(title):
-    """Contexto condicional por palabras del titular; no deduce el resultado del comunicado."""
-    headline = title.casefold()
-    categories = (
-        (("federal funds", "interest rate", "fomc", "monetary policy", "tasas de interés", "política monetaria"),
-         "Política monetaria: contrastar la decisión o el tono del comunicado con las expectativas previas. Puede influir en rendimientos, dólar y valoración de acciones."),
-        (("consumer price", "cpi", "inflation", "personal consumption expenditures", "pce", "precios al consumidor", "inflación"),
-         "Inflación: comparar el dato publicado con el consenso y la lectura anterior. Su sorpresa puede modificar las expectativas de tipos de interés."),
-        (("employment", "payroll", "job openings", "unemployment", "labor market", "empleo", "desempleo"),
-         "Empleo: evaluar creación de puestos, desempleo y revisiones frente al consenso. La interpretación depende de su efecto sobre actividad e inflación."),
-        (("gross domestic product", "gdp", "retail sales", "economic activity", "producto interno bruto", "ventas minoristas"),
-         "Actividad: comparar el crecimiento y las revisiones con las previsiones. Un dato aislado no determina la dirección del mercado."),
-        (("enforcement", "securities", "fraud", "litigation", "disclosure", "regulation", "regulación", "sanción"),
-         "Regulación: identificar empresas y normas realmente afectadas antes de inferir repercusiones bursátiles."),
-    )
-    for terms, explanation in categories:
-        if any(term in headline for term in terms):
-            return explanation
-    return ("Comunicado institucional: examinar el texto original, su alcance y la reacción observada. "
-            "El titular por sí solo no permite cuantificar un impacto en bolsa.")
+    """Impacto específico condicionado al hecho; nunca instrucciones editoriales."""
+    t=title.casefold()
+    if any(s in t for s in ("payment services","check services","pricing","fees")):
+        return ("Afecta principalmente a costes de servicios bancarios. "
+                "Sin cuantificar las nuevas tarifas no hay evidencia de un impacto "
+                "material sobre S&P 500 o Nasdaq 100; catalizador de baja prioridad.")
+    if any(s in t for s in ("fomc","interest rate","monetary policy","federal funds")):
+        return ("Puede modificar las expectativas sobre tipos de interés, "
+                "el precio de los bonos, el dólar y las valoraciones bursátiles. "
+                "El efecto concreto depende de la decisión, el tono y las expectativas previas.")
+    if any(s in t for s in ("cpi","consumer price","inflation","pce","price index")):
+        return ("Un dato de inflación diferente de lo esperado puede cambiar "
+                "las expectativas de tipos de la Fed y repercutir en bonos, "
+                "acciones y oro. Sin consenso verificable no se infiere la dirección.")
+    if any(s in t for s in ("payroll","employment","unemployment","job openings")):
+        return ("La fortaleza o debilidad del empleo influye en las expectativas "
+                "de actividad económica y política monetaria. El impacto requiere "
+                "comparar cifras reales con previsiones y revisiones.")
+    if any(s in t for s in ("gdp","gross domestic product","retail sales","consumer spending")):
+        return ("Señal sobre crecimiento y consumo. Puede afectar perspectivas "
+                "de beneficios, pero el efecto bursátil depende de las sorpresas "
+                "frente a las expectativas.")
+    if any(s in t for s in ("regulation","fraud","enforcement","securities")):
+        return ("Podría afectar directamente a las compañías y actividades "
+                "mencionadas en el comunicado; no se extrapola automáticamente "
+                "al mercado general.")
+    return ("La repercusión financiera no está demostrada con la información "
+            "disponible; no se presenta como catalizador bursátil.")
+
 
 def financial_value(value):
     """Expresar magnitudes contables en millones de dólares."""
@@ -464,15 +491,23 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         print("Traductor local no disponible:",type(error).__name__)
     parts=[]
     for i,(title,link,date,description) in enumerate(cleaned_news):
+        agency,_,original_title=title.partition(": ")
         translated=translations.get(i,{})
-        spanish_title=translated.get("title_es") or title
-        summary=translated.get("summary_es")
-        fact=("<strong>Qué ocurrió (extracto oficial traducido automáticamente):</strong> "+esc(summary)
-              if summary else "<strong>Qué ocurrió:</strong> No hay descripción verificable traducida; consultar fuente original.")
-        original_label=('<small>Título original (inglés): '+esc(title)+'</small>. ' if summary else '')
-        parts.append(f'<li><a href="{esc(link)}">{esc(spanish_title)}</a> — {esc(date)}. '
-                     +original_label+fact
-                     +f' <strong>Por qué importa:</strong> {esc(news_market_context(title))}</li>')
+        spanish_title=(translated.get("title_es") or original_title or title).strip()
+        summary=(translated.get("summary_es") or "").strip()
+        # Los feeds que solo repiten el titular no aportan un resumen válido.
+        simplified=lambda s: "".join(ch for ch in s.casefold() if ch.isalnum())
+        repeated=bool(summary) and (simplified(summary) in simplified(spanish_title)
+                                      or simplified(spanish_title) in simplified(summary))
+        fact=(esc(summary) if summary and not repeated else
+              "No se obtuvieron hechos adicionales verificables; el titular por sí solo no permite profundizar.")
+        impact=news_market_context(title)
+        parts.append('<li style="margin:14px 0;padding:12px;border-bottom:1px solid #e4eaf0">'
+                     +f'<strong><a href="{esc(link)}">{esc(spanish_title)}</a></strong>'
+                     +f'<p style="color:#687587;font-size:12px;margin:4px 0">{esc(agency)} · {esc(date)}</p>'
+                     +'<p><strong>Qué ocurrió:</strong> '+fact+'</p>'
+                     +'<p><strong>Por qué importa:</strong> '+esc(impact)+'</p>'
+                     +'</li>')
     news_html="".join(parts)
     if not news_html:
         news_html="<li>No se recuperaron comunicados verificables recientes de los canales oficiales consultados.</li>"
