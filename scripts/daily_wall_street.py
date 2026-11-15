@@ -36,6 +36,17 @@ SERIES = [
 ]
 INDICES = [("sp500","S&P 500"),("nasdaq","Nasdaq Composite"),("dow","Dow Jones Industrial Average"),("russell","Russell 2000")]
 COMPANIES = [("NVDA","NVIDIA"),("MSFT","Microsoft"),("AAPL","Apple"),("AMZN","Amazon"),("GOOGL","Alphabet"),("META","Meta"),("AVGO","Broadcom"),("JPM","JPMorgan"),("TSLA","Tesla")]
+FRESHNESS_LIMITS = {"daily": 7, "weekly": 17, "monthly": 75, "quarterly": 155}
+def age_days(date_text):
+    return (datetime.now(timezone.utc).date() - datetime.fromisoformat(date_text).date()).days
+def freshness_limit(frequency):
+    return FRESHNESS_LIMITS.get(frequency, 45)
+def fred_link(obj, label):
+    url = obj.get("source_url", "")
+    if not (url.startswith("https://fred.stlouisfed.org/series/") and
+            url.removeprefix("https://fred.stlouisfed.org/series/").replace("_", "").isalnum()):
+        return esc(label)
+    return f'<a href="{esc(url)}">{esc(label)}</a>'
 def esc(v): return html.escape(str(v))
 def format_point(p):
     return f"{p['value']:,.2f} ({p['date']})"
@@ -156,11 +167,11 @@ def render(data, sec=None):
                     value+=f"; diferencial 10a–2a: {last['value']-short[-1]['value']:+.2f} puntos porcentuales"
             if key=="payrolls" and prior:
                 value+=f"; variación mensual: {(last['value']-prior['value'])*1000:+,.0f} empleos"
-            if (datetime.now(timezone.utc).date()-datetime.fromisoformat(last["date"]).date()).days>45:
-                flags.append(label+" presenta observación antigua")
+            if age_days(last["date"]) > freshness_limit(obj.get("frequency")):
+                flags.append(label+" presenta observación antigua ("+last["date"]+")")
         else:
             value="No disponible"; flags.append(label+" sin datos")
-        items.append(f"<tr><th>{esc(label)}</th><td>{esc(value)}</td><td>{esc(meaning)}</td></tr>")
+        items.append(f"<tr><th>{fred_link(obj,label)}</th><td>{esc(value)}</td><td>{esc(meaning)}</td></tr>")
     companies=sec_company_html(sec or {})
     news_html = "".join(f'<li><a href="{esc(link)}">{esc(title)}</a> — {esc(date)}. Comunicado oficial; su impacto bursátil requiere contexto.</li>' for title,link,date in news)
     if not news_html:
@@ -170,7 +181,7 @@ def render(data, sec=None):
         points=data.get("series",{}).get(key,{}).get("points",[])
         if len(points)>=2:
             last,prior=points[-1],points[-2]
-            age=(datetime.now(timezone.utc).date()-datetime.fromisoformat(last["date"]).date()).days
+            age=age_days(last["date"])
             if age>7:
                 flags.append(label+" presenta cotización antigua ("+str(age)+" días)")
             change=(last["value"]/prior["value"]-1)*100 if prior["value"] else None
@@ -179,7 +190,7 @@ def render(data, sec=None):
                 value+=f'; variación entre observaciones: {change:+.2f}%'
         else:
             value="No disponible; verificar cobertura de FRED"
-        index_rows.append(f"<tr><th>{esc(label)}</th><td>{esc(value)}</td></tr>")
+        index_rows.append(f"<tr><th>{fred_link(data.get('series',{}).get(key,{}),label)}</th><td>{esc(value)}</td></tr>")
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
     return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR INTEGRAL DE WALL STREET</h1><p><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p><h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices y sectores bursátiles</h2><table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Noticias y comunicados oficiales recientes de Fed, BLS y SEC (cuando estén disponibles):</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><p><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios. <strong>Neutral:</strong> señales contradictorias. <strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios. Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad</h2><p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def main():
