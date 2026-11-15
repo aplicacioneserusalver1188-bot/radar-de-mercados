@@ -180,7 +180,6 @@ class ReportTests(unittest.TestCase):
         self.assertIn("bond yields",item)
         self.assertEqual(news_story.official_details("https://attacker.example/test",request_fn=lambda u:page),"")
 
-    @patch.object(radar,"official_news",return_value=[])
     def test_company_weekly_and_daily_changes_with_news(self):
         from datetime import datetime,timedelta,timezone
         import company_pulse
@@ -232,6 +231,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(len(rows),1)
         self.assertEqual(rows[0]["source"],"Reuters")
 
+    @patch.object(radar,"official_news",return_value=[])
     def test_four_index_graphs_and_company_graphs_in_report(self,_news):
         from datetime import datetime,timedelta,timezone
         end=datetime.now(timezone.utc).date()
@@ -306,7 +306,7 @@ class ReportTests(unittest.TestCase):
         report = radar.render({"series": {}}, sec)
         self.assertIn("Margen neto: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("Qué está haciendo la acción", report)
+        self.assertIn("Resultados financieros (contexto secundario)", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):
