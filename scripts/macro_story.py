@@ -77,6 +77,26 @@ def macro_story(data,now=None):
                            "Falta una comparación interanual reciente y verificable.",
                            "El nivel de un índice no equivale a su tasa anual.",
                            "No se emite diagnóstico de inflación."))
+    # IPC general: índice de consumo; la tasa calculada es interanual.
+    cpi=year_change(s,"inflation",now)
+    if cpi is not None:
+        cards.append(story("IPC: precios al consumidor",
+            f"El índice de precios al consumidor varió {pct(cpi)} interanual.",
+            "Es una medida amplia de inflación de los hogares. Un dato mayor de lo "
+            "esperado podría elevar las expectativas de tipos, pero no se inventa "
+            "una sorpresa de mercado sin previsiones verificadas.",
+            ("IPC superior al 2%" if cpi>2 else "IPC igual o inferior al 2%; "
+             "su trayectoria requiere varias lecturas"),
+            source(s,"inflation")))
+    ppi=year_change(s,"ppi",now)
+    if ppi is not None:
+        cards.append(story("Costes de producción: materias primas",
+            f"El índice PPI de materias primas cambió {pct(ppi)} interanual.",
+            "Refleja una parte de las presiones sobre costes industriales. No "
+            "representa el PPI de demanda final ni la inflación pagada por consumidores.",
+            ("Aumento de costes de materias primas" if ppi>0 else
+             "Descenso de costes de materias primas"),
+            source(s,"ppi")))
     # Mercado laboral: tasa y variación, nunca porcentaje incorrecto.
     un=last(s,"unemployment",75,now)
     prior_un=prev(s,"unemployment")
