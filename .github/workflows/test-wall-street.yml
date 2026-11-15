@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/daily_wall_street.py'
+      - 'scripts/macro_story.py'
       - 'scripts/update_price_history.py'
       - 'scripts/render_charts.py'
       - 'scripts/news_story.py'
