@@ -75,6 +75,7 @@ def btc_history():
 def collect():
     result={"updated_at":datetime.now(timezone.utc).isoformat(),"assets":{}}
     for key in ("gold","wti","btc",*INDEX_KEYS,*COMPANIES):
+        proxy=None
         try:
             if key=="gold":
                 try:
@@ -102,17 +103,32 @@ def collect():
                 label="Bitcoin BTC/USDT"
                 unit="USDT/BTC"
             elif key in INDEX_KEYS:
-                # Reutilizar la misma serie FRED de la tabla de índices;
-                # sin llamadas duplicadas ni riesgo de confundir Nasdaq Composite con Nasdaq 100.
+                # Reutilizar FRED; para Russell su cobertura no siempre existe.
                 label,fid=INDEX_KEYS[key]
                 market_path=ROOT/"data"/"market.json"
-                if not market_path.exists():
-                    raise ValueError("Sin archivo FRED de índices")
-                market=json.loads(market_path.read_text(encoding="utf-8"))
+                market=(json.loads(market_path.read_text(encoding="utf-8"))
+                        if market_path.exists() else {})
                 rows=market.get("series",{}).get(key,{}).get("points",[])
-                points=standardize((p["date"],p["value"]) for p in rows)
-                source="https://fred.stlouisfed.org/series/"+fid
-                unit="puntos"
+                try:
+                    points=standardize((p["date"],p["value"]) for p in rows)
+                    source="https://fred.stlouisfed.org/series/"+fid
+                    unit="puntos"
+                except (ValueError,TypeError,KeyError):
+                    if key!="russell":
+                        raise
+                    try:
+                        points=yahoo_stock("^RUT")
+                        source="https://finance.yahoo.com/quote/%5ERUT/history/"
+                        unit="puntos"
+                        label="Russell 2000 (índice ^RUT)"
+                    except (OSError,ValueError,KeyError,TypeError,IndexError):
+                        points=stooq("iwm.us")
+                        source="https://stooq.com/q/?s=iwm.us"
+                        unit="USD/participación ETF"
+                        label="Russell 2000 — referencia ETF IWM"
+                        proxy=("IWM es un ETF que sigue el Russell 2000, NO el "
+                               "valor del índice. El gráfico es aproximación, "
+                               "no cotización del Russell 2000.")
             else:
                 try:
                     points=stooq(key.lower()+".us")
@@ -123,7 +139,7 @@ def collect():
                 label=key
                 unit="USD/acción"
             result["assets"][key]={"label":label,"unit":unit,"source":source,"points":points}
-            if key=="gold" and proxy:
+            if key in ("gold","russell") and "proxy" in locals() and proxy:
                 result["assets"][key]["proxy"]=proxy
         except (OSError,ValueError,KeyError,TypeError,IndexError) as error:
             result["assets"][key]={"error":type(error).__name__,"points":[]}
