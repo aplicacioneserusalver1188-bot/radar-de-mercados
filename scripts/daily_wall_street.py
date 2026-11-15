@@ -411,9 +411,19 @@ def render_stock_breadth(breadth):
     """SMA: porcentaje de componentes sobre su propia media móvil simple."""
     indices=breadth.get("indices",{})
     rows=[]
+    interpretations=[]
     for key,label in (("sp500","S&P 500"),("nasdaq100","Nasdaq 100")):
         entry=indices.get(key,{})
         if all("ma"+str(n) in entry for n in (20,50,200)):
+            short,medium,long=[float(entry["ma"+str(n)]) for n in (20,50,200)]
+            if min(short,medium,long)>50:
+                reading="participación mayoritaria en los tres plazos"
+            elif max(short,medium,long)<50:
+                reading="participación minoritaria en los tres plazos"
+            else:
+                reading="señales mixtas entre corto, mediano y largo plazo"
+            near=("; el plazo corto está cerca del equilibrio del 50%" if 45<=short<=55 else "")
+            interpretations.append(f'{label}: {reading}{near} (MA20 {short:.1f}%, MA50 {medium:.1f}%, MA200 {long:.1f}%).')
             values=[]
             for n in (20,50,200):
                 values.append(f'{entry["ma"+str(n)]:.1f}%')
@@ -431,8 +441,11 @@ def render_stock_breadth(breadth):
             'Las cifras no proceden de los administradores de los índices y dependen de la cobertura del proveedor.</p>'
             '<table border="1" cellpadding="8"><tr><th>Índice</th><th>MA20</th><th>MA50</th><th>MA200</th>'
             '<th>Fecha y fuente</th></tr>'+"".join(rows)+'</table>'
-            '<p>Un porcentaje superior a 50% significa que la mayoría de los valores evaluados está '
-            'sobre esa media. No es garantía de tendencia futura ni señal automática de compra.</p>')
+            '<p><strong>Conclusión de amplitud:</strong> '
+            +esc(" ".join(interpretations) if interpretations else
+                 "Los proveedores no entregaron información suficiente para evaluar la participación de las empresas.")
+            +'</p><p>Por encima del 50% equivale a mayoría de los valores evaluados, '
+            'pero no garantiza movimientos futuros ni supone una señal de compra.</p>')
 
 def chart_fragment(key, history=None, chart_keys=None):
     """Imagen CID incrustada en Gmail, más conclusión calculada con los cierres."""
