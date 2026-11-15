@@ -165,6 +165,40 @@ class ReportTests(unittest.TestCase):
         self.assertIn("curva invertida", result)
         self.assertNotIn("probabilidad", result)
 
+    def test_official_news_parser_accepts_rss_and_atom_without_unsafe_links(self):
+        from datetime import datetime, timezone
+        from email.utils import format_datetime
+        now=datetime.now(timezone.utc)
+        when=format_datetime(now)
+        rss=(f'<rss><channel><item><title>Comunicado monetario</title>'
+             f'<link>https://www.federalreserve.gov/newsevents/pressreleases/example.htm</link>'
+             f'<pubDate>{when}</pubDate></item><item>'
+             f'<title>Enlace malicioso</title><link>https://www.federalreserve.gov.evil.example/x</link>'
+             f'<pubDate>{when}</pubDate></item></channel></rss>')
+        results=radar.parse_official_feed(rss.encode(), "Reserva Federal", "www.federalreserve.gov", now=now)
+        self.assertEqual(len(results),1)
+        self.assertIn("Comunicado monetario", results[0][0])
+        atom=('''<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+            <title>Actualización oficial</title>
+            <link rel="alternate" href="https://www.federalreserve.gov/newsevents/example"/>
+            <published>''' + now.isoformat() + '''</published></entry></feed>''')
+        results=radar.parse_official_feed(atom.encode(), "Reserva Federal", "www.federalreserve.gov", now=now)
+        self.assertEqual(len(results),1)
+        self.assertIn("Actualización oficial",results[0][0])
+
+    def test_official_news_parser_rejects_future_and_unverified_dates(self):
+        from datetime import datetime, timezone, timedelta
+        from email.utils import format_datetime
+        now=datetime.now(timezone.utc)
+        future=format_datetime(now+timedelta(days=2))
+        rss=(f'<rss><channel><item><title>Futuro</title>'
+             f'<link>https://www.federalreserve.gov/newsevents/example</link>'
+             f'<pubDate>{future}</pubDate></item>'
+             f'<item><title>Fecha faltante</title>'
+             f'<link>https://www.federalreserve.gov/newsevents/other</link>'
+             f'</item></channel></rss>')
+        self.assertEqual(radar.parse_official_feed(rss.encode(), "Fed", "www.federalreserve.gov", now=now), [])
+
     @patch.object(radar, "official_news", return_value=[])
     def test_missing_news_not_fabricated(self, _news):
         result=radar.render({"series":{}})
