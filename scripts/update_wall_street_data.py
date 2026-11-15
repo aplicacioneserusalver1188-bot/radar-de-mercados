@@ -1,0 +1,55 @@
+import csv, io, json, pathlib, urllib.request
+from datetime import datetime, timezone
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+OUT = ROOT / "data" / "market.json"
+
+def series(series_id):
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+    with urllib.request.urlopen(url, timeout=30) as response:
+        rows = list(csv.DictReader(io.TextIOWrapper(response, encoding="utf-8")))
+    clean = [{"date": r.get("observation_date") or r.get("DATE"), "value": float(r[series_id])} for r in rows if r.get(series_id) not in (None, ".", "")]
+    return clean[-520:]
+
+def main():
+    data = {"updated_at": datetime.now(timezone.utc).isoformat(), "series": {}}
+    for key, fred_id, label, frequency in [
+        ("vix", "VIXCLS", "VIX", "daily"),
+        ("sp500", "SP500", "S&P 500", "daily"),
+        ("nasdaq", "NASDAQCOM", "Nasdaq Composite", "daily"),
+        ("dow", "DJIA", "Dow Jones Industrial Average", "daily"),
+        ("russell", "RU2000PR", "Russell 2000 (precio)", "daily"),
+        ("inflation", "CPIAUCSL", "Índice de precios al consumidor", "monthly"),
+        ("pce", "PCEPI", "Índice de precios del consumo personal", "monthly"),
+        ("corepce", "PCEPILFE", "PCE subyacente sin alimentos ni energía", "monthly"),
+        ("ppi", "PPIACO", "Índice de precios al productor (materias primas)", "monthly"),
+        ("unemployment", "UNRATE", "Tasa de desempleo", "monthly"),
+        ("gdp", "GDPC1", "PIB real EE. UU. (miles de millones USD encadenados)", "quarterly"),
+        ("retail", "RSAFS", "Ventas minoristas y servicios de alimentación", "monthly"),
+        ("fedfunds", "DFEDTARU", "Límite superior objetivo de fondos federales", "daily"),
+        ("treasury2y", "DGS2", "Tesoro a 2 años", "daily"),
+        ("claims", "ICSA", "Solicitudes iniciales de desempleo", "weekly"),
+        ("consumer", "UMCSENT", "Sentimiento del consumidor", "monthly"),
+        ("payrolls", "PAYEMS", "Empleo no agrícola", "monthly"),
+        ("nfci", "NFCI", "Índice Nacional de Condiciones Financieras", "weekly"),
+        ("credit", "BAMLH0A0HYM2", "High Yield OAS", "daily"),
+        ("treasury10y", "DGS10", "Treasury 10 años", "daily"),
+        ("sofr", "SOFR", "SOFR", "daily"),
+        ("diesel", "GASDESW", "Diésel minorista EE. UU.", "weekly"),
+        ("rrp", "RRPONTSYD", "RRP overnight", "daily"),
+        ("tga", "WTREGEN", "Treasury General Account", "weekly"),
+        ("reserves", "WRESBAL", "Reservas bancarias", "weekly"),
+    ]:
+        try:
+            data["series"][key] = {"label": label, "frequency": frequency, "fred_id": fred_id,
+                                   "source_url": f"https://fred.stlouisfed.org/series/{fred_id}",
+                                   "points": series(fred_id)}
+        except Exception as error:
+            data["series"][key] = {"label": label, "frequency": frequency, "fred_id": fred_id,
+                                   "source_url": f"https://fred.stlouisfed.org/series/{fred_id}",
+                                   "points": [], "error": str(error)}
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+if __name__ == "__main__":
+    main()
