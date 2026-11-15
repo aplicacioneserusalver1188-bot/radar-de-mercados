@@ -78,6 +78,23 @@ class ReportTests(unittest.TestCase):
         old_vix={"series":{"vix":{"points":[{"date":(today-timedelta(days=30)).isoformat(),"value":42.0}]}}}
         self.assertIn("Datos insuficientes",radar.market_diagnosis(old_vix))
 
+    def test_future_dates_and_old_indices_are_not_current(self):
+        from datetime import datetime, timedelta, timezone
+        today=datetime.now(timezone.utc).date()
+        future=(today+timedelta(days=2)).isoformat()
+        old=(today-timedelta(days=10)).isoformat()
+        self.assertFalse(radar.is_recent(future, 7))
+        self.assertFalse(radar.is_recent(old, 7))
+        self.assertTrue(radar.is_recent(today.isoformat(), 7))
+        data={"series":{
+            "vix":{"frequency":"daily","points":[{"date":future,"value":30}]},
+            "sp500":{"points":[{"date":old,"value":100},{"date":old,"value":101}]}
+        }}
+        summary=radar.data_quality_summary(data)
+        self.assertIn("antiguas: 2",summary)
+        self.assertIn("Datos insuficientes",radar.market_diagnosis(data))
+        self.assertIn("Sin índices recientes suficientes",radar.index_breadth(data))
+
     def test_quantitative_diagnosis_only_uses_observed_values(self):
         result = radar.market_diagnosis({"series": {
             "vix": {"points": [{"value": 28.2, "date": "2026-11-13"}]},
