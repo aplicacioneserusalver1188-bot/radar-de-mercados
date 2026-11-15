@@ -6,6 +6,7 @@ from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from zoneinfo import ZoneInfo
+from urllib.parse import urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "market.json"
@@ -53,6 +54,46 @@ def fred_link(obj, label):
 def esc(v): return html.escape(str(v))
 def format_point(p):
     return f"{p['value']:,.2f} ({p['date']})"
+def parse_official_feed(payload, agency, host, now=None):
+    """Extrae solo comunicados fechados con enlaces HTTPS del dominio oficial."""
+    root = ET.fromstring(payload)
+    current = now or datetime.now(timezone.utc)
+    rows = []
+    for item in root.findall(".//item"):
+        title = (item.findtext("title") or "").strip()
+        url = (item.findtext("link") or "").strip()
+        date_text = (item.findtext("pubDate") or "").strip()
+        rows.append((title, url, date_text, "rss"))
+    namespace = {"atom": "http://www.w3.org/2005/Atom"}
+    for item in root.findall(".//atom:entry", namespace):
+        title = (item.findtext("atom:title", default="", namespaces=namespace) or "").strip()
+        links = item.findall("atom:link", namespace)
+        url = next((link.get("href", "") for link in links
+                    if link.get("rel", "alternate") == "alternate"), "")
+        date_text = (item.findtext("atom:published", default="", namespaces=namespace)
+                     or item.findtext("atom:updated", default="", namespaces=namespace) or "").strip()
+        rows.append((title, url, date_text, "atom"))
+    valid = []
+    for title, url, date_text, format_name in rows:
+        location = urlsplit(url)
+        if not title or location.scheme != "https" or location.hostname != host:
+            continue
+        try:
+            publication = (parsedate_to_datetime(date_text) if format_name == "rss"
+                           else datetime.fromisoformat(date_text.replace("Z", "+00:00")))
+            if publication.tzinfo is None:
+                continue
+            publication = publication.astimezone(timezone.utc)
+        except (ValueError, TypeError, OverflowError):
+            continue
+        age = current - publication
+        if not timedelta(0) <= age <= timedelta(days=4):
+            continue
+        valid.append((agency + ": " + title, url,
+                      publication.strftime("%d/%m/%Y %H:%M UTC"), publication))
+    return valid
+
+
 def official_news():
     """Fecha, fuente y enlace de comunicados reales; jamás fabricar titulares."""
     feeds = (
@@ -65,22 +106,8 @@ def official_news():
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "ObservatorioRM/1.0 (financial digest)"})
             with urllib.request.urlopen(req, timeout=12) as response:
-                root = ET.fromstring(response.read(1_000_000))
-            for item in root.findall(".//item"):
-                title = (item.findtext("title") or "").strip()
-                link = (item.findtext("link") or "").strip()
-                published = (item.findtext("pubDate") or "").strip()
-                if not title or not link.startswith("https://" + host + "/"):
-                    continue
-                try:
-                    publication = parsedate_to_datetime(published).astimezone(timezone.utc)
-                except (ValueError, TypeError, OverflowError):
-                    continue
-                age = datetime.now(timezone.utc) - publication
-                if not timedelta(0) <= age <= timedelta(days=4):
-                    continue
-                items.append((agency + ": " + title, link,
-                              publication.strftime("%d/%m/%Y %H:%M UTC"), publication))
+                payload = response.read(1_000_000)
+            items.extend(parse_official_feed(payload, agency, host))
         except (OSError, ET.ParseError, ValueError) as error:
             print("Feed oficial no disponible:", agency, type(error).__name__)
     items.sort(key=lambda row: row[3], reverse=True)
@@ -91,7 +118,6 @@ def official_news():
             unique.append((title, link, date))
             seen.add(link)
     return unique[:10]
-
 
 def sec_company_html(sec):
     companies = sec.get("companies", {})
