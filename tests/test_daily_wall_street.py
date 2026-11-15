@@ -131,6 +131,29 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("139 millones","".join(html))
         self.assertNotIn("Margen neto","".join(html))
 
+    def test_gold_uses_explicit_futures_proxy_when_spot_unavailable(self):
+        import update_price_history
+        from datetime import datetime,timedelta,timezone
+        today=datetime.now(timezone.utc).date()
+        rows=[{"date":(today-timedelta(days=30-i)).isoformat(),"close":3800+i}
+              for i in range(30)]
+        with patch.object(update_price_history,"stooq",side_effect=ValueError("blocked")), \
+             patch.object(update_price_history,"yahoo_stock",return_value=rows) as yahoo, \
+             patch.object(update_price_history,"fred_series",return_value=[{"date":r["date"],"value":r["close"]} for r in rows]), \
+             patch.object(update_price_history,"btc_history",return_value=rows):
+            result=update_price_history.collect()
+        self.assertEqual(yahoo.call_args_list[0].args[0],"GC=F")
+        gold=result["assets"]["gold"]
+        self.assertIn("FUTUROS",gold["proxy"])
+        self.assertIn("COMEX",gold["label"])
+        snippet=radar.chart_fragment("gold",{"assets":{"gold":gold}},{"gold":"/tmp/gold.png"})
+        self.assertIn("FUTUROS COMEX",snippet)
+
+    def test_low_relevance_banking_fees_not_market_catalyst(self):
+        self.assertEqual(radar.news_relevance(
+            "Fed Board announces pricing for payment services provided to banks"),0)
+        self.assertEqual(radar.news_relevance("Fed FOMC interest rate decision"),2)
+
     def test_market_chart_conclusion_uses_historical_closes(self):
         import render_charts
         from datetime import datetime,timedelta,timezone
