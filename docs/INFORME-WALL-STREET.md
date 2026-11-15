@@ -40,9 +40,16 @@ La automatización propuesta utiliza GitHub Actions y Google y no depende de una
 **Previsualización sin enviar correo:** el workflow `daily-wall-street.yml` admite `workflow_dispatch` con `preview_only=true` como valor predeterminado. Las pruebas automáticas de la rama mediante `test-wall-street.yml` ya generan un HTML descargable sin secretos. El modo de envío real exige `preview_only=false` y configuración previa de Gmail. La ejecución programada en `main` realiza el envío normal, pero todavía no se ha publicado esta rama.
 
 **No activar hasta completar estas dependencias:**
-1. Fuente de datos empresariales autorizada, accesible desde GitHub (SEC devolvió HTTP 403). El envío normal se cancela si no encuentra al menos tres compañías con cifras contables verificadas.
+1. Fuente de datos empresariales autorizada, accesible desde GitHub (SEC devolvió HTTP 403). Si la SEC no entrega cifras de al menos tres compañías, el informe se identifica expresamente como **edición macroeconómica de cobertura parcial** y no inventa datos empresariales.
 2. Secretos Gmail `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `REPORT_TO` establecidos exclusivamente en Settings → Secrets and variables → Actions. Confirmar remitente y destinatario; no compartir contraseñas en chats ni repositorios.
 3. Revisar si el alcance editorial final es suficiente: faltan cotizaciones de acciones, análisis sectorial completo y 5–10 noticias verificadas y analizadas cuando las fuentes oficiales no publican esa cantidad.
 4. Tras verificar un envío Gmail, autorizar la fusión a `main`; solo entonces funcionará la programación diaria. La página pública no se ha modificado por este trabajo.
 
 **Criterio de entrega:** una prueba satisfactoria de sintaxis y generación no significa que un correo haya sido enviado. Registrar por separado el éxito del SMTP y la recepción efectiva del destinatario.
+
+## Edición de cierre de desarrollo (15/11/2026)
+
+- En ausencia de datos SEC, el informe **ya no se bloquea solo por ese motivo**: puede generarse y remitirse como edición macroeconómica parcial, con advertencia en encabezado y asunto. Esto no sustituye el objetivo de cobertura empresarial y noticias completas.
+- **Se mantiene la protección** que cancela el informe con indicadores macroeconómicos esenciales insuficientes o vencidos.
+- Enviar correos sigue requiriendo secretos Gmail configurados, una prueba real de recepción y el workflow en la rama predeterminada. Ninguno de esos pasos se sustituye por la prueba automática sin correo.
+- No fusionar a `main` ni modificar la página pública sin permiso explícito.
