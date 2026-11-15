@@ -68,3 +68,10 @@ La automatización propuesta utiliza GitHub Actions y Google y no depende de una
 2. GitHub → Actions → `Radar diario Wall Street (Gmail)` → Run workflow: seleccionar `preview_only=false` para una prueba de SMTP real **solo después de configurar secretos**. Verificar la recepción en Gmail.
 3. GitHub → Settings → Secrets and variables → Actions → Variables → agregar `RADAR_ENABLE_EMAIL` con valor `true` **solo tras recibir el correo de prueba**. Hasta entonces, el cron de las 11:00 UTC genera únicamente previsualizaciones.
 4. La captura FRED de este informe utiliza `scripts/update_wall_street_data.py`, independiente del actualizador público `scripts/update_data.py`, para conservar el comportamiento existente del sitio.
+
+## Mejora editorial y referencias — 15/11/2026
+
+- Nuevas referencias: petróleo WTI/Brent con series de FRED (EIA), oro spot XAU/USD de Gold API y BTC/USDT de la API pública de Binance. Cada fila indica moneda/unidad, momento de observación, fuente y vigencia; se omiten cambios cuando no hay datos. BTC/USDT **no equivale** exactamente a BTC/USD.
+- El informe recoge, además del titular, la **descripción publicada por la institución** si la ofrece su feed. Se eliminan etiquetas HTML. Para producir un auténtico resumen factual **en español**, puede añadirse el secreto opcional `GEMINI_API_KEY` en GitHub Actions; el motor realiza una sola llamada con las descripciones públicas, prohíbe añadir datos no presentes y limita el tamaño de respuesta. El modelo configurado es `gemini-3.5-flash-lite`; confirmar disponibilidad y cuotas en el proyecto de Google. Sin esa clave, el correo identifica claramente que no hay un resumen factual traducido y mantiene el enlace original y la explicación de impacto potencial. **La explicación genérica no sustituye un resumen de los hechos.**
+- Los proveedores externos de oro/criptomonedas pueden fallar o restringir acceso. No se hacen reintentos, no se sustituyen por cifras inventadas y se muestra `No disponible` si falla la consulta.
+- Esta mejora se valida en desarrollo antes de incorporarse a `main`; el envío diario previamente configurado no se interrumpe.
