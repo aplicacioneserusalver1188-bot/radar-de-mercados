@@ -44,6 +44,19 @@ class ReportTests(unittest.TestCase):
         self.assertIn("NVIDIA", report)
         self.assertIn("sin métricas SEC comparables", report)
 
+    def test_quantitative_diagnosis_only_uses_observed_values(self):
+        result = radar.market_diagnosis({"series": {
+            "vix": {"points": [{"value": 28.2, "date": "2026-11-13"}]},
+            "credit": {"points": [{"value": 3.7, "date": "2026-11-12"},
+                                    {"value": 3.9, "date": "2026-11-13"}]},
+            "treasury2y": {"points": [{"value": 4.2, "date": "2026-11-13"}]},
+            "treasury10y": {"points": [{"value": 4.0, "date": "2026-11-13"}]}
+        }})
+        self.assertIn("28.20", result)
+        self.assertIn("aumenta la prima de riesgo", result)
+        self.assertIn("curva invertida", result)
+        self.assertNotIn("probabilidad", result)
+
     @patch.object(radar, "official_news", return_value=[])
     def test_missing_news_not_fabricated(self, _news):
         result=radar.render({"series":{}})
