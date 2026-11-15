@@ -14,6 +14,7 @@ DATA = ROOT / "data" / "market.json"
 OUT = ROOT / "reports" / "wall-street-latest.html"
 SEC_DATA = ROOT / "data" / "sec_company_summary.json"
 REFERENCES = ROOT / "data" / "references.json"
+BREADTH = ROOT / "data" / "breadth.json"
 SERIES = [
  ("pce", "Inflación PCE (nivel del índice)", "Variación interanual del deflactor del consumo personal; referencia clave para la Fed."),
  ("corepce", "PCE subyacente (nivel del índice)", "Excluye alimentos y energía; su variación interanual ayuda a evaluar persistencia de inflación."),
@@ -294,6 +295,33 @@ def index_breadth(data):
             "No equivale a amplitud del mercado por número de acciones. " +
             esc("; ".join(names)) + ".</p>")
 
+def render_stock_breadth(breadth):
+    """SMA: porcentaje de componentes sobre su propia media móvil simple."""
+    indices=breadth.get("indices",{})
+    rows=[]
+    for key,label in (("sp500","S&P 500"),("nasdaq100","Nasdaq 100")):
+        entry=indices.get(key,{})
+        if all("ma"+str(n) in entry for n in (20,50,200)):
+            values=[]
+            for n in (20,50,200):
+                values.append(f'{entry["ma"+str(n)]:.1f}%')
+            source=entry.get("source","")
+            link=f'<a href="{esc(source)}">Fuente y metodología</a>' if source.startswith("https://") else ""
+            rows.append(f'<tr><th>{esc(label)}</th><td>{values[0]}</td><td>{values[1]}</td>'
+                        f'<td>{values[2]}</td><td>{esc(entry.get("date",""))} {link}</td></tr>')
+        else:
+            rows.append(f'<tr><th>{esc(label)}</th><td colspan="4">No disponible: '
+                        'no se obtuvo una lectura reciente y verificable con las tres medias móviles.</td></tr>')
+    return ('<h2>Amplitud: empresas por encima de sus medias móviles</h2>'
+            '<p>Porcentaje de valores elegibles que cotizan sobre su propia media móvil simple (SMA). '
+            'MA20 = corto plazo; MA50 = tendencia intermedia; MA200 = tendencia de largo plazo. '
+            'No es la media móvil del índice: se evalúan sus empresas por separado. '
+            'Las cifras no proceden de los administradores de los índices y dependen de la cobertura del proveedor.</p>'
+            '<table border="1" cellpadding="8"><tr><th>Índice</th><th>MA20</th><th>MA50</th><th>MA200</th>'
+            '<th>Fecha y fuente</th></tr>'+"".join(rows)+'</table>'
+            '<p>Un porcentaje superior a 50% significa que la mayoría de los valores evaluados está '
+            'sobre esa media. No es garantía de tendencia futura ni señal automática de compra.</p>')
+
 def render_market_references(refs):
     """Tabla con unidades, fecha y límites de actualidad de cada mercado."""
     assets=refs.get("assets",{})
@@ -332,7 +360,7 @@ def render_market_references(refs):
             '<table border="1" cellpadding="8"><tr><th>Activo</th><th>Referencia</th><th>Interpretación</th></tr>'
             + "".join(rows) + "</table>")
 
-def render(data, sec=None, refs=None):
+def render(data, sec=None, refs=None, breadth=None):
     now=datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y %H:%M")
     items=[]; flags=[]; news=official_news()
     for key,label,meaning in SERIES:
@@ -402,7 +430,7 @@ def render(data, sec=None, refs=None):
             value="No disponible; verificar cobertura de FRED"
         index_rows.append(f"<tr><th>{fred_link(data.get('series',{}).get(key,{}),label)}</th><td>{esc(value)}</td></tr>")
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {})}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices y sectores bursátiles</h2>{index_breadth(data)}<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días, cuando sus canales están disponibles:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {})}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía, Fed, bonos, crédito y liquidez</h2><table style="border-collapse:collapse;width:100%" border="1" cellpadding="8"><tr><th>Indicador</th><th>Última lectura</th><th>Interpretación económica</th></tr>{''.join(items)}</table><p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices y sectores bursátiles</h2>{index_breadth(data)}<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%"><tr><th>Índice</th><th>Última lectura y cambio</th></tr>{''.join(index_rows)}</table><p>Los datos proceden de las series públicas de FRED, cuando están disponibles. Nasdaq Composite no es Nasdaq 100. La cobertura de sectores y sus cotizaciones sigue pendiente; no se inventan soportes ni liderazgos.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Hechos contables 10-K, con fecha de ejercicio. Los cambios históricos no son previsiones. Sin cotización y consenso actualizado no se emiten objetivos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días, cuando sus canales están disponibles:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
@@ -445,7 +473,8 @@ def main():
         raise SystemExit("Datos esenciales insuficientes o vencidos: no se enviará un informe potencialmente engañoso")
     sec=json.loads(SEC_DATA.read_text(encoding="utf-8")) if SEC_DATA.exists() else {}
     refs=json.loads(REFERENCES.read_text(encoding="utf-8")) if REFERENCES.exists() else {}
-    report=render(data,sec,refs); OUT.parent.mkdir(parents=True,exist_ok=True)
+    breadth=json.loads(BREADTH.read_text(encoding="utf-8")) if BREADTH.exists() else {}
+    report=render(data,sec,refs,breadth); OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(report,encoding="utf-8")
     if os.getenv("RADAR_DRY_RUN") == "1":
         print("Prueba de extremo a extremo: informe generado; correo desactivado expresamente")
