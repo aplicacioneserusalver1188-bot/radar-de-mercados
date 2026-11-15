@@ -132,24 +132,41 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("139 millones","".join(html))
         self.assertNotIn("Margen neto","".join(html))
 
-    def test_gold_uses_explicit_futures_proxy_when_spot_unavailable(self):
+    def test_gold_history_accepts_only_spot_xau_usd(self):
+        import update_price_history
+        from datetime import datetime,timedelta,timezone
+        now=datetime.now(timezone.utc).date()
+        points=[{"d":(now-timedelta(days=(29-i))).isoformat(),"c":3800+i}
+                for i in range(30)]
+        obj={"symbol":"XAUUSD","interval":"daily","points":points,
+             "data_state":{"status":"fresh"}}
+        import json
+        with patch.object(update_price_history,"get",return_value=json.dumps(obj).encode()):
+            gold=update_price_history.gold_spot_history()
+        self.assertEqual(len(gold),30)
+        self.assertEqual(gold[-1]["close"],3829)
+        obj["symbol"]="GC=F"
+        with patch.object(update_price_history,"get",return_value=json.dumps(obj).encode()):
+            with self.assertRaises(ValueError):
+                update_price_history.gold_spot_history()
+
+    def test_gold_no_futures_or_etf_substitution_when_spot_fails(self):
         import update_price_history
         from datetime import datetime,timedelta,timezone
         today=datetime.now(timezone.utc).date()
-        rows=[{"date":(today-timedelta(days=30-i)).isoformat(),"close":3800+i}
+        rows=[{"date":(today-timedelta(days=29-i)).isoformat(),"close":3800+i}
               for i in range(30)]
-        with patch.object(update_price_history,"stooq",side_effect=ValueError("blocked")), \
-             patch.object(update_price_history,"yahoo_stock",return_value=rows) as yahoo, \
-             patch.object(update_price_history,"fred_series",return_value=[{"date":r["date"],"value":r["close"]} for r in rows]), \
+        with patch.object(update_price_history,"gold_spot_history",side_effect=ValueError("blocked")), \\
+             patch.object(update_price_history,"stooq",side_effect=ValueError("spot blocked")), \\
+             patch.object(update_price_history,"yahoo_stock",return_value=rows) as yahoo, \\
+             patch.object(update_price_history,"fred_series",return_value=[{"date":r["date"],"value":r["close"]} for r in rows]), \\
              patch.object(update_price_history,"btc_history",return_value=rows):
             result=update_price_history.collect()
-        self.assertEqual(yahoo.call_args_list[0].args[0],"GC=F")
         gold=result["assets"]["gold"]
-        self.assertIn("FUTUROS",gold["proxy"])
-        self.assertIn("COMEX",gold["label"])
-        snippet=radar.chart_fragment("gold",{"assets":{"gold":gold}},{"gold":"/tmp/gold.png"})
-        self.assertIn("FUTUROS COMEX",snippet)
-
+        self.assertEqual(gold["points"],[])
+        self.assertNotIn("proxy",gold)
+        self.assertNotIn("GC=F",str(gold))
+        self.assertFalse(any(call.args[0]=="GC=F" for call in yahoo.call_args_list))
     def test_low_relevance_banking_fees_not_market_catalyst(self):
         self.assertEqual(radar.news_relevance(
             "Fed Board announces pricing for payment services provided to banks"),0)
