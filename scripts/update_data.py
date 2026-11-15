@@ -41,9 +41,13 @@ def main():
         ("reserves", "WRESBAL", "Reservas bancarias", "weekly"),
     ]:
         try:
-            data["series"][key] = {"label": label, "frequency": frequency, "points": series(fred_id)}
+            data["series"][key] = {"label": label, "frequency": frequency, "fred_id": fred_id,
+                                   "source_url": f"https://fred.stlouisfed.org/series/{fred_id}",
+                                   "points": series(fred_id)}
         except Exception as error:
-            data["series"][key] = {"label": label, "frequency": frequency, "points": [], "error": str(error)}
+            data["series"][key] = {"label": label, "frequency": frequency, "fred_id": fred_id,
+                                   "source_url": f"https://fred.stlouisfed.org/series/{fred_id}",
+                                   "points": [], "error": str(error)}
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
