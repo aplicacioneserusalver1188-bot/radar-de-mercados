@@ -330,6 +330,19 @@ def edition_label(sec):
             if annual_company_coverage(sec) < 3 else
             "edición con información empresarial parcial")
 
+def build_email_message(report, sender, recipient, sec):
+    """Construir el correo sin acceder a red ni afirmar entrega."""
+    edition = edition_label(sec)
+    message = EmailMessage()
+    message["From"] = sender
+    message["To"] = recipient
+    message["Subject"] = ("Radar de Wall Street (" + edition + ") — " +
+                          datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y"))
+    message.set_content("Edición: " + edition +
+                        ". Los datos ausentes y las limitaciones se indican en el informe HTML.")
+    message.add_alternative(report, subtype="html")
+    return message
+
 def main():
     if not DATA.exists(): raise SystemExit("No existe data/market.json; ejecutar scripts/update_data.py primero")
     data=json.loads(DATA.read_text(encoding="utf-8"))
@@ -349,9 +362,7 @@ def main():
     user=os.getenv("GMAIL_USER"); password=os.getenv("GMAIL_APP_PASSWORD"); recipient=os.getenv("REPORT_TO")
     if not all([user,password,recipient]):
         raise SystemExit("Informe generado, pero ENVÍO NO REALIZADO: configurar secretos GMAIL_USER, GMAIL_APP_PASSWORD y REPORT_TO")
-    msg=EmailMessage();msg["From"]=user;msg["To"]=recipient;msg["Subject"]="Radar de Wall Street ("+edition+") — "+datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y")
-    msg.set_content("Edición: "+edition+". Los datos ausentes y las limitaciones se indican en el informe HTML.")
-    msg.add_alternative(report,subtype="html")
+    msg=build_email_message(report, user, recipient, sec)
     with smtplib.SMTP_SSL("smtp.gmail.com",465,context=ssl.create_default_context(),timeout=30) as smtp:
         smtp.login(user,password);smtp.send_message(msg)
     print("Informe enviado a",recipient)
