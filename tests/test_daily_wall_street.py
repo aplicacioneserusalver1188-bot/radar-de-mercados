@@ -36,6 +36,17 @@ class ReportTests(unittest.TestCase):
         data["series"]["payrolls"]["points"].reverse()
         self.assertNotIn("cambio frente al dato anterior:",radar.render(data))
 
+    def test_scheduled_report_is_isolated_and_gated_for_email(self):
+        root=Path(__file__).resolve().parents[1]
+        scheduled=(root/".github/workflows/daily-wall-street.yml").read_text(encoding="utf-8")
+        testing=(root/".github/workflows/test-wall-street.yml").read_text(encoding="utf-8")
+        self.assertTrue((root/"scripts/update_wall_street_data.py").is_file())
+        self.assertIn("scripts/update_wall_street_data.py", scheduled)
+        self.assertIn("scripts/update_wall_street_data.py", testing)
+        self.assertIn("RADAR_ENABLE_EMAIL", scheduled)
+        self.assertIn("github.event_name == 'schedule'", scheduled)
+        self.assertNotIn("python scripts/update_data.py", scheduled)
+
     def test_email_message_marks_incomplete_coverage_and_has_html(self):
         msg=radar.build_email_message("<html><body>Informe parcial</body></html>",
                                       "sender@example.com", "recipient@example.com", {})
