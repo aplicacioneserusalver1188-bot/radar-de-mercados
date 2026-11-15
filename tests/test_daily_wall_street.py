@@ -64,6 +64,20 @@ class ReportTests(unittest.TestCase):
         self.assertIn("1 al alza, 1 a la baja",output)
         self.assertIn("No equivale a amplitud del mercado",output)
 
+    def test_quality_report_counts_current_stale_and_absent(self):
+        from datetime import datetime, timedelta, timezone
+        today=datetime.now(timezone.utc).date()
+        data={"series":{
+            "vix":{"frequency":"daily","points":[{"date":today.isoformat(),"value":18.0}]},
+            "inflation":{"frequency":"monthly","points":[{"date":(today-timedelta(days=120)).isoformat(),"value":310.0}]}
+        }}
+        summary=radar.data_quality_summary(data, {"companies":{}}, 2)
+        self.assertIn("antiguas: 1",summary)
+        self.assertIn("recientes según su frecuencia: 1",summary)
+        self.assertIn("Comunicados oficiales recientes con fecha y enlace: 2",summary)
+        old_vix={"series":{"vix":{"points":[{"date":(today-timedelta(days=30)).isoformat(),"value":42.0}]}}}
+        self.assertIn("Datos insuficientes",radar.market_diagnosis(old_vix))
+
     def test_quantitative_diagnosis_only_uses_observed_values(self):
         result = radar.market_diagnosis({"series": {
             "vix": {"points": [{"value": 28.2, "date": "2026-11-13"}]},
