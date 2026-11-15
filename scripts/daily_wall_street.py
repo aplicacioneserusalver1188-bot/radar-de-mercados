@@ -241,8 +241,14 @@ def render(data, sec=None):
             age=age_days(last["date"])
             if not is_recent(last["date"], 7):
                 flags.append(label+" presenta observación fuera de vigencia ("+str(age)+" días respecto de hoy)")
-            change=(last["value"]/prior["value"]-1)*100 if prior["value"] and prior["date"] < last["date"] else None
+            valid_dates=prior["date"] < last["date"]
+            recent=is_recent(last["date"], 7)
+            change=(last["value"]/prior["value"]-1)*100 if recent and valid_dates and prior["value"] > 0 else None
             value=f'{last["value"]:,.2f} ({last["date"]})'
+            if not recent:
+                value+='; lectura histórica, no cotización vigente'
+            elif not valid_dates:
+                value+='; variación omitida por fechas inconsistentes'
             if change is not None:
                 value+=f'; variación entre observaciones: {change:+.2f}%'
         else:
