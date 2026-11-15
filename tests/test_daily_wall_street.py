@@ -54,11 +54,13 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("<a", unsafe)
 
     def test_index_breadth_is_not_stock_market_breadth(self):
-        from datetime import datetime, timezone
-        today=datetime.now(timezone.utc).date().isoformat()
+        from datetime import datetime, timedelta, timezone
+        today=datetime.now(timezone.utc).date()
+        previous=(today-timedelta(days=1)).isoformat()
+        latest=today.isoformat()
         data={"series":{
-            "sp500":{"points":[{"date":today,"value":100},{"date":today,"value":102}]},
-            "dow":{"points":[{"date":today,"value":100},{"date":today,"value":98}]}
+            "sp500":{"points":[{"date":previous,"value":100},{"date":latest,"value":102}]},
+            "dow":{"points":[{"date":previous,"value":100},{"date":latest,"value":98}]}
         }}
         output=radar.index_breadth(data)
         self.assertIn("1 al alza, 1 a la baja",output)
