@@ -60,7 +60,11 @@ def summarize(facts, ticker):
 
 def main():
     result = {"updated_at": datetime.now(timezone.utc).isoformat(), "companies": {}}
+    sec_access_blocked = False
     for ticker, cik in COMPANIES.items():
+        if sec_access_blocked:
+            result["companies"][ticker] = {"ticker": ticker, "error": "SEC_ACCESS_BLOCKED_AFTER_403"}
+            continue
         url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
         try:
             request = urllib.request.Request(url, headers={
@@ -70,7 +74,11 @@ def main():
                 facts = json.loads(response.read(25_000_000))
             result["companies"][ticker] = summarize(facts, ticker)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
-            result["companies"][ticker] = {"ticker": ticker, "error": type(exc).__name__, "http_status": getattr(exc, "code", None)}
+            status = getattr(exc, "code", None)
+            result["companies"][ticker] = {"ticker": ticker, "error": type(exc).__name__, "http_status": status}
+            if status == 403:
+                sec_access_blocked = True
+                print("SEC HTTP 403: detener consultas restantes, respetando el control de acceso del proveedor.")
         time.sleep(0.15)  # Respect SEC limits, one sequential request per company.
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
