@@ -95,6 +95,21 @@ def parse_official_feed(payload, agency, host, now=None):
     return valid
 
 
+def news_relevance(title):
+    """Orden editorial por temas económicos, sin presumir impacto de mercado."""
+    normalized = title.casefold()
+    important = ("fomc", "monetary policy", "interest rate", "inflation", "consumer price",
+                 "cpi", "pce", "payroll", "employment", "unemployment", "gdp",
+                 "gross domestic product", "personal income", "retail sales",
+                 "economic growth", "job openings", "política monetaria", "inflación")
+    adjacent = ("financial stability", "credit", "treasury", "bank", "securities",
+                "financial market", "economy", "trade", "regulation")
+    if any(term in normalized for term in important):
+        return 2
+    if any(term in normalized for term in adjacent):
+        return 1
+    return 0
+
 def official_news():
     """Fecha, fuente y enlace de comunicados reales; jamás fabricar titulares."""
     feeds = (
@@ -113,7 +128,7 @@ def official_news():
             items.extend(parse_official_feed(payload, agency, host))
         except (OSError, ET.ParseError, ValueError) as error:
             print("Feed oficial no disponible:", agency, type(error).__name__)
-    items.sort(key=lambda row: row[3], reverse=True)
+    items.sort(key=lambda row: (news_relevance(row[0]), row[3]), reverse=True)
     seen = set()
     unique = []
     for title, link, date, _ in items:
