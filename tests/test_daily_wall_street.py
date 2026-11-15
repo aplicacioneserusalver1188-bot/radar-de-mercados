@@ -189,7 +189,7 @@ class ReportTests(unittest.TestCase):
         p=company_pulse.momentum(points)
         self.assertAlmostEqual(p["daily"],100*(110/108-1))
         self.assertAlmostEqual(p["weekly"],10)
-        self.assertIn("Última sesión",company_pulse.reading(p))
+        self.assertIn("última sesión",company_pulse.reading(p))
         self.assertIn("Continuación favorable",company_pulse.scenarios(p))
         news=[{"title":"Company shares rose after an announcement",
                "url":"https://news.google.com/rss/articles/example",
@@ -197,6 +197,7 @@ class ReportTests(unittest.TestCase):
         text=company_pulse.company_news_html(news,translator=lambda x:"Empresa anuncia novedades")
         self.assertIn("Empresa anuncia novedades",text)
         self.assertIn("no hechos confirmados",text)
+        self.assertIn("Posible repercusión:",text)
         self.assertNotIn("causó",text)
 
     @patch.object(radar,"official_news",return_value=[])
