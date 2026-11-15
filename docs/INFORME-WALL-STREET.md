@@ -81,3 +81,12 @@ La variable opcional `RADAR_ENABLE_EMAIL` ya no controla el cron, porque el usua
 - El informe recoge, además del titular, la **descripción publicada por la institución** si la ofrece su feed. Se eliminan etiquetas HTML. Para producir un auténtico resumen factual **en español**, puede añadirse el secreto opcional `GEMINI_API_KEY` en GitHub Actions; el motor realiza una sola llamada con las descripciones públicas, prohíbe añadir datos no presentes y limita el tamaño de respuesta. El modelo configurado es `gemini-3.5-flash-lite`; confirmar disponibilidad y cuotas en el proyecto de Google. Sin esa clave, el correo identifica claramente que no hay un resumen factual traducido y mantiene el enlace original y la explicación de impacto potencial. **La explicación genérica no sustituye un resumen de los hechos.**
 - Los proveedores externos de oro/criptomonedas pueden fallar o restringir acceso. No se hacen reintentos, no se sustituyen por cifras inventadas y se muestra `No disponible` si falla la consulta.
 - Esta mejora se valida en desarrollo antes de incorporarse a `main`; el envío diario previamente configurado no se interrumpe.
+
+## Presentación y amplitud — 15/11/2026
+
+- Escenarios favorable, neutral y adverso se muestran en líneas separadas.
+- El diagnóstico cuantitativo concluye expresamente qué revelan las lecturas disponibles, sin proyectar indebidamente la evolución de la bolsa.
+- Se suman TSM (Taiwan Semiconductor Manufacturing; CIK 0001046179) y SPCX (SpaceX; CIK 0001181412). SEC puede seguir bloqueado con HTTP 403; además, TSM presenta 20-F (el extractor existente usa únicamente 10-K) y SPCX no dispone necesariamente de dos ejercicios completos comparables tras su reciente salida a bolsa. No se inventarán cifras.
+- Las cifras anuales se presentan en millones USD, con fecha fiscal, variación anual cuando sea comparable y margen neto explicado en términos sencillos.
+- El módulo `scripts/update_breadth.py` consulta porcentajes de acciones por encima de SMA20/SMA50/SMA200 de S&P 500 y Nasdaq-100, con origen y fecha: ChartRow para S&P 500 y ChartVault para Nasdaq-100. Son publicaciones de proveedores independientes, **no datos certificados por los gestores del índice**. Las series históricas basadas en componentes actuales pueden tener sesgo de supervivencia; el denominador válido puede variar según la media. Los resultados se omiten si falta el trío o si tienen más de 7 días.
+- CI de la rama verificó 32 pruebas, ambas fuentes de amplitud disponibles y generación HTML en modo de prueba.

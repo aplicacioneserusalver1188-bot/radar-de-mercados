@@ -87,7 +87,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("macroeconómica", radar.edition_label({}))
         result=radar.render({"series": {}}, {})
         self.assertIn("cobertura empresarial pendiente", result)
-        self.assertIn("sin métricas SEC comparables", result)
+        self.assertIn("sin métricas anuales verificadas", result)
 
     def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
         facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
@@ -109,7 +109,41 @@ class ReportTests(unittest.TestCase):
         report = radar.render({"series": {}}, sec)
         self.assertIn("Margen neto calculado: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("sin métricas SEC comparables", report)
+        self.assertIn("sin métricas anuales verificadas", report)
+
+    @patch.object(radar, "official_news", return_value=[])
+    def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):
+        data={"series":{}}
+        report=radar.render(data)
+        self.assertIn("<li><strong>Favorable:</strong>",report)
+        self.assertIn("<li><strong>Neutral:</strong>",report)
+        self.assertIn("<li><strong>Adverso:</strong>",report)
+        self.assertIn("Conclusión:",report)
+        self.assertIn("Taiwan Semiconductor (TSMC)",report)
+        self.assertIn("SpaceX",report)
+
+    def test_company_readable_financial_values(self):
+        self.assertEqual(radar.financial_value(12300000000),"12,300 millones USD")
+
+    def test_breadth_parse_validates_three_simple_moving_averages(self):
+        import update_breadth
+        nasdaq="<p>Latest values 2026-11-13 Above 20DMA 50.50% Above 50DMA 54.46% Above 200DMA 55.56%</p>"
+        sp="<p>as of market close, Nov 13, 2026 200d 64%50d 72%20d 67%</p>"
+        n=update_breadth.parse_nasdaq(nasdaq)
+        s=update_breadth.parse_sp500(sp)
+        self.assertEqual(n["ma20"],50.50)
+        self.assertEqual(n["ma200"],55.56)
+        self.assertEqual(s["ma20"],67)
+        self.assertEqual(s["ma50"],72)
+        self.assertEqual(s["ma200"],64)
+        report=radar.render_stock_breadth({"indices":{
+            "sp500":{"source":"https://example.com","date":"2026-11-13",**s},
+            "nasdaq100":{"source":"https://example.com","date":"2026-11-13",**n}}})
+        self.assertIn("MA20",report)
+        self.assertIn("67.0%",report)
+        self.assertIn("55.6%",report)
+        with self.assertRaises(ValueError):
+            update_breadth.parse_nasdaq("No results")
 
     def test_fred_source_is_linked_and_freshness_depends_on_frequency(self):
         self.assertEqual(radar.freshness_limit("daily"), 7)

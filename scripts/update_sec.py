@@ -14,6 +14,7 @@ COMPANIES = {
     "NVDA": 1045810, "MSFT": 789019, "AAPL": 320193,
     "AMZN": 1018724, "GOOGL": 1652044, "META": 1326801,
     "AVGO": 1730168, "JPM": 19617, "TSLA": 1318605,
+    "TSM": 1046179, "SPCX": 1181412,
 }
 TAGS = {
     "revenue": ("RevenueFromContractWithCustomerExcludingAssessedTax",

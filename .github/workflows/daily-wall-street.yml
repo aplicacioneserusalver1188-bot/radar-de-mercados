@@ -28,6 +28,8 @@ jobs:
         run: python scripts/update_wall_street_data.py
       - name: Actualizar referencias oro petróleo y Bitcoin
         run: python scripts/update_references.py
+      - name: Calcular amplitud S&P 500 y Nasdaq 100
+        run: python scripts/update_breadth.py
       - name: Obtener cifras empresariales SEC
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
