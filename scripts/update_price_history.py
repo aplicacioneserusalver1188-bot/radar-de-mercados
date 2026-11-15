@@ -16,7 +16,7 @@ from update_wall_street_data import series as fred_series
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/"data"/"price_history.json"
-INDEX_KEYS={"sp500":("S&P 500","SP500"),"nasdaq":("Nasdaq Composite","NASDAQCOM"),"dow":("Dow Jones Industrial Average","DJIA"),"russell":("Russell 2000","RU2000PR")}
+INDEX_KEYS={"sp500":("S&P 500","SP500"),"nasdaq":("Nasdaq Composite","NASDAQCOM"),"nasdaq100":("Nasdaq 100","NASDAQ100"),"dow":("Dow Jones Industrial Average","DJIA"),"russell":("Russell 2000","RU2000PR")}
 COMPANIES=("NVDA","MSFT","AAPL","AMZN","GOOGL","META","AVGO","JPM","TSLA","TSM","SPCX")
 
 def get(url):
