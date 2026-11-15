@@ -36,6 +36,16 @@ class ReportTests(unittest.TestCase):
         data["series"]["payrolls"]["points"].reverse()
         self.assertNotIn("cambio frente al dato anterior:",radar.render(data))
 
+    def test_email_message_marks_incomplete_coverage_and_has_html(self):
+        msg=radar.build_email_message("<html><body>Informe parcial</body></html>",
+                                      "sender@example.com", "recipient@example.com", {})
+        self.assertIn("edición macroeconómica", msg["Subject"])
+        self.assertEqual(msg["To"], "recipient@example.com")
+        html_part=msg.get_body(preferencelist=("html",))
+        self.assertIsNotNone(html_part)
+        self.assertIn("Informe parcial", html_part.get_content())
+        self.assertNotIn("enviado", msg.get_body(preferencelist=("plain",)).get_content().lower())
+
     @patch.object(radar, "official_news", return_value=[])
     def test_partial_macro_edition_when_sec_unavailable(self, _news):
         self.assertEqual(radar.annual_company_coverage({}), 0)
