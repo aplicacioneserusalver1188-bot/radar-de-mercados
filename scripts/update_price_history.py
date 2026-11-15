@@ -64,6 +64,20 @@ def standardize(rows):
         raise ValueError("Menos de 20 cierres comprobables")
     return out[-300:]
 
+def gold_spot_history():
+    """Histórico auténtico XAU/USD spot diario, gratuito y sin API key.
+
+    No utilizar contratos GC=F, ETF GLD ni otros instrumentos como sustitutos.
+    """
+    obj=json.loads(get("https://xaus.com/api/v1/history"))
+    if obj.get("symbol")!="XAUUSD" or obj.get("interval")!="daily":
+        raise ValueError("La fuente no confirmó histórico spot XAU/USD diario")
+    state=obj.get("data_state",{})
+    if state and state.get("status")=="unavailable":
+        raise ValueError("Fuente XAU spot sin datos disponibles")
+    return standardize((p["d"],p["c"]) for p in obj.get("points",[])
+                       if isinstance(p,dict) and "d" in p and "c" in p)
+
 def btc_history():
     url="https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=300"
     rows=json.loads(get(url))
@@ -79,17 +93,13 @@ def collect():
         try:
             if key=="gold":
                 try:
+                    points=gold_spot_history()
+                    source="https://xaus.com/api/"
+                except (OSError,ValueError,KeyError,TypeError):
+                    # Una alternativa es válida únicamente si también es oro SPOT.
                     points=stooq("xauusd")
                     source="https://stooq.com/q/?s=xauusd"
-                    label="Oro spot XAU/USD"
-                    proxy=None
-                except (OSError,ValueError,KeyError,TypeError):
-                    # El histórico spot gratuito puede estar bloqueado. Usar
-                    # futuros COMEX como proxy visual, nunca como precio spot.
-                    points=yahoo_stock("GC=F")
-                    source="https://finance.yahoo.com/quote/GC=F/history/"
-                    label="Oro — futuros COMEX (GC=F), no precio spot"
-                    proxy="El gráfico es de FUTUROS COMEX, no del oro spot XAU/USD; pueden diferir."
+                label="Precio del oro spot XAU/USD"
                 unit="USD/onza troy"
             elif key=="wti":
                 points=[{"date":p["date"],"close":p["value"]} for p in fred_series("DCOILWTICO")]
