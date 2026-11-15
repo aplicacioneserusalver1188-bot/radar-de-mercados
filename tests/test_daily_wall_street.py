@@ -22,6 +22,20 @@ class ReportTests(unittest.TestCase):
         self.assertIn("No disponible",result)
         self.assertIn("S&amp;P 500",result)
 
+    @patch.object(radar, "official_news", return_value=[])
+    def test_ppi_is_not_reported_as_consumer_inflation(self, _news):
+        data={"series":{"ppi":{"points":[{"date":"2025-10-01","value":200},{"date":"2026-10-01","value":210}]}}}
+        result=radar.render(data)
+        self.assertIn("variación interanual del índice de materias primas: +5.00%",result)
+        self.assertNotIn("inflación interanual: +5.00%",result)
+
+    @patch.object(radar, "official_news", return_value=[])
+    def test_payrolls_skip_nonconsecutive_or_reversed_monthly_changes(self, _news):
+        data={"series":{"payrolls":{"points":[{"date":"2026-07-01","value":150000},{"date":"2026-10-01","value":150200}]}}}
+        self.assertNotIn("variación mensual:",radar.render(data))
+        data["series"]["payrolls"]["points"].reverse()
+        self.assertNotIn("cambio frente al dato anterior:",radar.render(data))
+
     def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
         facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
             {"form": "10-Q", "fp": "Q1", "start": "2026-01-01", "end": "2026-03-31", "filed": "2026-04-20", "val": 5},
