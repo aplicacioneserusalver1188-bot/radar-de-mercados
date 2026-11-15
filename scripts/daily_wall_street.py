@@ -174,39 +174,59 @@ def financial_value(value):
     """Expresar magnitudes contables en millones de dólares."""
     return f'{value / 1_000_000:,.0f} millones USD'
 
-def sec_company_html(sec):
-    companies = sec.get("companies", {})
-    blocks = []
-    for ticker, name in COMPANIES:
-        info = companies.get(ticker, {})
-        metrics = info.get("metrics", {})
-        rows = []
-        for key, label in (("revenue", "Ingresos"), ("net_income", "Beneficio neto"),
-                           ("operating_cash", "Flujo de caja operativo"),
-                           ("capital_expenditure", "Inversión en inmovilizado")):
-            vals = metrics.get(key, [])
-            if vals:
-                latest = vals[0]
-                value = f'{financial_value(latest["value"])} (ejercicio terminado {latest["end"]})'
-                if len(vals) >= 2 and vals[1]["value"] != 0:
-                    change = (latest["value"]/vals[1]["value"]-1)*100
-                    value += f'; cambio frente a {vals[1]["end"]}: {change:+.1f}%'
-                rows.append(f"<li><strong>{esc(label)}:</strong> {esc(value)}</li>")
-        if rows:
-            revenue = metrics.get("revenue", [])
-            profit = metrics.get("net_income", [])
-            if revenue and profit and revenue[0]["end"] == profit[0]["end"] and revenue[0]["value"] > 0:
-                margin = 100 * profit[0]["value"] / revenue[0]["value"]
-                rows.append(f"<li><strong>Margen neto calculado: {margin:.1f}%</strong>. De cada 100 USD de ingresos, quedan aproximadamente {margin:.1f} USD de beneficio neto.</li>")
-            src = info.get("source", "https://www.sec.gov/edgar/search/")
-            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong><ul>{"".join(rows)}</ul><a href="{esc(src)}">Fuente SEC XBRL</a>. Datos contables históricos, no pronóstico.</li>')
-        else:
-            explanation=("TSMC presenta informes extranjeros 20-F: no deben confundirse con los 10-K estadounidenses." if ticker=="TSM"
-                         else "SpaceX empezó a cotizar en 2026 y puede no tener dos ejercicios anuales comparables." if ticker=="SPCX"
-                         else "La fuente SEC no entregó cifras comprobables en esta ejecución.")
-            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>: sin métricas anuales verificadas. {esc(explanation)}</li>')
-    return "<ul>" + "".join(blocks) + "</ul>"
+def company_metric_rows(metrics, period="anual"):
+    rows=[]
+    currency=None
+    for key,label in (("revenue","Ingresos"),("net_income","Beneficio neto"),
+                      ("operating_cash","Flujo de caja operativo"),
+                      ("capital_expenditure","Inversión en activos fijos")):
+        vals=metrics.get(key,[])
+        if not vals: continue
+        latest=vals[0]
+        unit=latest.get("currency","USD")
+        currency=currency or unit
+        amount=f'{latest["value"]/1_000_000:,.0f} millones {unit}'
+        value=f'{amount} (periodo terminado {latest["end"]})'
+        if len(vals)>=2 and vals[1]["value"] and vals[1].get("currency","USD")==unit:
+            change=(latest["value"]/vals[1]["value"]-1)*100
+            value+=f'; variación entre periodos disponibles: {change:+.1f}%'
+        rows.append(f'<li><strong>{esc(label)}:</strong> {esc(value)}</li>')
+    revenue=metrics.get("revenue",[])
+    profit=metrics.get("net_income",[])
+    if revenue and profit and revenue[0]["end"]==profit[0]["end"] and revenue[0]["value"]>0:
+        if revenue[0].get("currency","USD")==profit[0].get("currency","USD"):
+            margin=100*profit[0]["value"]/revenue[0]["value"]
+            unit=revenue[0].get("currency","USD")
+            rows.append(f'<li><strong>Margen neto calculado: {margin:.1f}%</strong>. '
+                        f'De cada 100 {esc(unit)} de ingresos quedan aproximadamente '
+                        f'{margin:.1f} {esc(unit)} de beneficio neto.</li>')
+    return rows
 
+def sec_company_html(sec):
+    companies=sec.get("companies",{})
+    blocks=[]
+    for ticker,name in COMPANIES:
+        info=companies.get(ticker,{})
+        annual=company_metric_rows(info.get("metrics",{}))
+        quarterly=company_metric_rows(info.get("quarterly_metrics",{})) if ticker=="SPCX" else []
+        if annual or quarterly:
+            src=info.get("source","https://www.sec.gov/edgar/search/")
+            sections=[]
+            if annual: sections.append('<strong>Cifras anuales:</strong><ul>'+''.join(annual)+'</ul>')
+            if quarterly: sections.append('<strong>Cifras trimestrales (10-Q, periodos de tres meses):</strong><ul>'+''.join(quarterly)+'</ul>')
+            caveat=(' Cifras en TWD si la fuente publica estados IFRS en dólares taiwaneses; no son USD.'
+                    if ticker=="TSM" else
+                    ' Las cifras trimestrales no equivalen a resultados anuales.'
+                    if ticker=="SPCX" else '')
+            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>'
+                          +''.join(sections)+f'<a href="{esc(src)}">Fuente SEC XBRL</a>. '
+                          +'Datos históricos, no pronósticos.'+esc(caveat)+'</li>')
+        else:
+            explanation=("TSMC declara mediante 20-F/IFRS; no hubo cifras comparables accesibles." if ticker=="TSM"
+                         else "SpaceX presenta 10-Q, pero sus datos trimestrales no estaban disponibles o completos." if ticker=="SPCX"
+                         else "La SEC no entregó información financiera verificable en esta ejecución.")
+            blocks.append(f'<li><strong>{esc(name)} ({esc(ticker)})</strong>: sin métricas anuales verificadas. {esc(explanation)}</li>')
+    return "<ul>"+"".join(blocks)+"</ul>"
 
 def data_quality_summary(data, sec=None, news_count=0):
     """Informe auditable de cobertura, frescura y límites, no una nota de confianza inventada."""
