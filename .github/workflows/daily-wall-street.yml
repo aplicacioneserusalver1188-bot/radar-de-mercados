@@ -26,6 +26,8 @@ jobs:
           python -m unittest discover -s tests -v
       - name: Actualizar indicadores públicos
         run: python scripts/update_wall_street_data.py
+      - name: Actualizar referencias de oro petróleo y Bitcoin
+        run: python scripts/update_references.py
       - name: Obtener cifras empresariales SEC
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
