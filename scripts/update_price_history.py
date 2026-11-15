@@ -76,9 +76,18 @@ def collect():
     for key in ("gold","wti","btc",*COMPANIES):
         try:
             if key=="gold":
-                points=stooq("xauusd")
-                source="https://stooq.com/q/?s=xauusd"
-                label="Oro spot XAU/USD"
+                try:
+                    points=stooq("xauusd")
+                    source="https://stooq.com/q/?s=xauusd"
+                    label="Oro spot XAU/USD"
+                    proxy=None
+                except (OSError,ValueError,KeyError,TypeError):
+                    # El histórico spot gratuito puede estar bloqueado. Usar
+                    # futuros COMEX como proxy visual, nunca como precio spot.
+                    points=yahoo_stock("GC=F")
+                    source="https://finance.yahoo.com/quote/GC=F/history/"
+                    label="Oro — futuros COMEX (GC=F), no precio spot"
+                    proxy="El gráfico es de FUTUROS COMEX, no del oro spot XAU/USD; pueden diferir."
                 unit="USD/onza troy"
             elif key=="wti":
                 points=[{"date":p["date"],"close":p["value"]} for p in fred_series("DCOILWTICO")]
@@ -101,6 +110,8 @@ def collect():
                 label=key
                 unit="USD/acción"
             result["assets"][key]={"label":label,"unit":unit,"source":source,"points":points}
+            if key=="gold" and proxy:
+                result["assets"][key]["proxy"]=proxy
         except (OSError,ValueError,KeyError,TypeError,IndexError) as error:
             result["assets"][key]={"error":type(error).__name__,"points":[]}
         print("Gráfico",key,":",len(result["assets"][key].get("points",[])),"observaciones")
