@@ -11,6 +11,8 @@ from news_offline_es import local_news
 from render_charts import metrics as chart_metrics, interpretation as trend_interpretation, build_charts
 from news_story import official_details
 from macro_story import macro_story
+from company_pulse import momentum, reading as stock_reading, scenarios as stock_scenarios, company_news_html
+from news_offline_es import local_translation
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DATA = ROOT / "data" / "market.json"
@@ -19,6 +21,7 @@ SEC_DATA = ROOT / "data" / "sec_company_summary.json"
 REFERENCES = ROOT / "data" / "references.json"
 BREADTH = ROOT / "data" / "breadth.json"
 PRICE_HISTORY = ROOT / "data" / "price_history.json"
+COMPANY_NEWS = ROOT / "data" / "company_news.json"
 SERIES = [
  ("pce", "Inflación PCE (nivel del índice)", "Variación interanual del deflactor del consumo personal; referencia clave para la Fed."),
  ("corepce", "PCE subyacente (nivel del índice)", "Excluye alimentos y energía; su variación interanual ayuda a evaluar persistencia de inflación."),
@@ -268,29 +271,43 @@ def company_conclusion(metrics):
         diagnosis+=f" El margen neto de este ejercicio fue {margin:.1f}%."
     return diagnosis+" El movimiento bursátil se analiza por separado; los resultados contables no predicen el precio."
 
-def sec_company_html(sec,history=None,chart_keys=None):
+def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
+    """Acción primero: sesión, semana, catalizadores y escenario técnico.
+    Resultados financieros quedan opcionales y secundarios.
+    """
     companies=sec.get("companies",{})
-    blocks=[]
+    histories=(history or {}).get("assets",{})
+    benchmark=histories.get("sp500",{}).get("points",[])
+    headlines=(company_news or {}).get("companies",{})
+    cards=[]
     for ticker,name in COMPANIES:
         info=companies.get(ticker,{})
+        asset=histories.get(ticker,{})
+        pulse=momentum(asset.get("points",[]),benchmark)
+        content=f'<h3 style="margin:0 0 8px">{esc(name)} ({esc(ticker)})</h3>'
+        if pulse:
+            content+=('<p><strong>Último cierre:</strong> '
+                      f'{pulse["close"]:,.2f} USD · {esc(pulse["date"])}'
+                      f' &nbsp; <strong>Última sesión:</strong> {pulse["daily"]:+.2f}%'
+                      f' &nbsp; <strong>Últimas 5 sesiones:</strong> {pulse["weekly"]:+.2f}%</p>')
+            content+='<p><strong>Qué está haciendo la acción:</strong> '+esc(stock_reading(pulse))+'</p>'
+            content+='<p><strong>Escenario condicional:</strong> '+esc(stock_scenarios(pulse))+'</p>'
+        else:
+            content+='<p>No se obtuvo un histórico reciente suficiente para describir la última sesión y semana.</p>'
+        content+=chart_fragment(ticker,history,chart_keys)
+        content+=company_news_html(headlines.get(ticker,[]),translator=local_translation)
         annual=company_metric_rows(info.get("metrics",{}))
         quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
-        content=f'<h3 style="margin:0 0 8px">{esc(name)} ({esc(ticker)})</h3>'
-        content+=chart_fragment(ticker,history,chart_keys)
-        if annual:
-            content+='<p><strong>Resultados anuales verificados</strong></p><ul>'+''.join(annual)+'</ul>'
-            content+='<p><strong>Lectura empresarial:</strong> '+esc(company_conclusion(info.get("metrics",{})))+'</p>'
-        if quarterly:
-            content+='<p><strong>Resultados trimestrales verificados (10-Q, no anualizados)</strong></p><ul>'+''.join(quarterly)+'</ul>'
-        if not annual and not quarterly:
-            content+='<p><strong>Resultados fundamentales:</strong> sin datos SEC comparables verificados. '
-            content+='El gráfico de precios, si existe, no sustituye los estados financieros.</p>'
-        source=info.get("source","")
-        if source.startswith("https://"):
-            content+=f'<p style="font-size:12px"><a href="{esc(source)}">Fuente contable SEC</a></p>'
-        blocks.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
-                      +content+'</div>')
-    return "".join(blocks)
+        if annual or quarterly:
+            content+='<details><summary>Resultados financieros (contexto secundario)</summary>'
+            if annual:
+                content+='<ul>'+''.join(annual)+'</ul><p>'+esc(company_conclusion(info.get("metrics",{})))+'</p>'
+            if quarterly:content+='<ul>'+''.join(quarterly)+'</ul>'
+            content+='</details>'
+        # No saturar 11 fichas con ausencia repetitiva de datos SEC.
+        cards.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
+                     +content+'</div>')
+    return ''.join(cards)
 
 def data_quality_summary(data, sec=None, news_count=0):
     """Informe auditable de cobertura, frescura y límites, no una nota de confianza inventada."""
@@ -509,7 +526,7 @@ def render_index_cards(history=None,chart_keys=None):
                      +'</div>')
     return ''.join(cards)
 
-def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=None):
+def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=None, company_news=None):
     now=datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y %H:%M")
     items=[]; flags=[]; news=official_news()
     for key,label,meaning in SERIES:
@@ -539,7 +556,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         else:
             value="No disponible"; flags.append(label+" sin datos")
         items.append(f"<tr><th>{fred_link(obj,label)}</th><td>{esc(value)}</td><td>{esc(meaning)}</td></tr>")
-    companies=sec_company_html(sec or {},history,chart_keys)
+    companies=sec_company_html(sec or {},history,chart_keys,company_news)
     cleaned_news=[(item[0],item[1],item[2],item[3] if len(item)>3 else "") for item in news]
     try:
         translations=local_news([(title.split(": ",1)[-1],title.split(":",1)[0],description)
@@ -591,7 +608,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
             value="No disponible; verificar cobertura de FRED"
         index_rows.append(f"<tr><th>{fred_link(data.get('series',{}).get(key,{}),label)}</th><td>{esc(value)}</td></tr>")
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {},history,chart_keys)}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{macro_story(data)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. Nasdaq Composite es distinto de Nasdaq 100. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p><h2>Empresas principales: análisis y perspectivas</h2><p>Se distingue comportamiento bursátil de resultados de ejercicios comparables. Cifras contables solo cuando la fuente SEC es verificable, sin pronósticos de precio.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días. Los extractos se traducen localmente al español, sin costos de API ni interpretación de hechos adicionales. Cuando no hay descripción oficial se indica expresamente:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2><p>Lectura de los indicadores macroeconómicos disponibles. <strong>No se asigna señal alcista o bajista sin precios bursátiles, expectativas de consenso y contexto de noticias verificados.</strong> Las observaciones tienen distintas frecuencias y fechas; no deben tratarse como valores simultáneos.</p>{render_market_references(refs or {},history,chart_keys)}<h2>Diagnóstico cuantitativo del mercado</h2>{market_diagnosis(data)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{macro_story(data)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p>{render_stock_breadth(breadth or {})}<h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. Nasdaq Composite es distinto de Nasdaq 100. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p><h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Se comparan cierres de la última sesión y de cinco sesiones, tendencia técnica, fuerza frente al S&amp;P 500 (cuando hay cierres coincidentes) y titulares empresariales de siete días. Las noticias son referencias a investigar, no pruebas de causalidad. Resultados contables solo como contexto secundario.</p>{companies}<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA publicados en los últimos cuatro días. Los extractos se traducen localmente al español, sin costos de API ni interpretación de hechos adicionales. Cuando no hay descripción oficial se indica expresamente:</p><ul>{news_html}</ul><p>Estos canales oficiales no sustituyen una cobertura de prensa independiente. Consultar <a href="https://www.reuters.com/markets/us/">Reuters Mercados</a>, <a href="https://www.sec.gov/">SEC</a> y <a href="https://www.federalreserve.gov/newsevents.htm">Fed — comunicados</a>. La versión ampliada deberá incorporar artículos fechados con enlace directo y contraste de fuentes.</p><h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Control de calidad y cobertura</h2>{data_quality_summary(data, sec, len(news))}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
@@ -644,12 +661,13 @@ def main():
     refs=json.loads(REFERENCES.read_text(encoding="utf-8")) if REFERENCES.exists() else {}
     breadth=json.loads(BREADTH.read_text(encoding="utf-8")) if BREADTH.exists() else {}
     history=json.loads(PRICE_HISTORY.read_text(encoding="utf-8")) if PRICE_HISTORY.exists() else {}
+    company_news=json.loads(COMPANY_NEWS.read_text(encoding="utf-8")) if COMPANY_NEWS.exists() else {}
     try:
         charts=build_charts(history)
     except (ImportError,RuntimeError,OSError,ValueError) as error:
         print("Gráficos no disponibles:",type(error).__name__)
         charts={}
-    report=render(data,sec,refs,breadth,history,charts); OUT.parent.mkdir(parents=True,exist_ok=True)
+    report=render(data,sec,refs,breadth,history,charts,company_news); OUT.parent.mkdir(parents=True,exist_ok=True)
     OUT.write_text(report,encoding="utf-8")
     if os.getenv("RADAR_DRY_RUN") == "1":
         print("Prueba de extremo a extremo: informe generado; correo desactivado expresamente")
