@@ -128,7 +128,7 @@ class ReportTests(unittest.TestCase):
     def test_breadth_parse_validates_three_simple_moving_averages(self):
         import update_breadth
         nasdaq="<p>Latest values 2026-11-13 Above 20DMA 50.50% Above 50DMA 54.46% Above 200DMA 55.56%</p>"
-        sp="<p>as of market close 2026-11-13 200d 64%50d 72%20d 67%</p>"
+        sp="<p>as of market close, Nov 13, 2026 200d 64%50d 72%20d 67%</p>"
         n=update_breadth.parse_nasdaq(nasdaq)
         s=update_breadth.parse_sp500(sp)
         self.assertEqual(n["ma20"],50.50)
