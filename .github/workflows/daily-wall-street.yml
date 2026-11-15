@@ -1,0 +1,46 @@
+name: Radar diario Wall Street (Gmail)
+on:
+  workflow_dispatch:
+    inputs:
+      preview_only:
+        description: 'Generar informe de prueba sin enviar correo'
+        type: boolean
+        default: true
+  schedule:
+    # Venezuela UTC-4 todo el año: 07:00 = 11:00 UTC
+    - cron: '0 11 * * *'
+permissions:
+  contents: read
+jobs:
+  informe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validar código y pruebas del informe
+        run: |
+          python -m compileall -q scripts/daily_wall_street.py scripts/update_sec.py
+          python -m unittest discover -s tests -v
+      - name: Actualizar indicadores públicos
+        run: python scripts/update_wall_street_data.py
+      - name: Obtener cifras empresariales SEC
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: python scripts/update_sec.py
+      - name: Generar informe y enviar Gmail
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          REPORT_TO: ${{ secrets.REPORT_TO }}
+          RADAR_DRY_RUN: ${{ (github.event_name == 'schedule' && vars.RADAR_ENABLE_EMAIL != 'true') && '1' || (github.event_name == 'workflow_dispatch' && inputs.preview_only) && '1' || '0' }}
+        run: python scripts/daily_wall_street.py
+      - name: Conservar informe como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-wall-street
+          path: reports/wall-street-latest.html
+          if-no-files-found: warn

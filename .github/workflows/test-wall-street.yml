@@ -1,0 +1,42 @@
+name: Validar informe de Wall Street (sin correo)
+on:
+  pull_request:
+    paths:
+      - 'scripts/daily_wall_street.py'
+      - 'scripts/update_sec.py'
+      - 'scripts/update_wall_street_data.py'
+      - 'tests/**'
+      - '.github/workflows/test-wall-street.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Comprobar sintaxis
+        run: python -m compileall -q scripts tests
+      - name: Ejecutar pruebas unitarias sin conexión
+        run: python -m unittest discover -s tests -v
+      - name: Consultar series FRED reales
+        run: python scripts/update_wall_street_data.py
+      - name: Consultar SEC real sin credenciales
+        env:
+          SEC_USER_AGENT: "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)"
+        run: python scripts/update_sec.py
+      - name: Generar informe con datos reales sin enviar correo
+        env:
+          RADAR_DRY_RUN: "1"
+        run: python scripts/daily_wall_street.py
+      - name: Conservar informe de prueba
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-prueba-wall-street
+          path: reports/wall-street-latest.html
+          if-no-files-found: warn
