@@ -16,8 +16,9 @@ class ReportTests(unittest.TestCase):
             "payrolls":{"points":[{"date":"2026-09-01","value":150000},{"date":"2026-10-01","value":150200}]}
         }}
         result=radar.render(data)
-        self.assertIn("inflación interanual: +3.00%",result)
-        self.assertIn("variación mensual: +200,000 empleos",result)
+        self.assertIn("IPC: precios al consumidor",result)
+        self.assertIn("+3.00% interanual",result)
+        self.assertIn("+200,000 puestos frente al mes anterior",result)
         self.assertIn("Decisión de política",result)
         self.assertIn("No disponible",result)
         self.assertIn("S&amp;P 500",result)
@@ -26,7 +27,7 @@ class ReportTests(unittest.TestCase):
     def test_ppi_is_not_reported_as_consumer_inflation(self, _news):
         data={"series":{"ppi":{"points":[{"date":"2025-10-01","value":200},{"date":"2026-10-01","value":210}]}}}
         result=radar.render(data)
-        self.assertIn("variación interanual del índice de materias primas: +5.00%",result)
+        self.assertIn("PPI de materias primas cambió +5.00% interanual",result)
         self.assertNotIn("inflación interanual: +5.00%",result)
 
     @patch.object(radar, "official_news", return_value=[])
@@ -319,7 +320,7 @@ class ReportTests(unittest.TestCase):
         older=(datetime.now(timezone.utc).date()-timedelta(days=21)).isoformat()
         data={"series":{"sp500":{"points":[{"date":older,"value":100},{"date":old,"value":105}]}}}
         report=radar.render(data)
-        self.assertIn("lectura histórica, no cotización vigente",report)
+        self.assertIn("presenta observación fuera de vigencia",report)
         self.assertNotIn("variación entre observaciones: +5.00%",report)
 
     def test_quality_report_counts_current_stale_and_absent(self):
