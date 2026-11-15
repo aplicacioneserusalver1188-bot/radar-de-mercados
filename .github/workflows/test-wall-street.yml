@@ -25,6 +25,8 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Consultar series FRED reales
         run: python scripts/update_wall_street_data.py
+      - name: Consultar referencias de activos
+        run: python scripts/update_references.py
       - name: Consultar SEC real sin credenciales
         env:
           SEC_USER_AGENT: "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)"
