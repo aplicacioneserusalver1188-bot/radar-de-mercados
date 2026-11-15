@@ -156,10 +156,10 @@ class ReportTests(unittest.TestCase):
         today=datetime.now(timezone.utc).date()
         rows=[{"date":(today-timedelta(days=29-i)).isoformat(),"close":3800+i}
               for i in range(30)]
-        with patch.object(update_price_history,"gold_spot_history",side_effect=ValueError("blocked")), \\
-             patch.object(update_price_history,"stooq",side_effect=ValueError("spot blocked")), \\
-             patch.object(update_price_history,"yahoo_stock",return_value=rows) as yahoo, \\
-             patch.object(update_price_history,"fred_series",return_value=[{"date":r["date"],"value":r["close"]} for r in rows]), \\
+        with patch.object(update_price_history,"gold_spot_history",side_effect=ValueError("blocked")), \
+             patch.object(update_price_history,"stooq",side_effect=ValueError("spot blocked")), \
+             patch.object(update_price_history,"yahoo_stock",return_value=rows) as yahoo, \
+             patch.object(update_price_history,"fred_series",return_value=[{"date":r["date"],"value":r["close"]} for r in rows]), \
              patch.object(update_price_history,"btc_history",return_value=rows):
             result=update_price_history.collect()
         gold=result["assets"]["gold"]
