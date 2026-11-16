@@ -303,11 +303,11 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
         pulse=momentum(asset.get("points",[]),benchmark)
         if pulse:
             relative=(f'{pulse["relative_weekly"]:+.2f} pp' if "relative_weekly" in pulse else "No comparable")
-            rows.append(f'<tr><th>{esc(ticker)}</th><td>{pulse["close"]:,.2f} USD</td>'
+            rows.append(f'<tr><th>{esc(ticker)} · {esc(name)}</th><td>{pulse["close"]:,.2f} USD</td>'
                         f'<td>{pulse["daily"]:+.2f}%</td><td>{pulse["weekly"]:+.2f}%</td>'
                         f'<td>{esc(quick_trend(pulse))}</td><td>{esc(relative)}</td></tr>')
         else:
-            rows.append(f'<tr><th>{esc(ticker)}</th><td colspan="5">Sin cierre reciente verificable</td></tr>')
+            rows.append(f'<tr><th>{esc(ticker)} · {esc(name)}</th><td colspan="5">Sin cierre reciente verificable</td></tr>')
         if not is_notable_move(pulse):
             annual=company_metric_rows(info.get("metrics",{}))
             quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
@@ -344,7 +344,8 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
            '<tr><th>Ticker</th><th>Cierre</th><th>Sesión</th><th>5 sesiones</th>'
            '<th>Tendencia</th><th>vs. S&amp;P 500</th></tr>'+''.join(rows)+'</table>')
     note=('<p style="font-size:12px;color:#64748b">Las fichas detalladas aparecen solo cuando '
-          'el movimiento semanal o relativo amerita una revisión adicional.</p>')
+          'el movimiento semanal o relativo amerita una revisión adicional. Cuando falta cierre, '
+          'no se obtuvo un histórico reciente suficiente para describir la acción.</p>')
     return table+note+''.join(details)
 
 def data_quality_summary(data, sec=None, news_count=0, sec_status=None):
