@@ -27,7 +27,7 @@ class ReportTests(unittest.TestCase):
     def test_ppi_is_not_reported_as_consumer_inflation(self, _news):
         data={"series":{"ppi":{"points":[{"date":"2025-10-01","value":200},{"date":"2026-10-01","value":210}]}}}
         result=radar.render(data)
-        self.assertIn("Precios al productor",result)
+        self.assertNotIn("Precios al productor",result)
         self.assertNotIn("inflación interanual: +5.00%",result)
 
     @patch.object(radar, "official_news", return_value=[])
