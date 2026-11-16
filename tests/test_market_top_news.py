@@ -88,9 +88,9 @@ class TopNewsTests(unittest.TestCase):
     def test_report_top_news_is_unique_and_near_front(self,_news):
         headlines=top.rank_news([item("Inflation CPI surprises investors")],now=NOW)
         rendered=radar.render({"series":{}},market_news=headlines)
-        self.assertIn("Las 5 noticias que pueden mover Wall Street",rendered)
+        self.assertIn("Noticias clave que pueden influir en Wall Street",rendered)
         self.assertEqual(rendered.count("Inflation CPI surprises investors"),1)
-        self.assertLess(rendered.index("Las 5 noticias que pueden mover Wall Street"),
+        self.assertLess(rendered.index("Noticias clave que pueden influir en Wall Street"),
                         rendered.index("Pulso de los mercados"))
         self.assertNotIn("Noticias y catalizadores</h2>",rendered)
 
