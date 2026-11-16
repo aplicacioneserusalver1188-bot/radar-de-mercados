@@ -282,12 +282,13 @@ class ReportTests(unittest.TestCase):
     @patch.object(radar,"official_news",return_value=[])
     def test_report_uses_reader_first_section_order(self,_news):
         report=radar.render({"series":{}},market_news=[])
-        ordered=("Resumen ejecutivo","Noticias clave que pueden influir en Wall Street",
-                 "Pulso de mercados: riesgo, energía y activos de referencia",
-                 "Macroeconomía: señales y consecuencias para el mercado",
+        ordered=("Tesis central de apertura","Resumen ejecutivo",
                  "Índices: tendencia, gráficos y confirmación",
-                 "Amplitud: empresas por encima de sus medias móviles",
-                 "Acciones: qué pasó ayer, esta semana y qué puede cambiar",
+                 "Próxima semana: macro y resultados corporativos",
+                 "Noticias clave que pueden influir en Wall Street",
+                 "Pulso de mercados: riesgo, energía y activos de referencia",
+                 "Macroeconomía: semáforo de señales","Rotación sectorial S&P 500",
+                 "Consulta profunda: amplitud y acciones",
                  "Escenarios","Calidad y límites de la información")
         positions=[report.index(title) for title in ordered]
         self.assertEqual(positions,sorted(positions))
@@ -401,7 +402,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in annual],[3000000000000,2500000000000])
         self.assertTrue(all(x["currency"]=="TWD" for x in annual))
         report=radar.sec_company_html({"companies":{"TSM":summary}})
-        self.assertIn("millones TWD",report)
+        self.assertNotIn("millones TWD",report)
         self.assertNotIn("3,000,000 millones USD",report)
 
     def test_spcx_quarterly_10q_keeps_three_months_and_skips_ytd(self):
@@ -414,8 +415,8 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in summary["quarterly_metrics"]["revenue"]],
                          [10000000000,8000000000])
         output=radar.sec_company_html({"companies":{"SPCX":summary}})
-        self.assertIn("Resultados financieros: SPCX",output)
-        self.assertIn("10,000 millones USD",output)
+        self.assertNotIn("Resultados financieros: SPCX",output)
+        self.assertNotIn("10,000 millones USD",output)
         self.assertNotIn("25,000 millones USD",output)
 
     @patch.object(radar, "official_news", return_value=[])
@@ -425,9 +426,9 @@ class ReportTests(unittest.TestCase):
             "net_income": [{"value": 2000000000, "end": "2025-12-31"}]
         }, "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json"}}}
         report = radar.render({"series": {}}, sec)
-        self.assertIn("Margen neto: 20.0%", report)
+        self.assertNotIn("Margen neto: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("Resultados financieros: NVDA", report)
+        self.assertNotIn("Resultados financieros: NVDA", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):
@@ -660,11 +661,11 @@ class ReportTests(unittest.TestCase):
         data={"series":{key:{"points":points,"source_url":"https://fred.stlouisfed.org/series/TEST"}
                           for key,_,_ in radar.SERIES}}
         rendered=radar.render_macro_visuals(data,{"macro_"+key:"/tmp/x.png" for key,_,_ in radar.SERIES})
-        self.assertIn("selección de 10 indicadores",rendered)
+        self.assertIn("Semáforo macro",rendered)
         self.assertIn("Inflación: lo que vigila la Fed",rendered)
         self.assertIn("Actividad y empleo",rendered)
-        self.assertIn("Condiciones financieras y riesgo",rendered)
-        self.assertIn("cid:radar-macro_inflation",rendered)
+        self.assertIn("Tipos de interés",rendered)
+        self.assertIn("Verde: cobertura completa",rendered)
         self.assertNotIn("Precio minorista del diésel</h3>",rendered)
 
     @patch.object(radar, "official_news", return_value=[

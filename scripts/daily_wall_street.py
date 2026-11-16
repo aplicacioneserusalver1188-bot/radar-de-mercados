@@ -310,16 +310,6 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
         else:
             rows.append(f'<tr><th>{esc(ticker)} · {esc(name)}</th><td colspan="5">Sin cierre reciente verificable</td></tr>')
         if not is_notable_move(pulse):
-            annual=company_metric_rows(info.get("metrics",{}))
-            quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
-            if annual or quarterly:
-                financial='<details><summary>Resultados financieros: '+esc(ticker)+'</summary>'
-                if annual:
-                    financial+='<ul>'+''.join(annual)+'</ul><p>'+esc(company_conclusion(info.get("metrics",{})))+'</p>'
-                if quarterly:
-                    financial+='<ul>'+''.join(quarterly)+'</ul>'
-                financial+='</details>'
-                details.append(financial)
             continue
         content=f'<h3 style="margin:0 0 8px">Detalle destacado: {esc(name)} ({esc(ticker)})</h3>'
         if pulse:
@@ -331,14 +321,6 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
             content+='<p><strong>Escenario condicional:</strong> '+esc(stock_scenarios(pulse))+'</p>'
         content+=chart_fragment(ticker,history,chart_keys)
         content+=company_news_html(headlines.get(ticker,[]),translator=local_translation,ticker=ticker)
-        annual=company_metric_rows(info.get("metrics",{}))
-        quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
-        if annual or quarterly:
-            content+='<details><summary>Resultados financieros (contexto secundario)</summary>'
-            if annual:
-                content+='<ul>'+''.join(annual)+'</ul><p>'+esc(company_conclusion(info.get("metrics",{})))+'</p>'
-            if quarterly:content+='<ul>'+''.join(quarterly)+'</ul>'
-            content+='</details>'
         details.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
                        +content+'</div>')
     table=('<table border="1" cellpadding="7" style="border-collapse:collapse;width:100%;font-size:13px">'
@@ -631,7 +613,7 @@ def render_index_cards(history=None,chart_keys=None):
 MACRO_GROUPS=(
     ("Inflación: lo que vigila la Fed",("inflation","corepce")),
     ("Actividad y empleo",("gdp","payrolls","unemployment")),
-    ("Condiciones financieras y riesgo",("fedfunds","treasury2y","treasury10y","credit","vix")),
+    ("Tipos de interés",("fedfunds","treasury2y")),
 )
 
 # Señales que forman la pantalla diaria. El resto se conserva en los datos de
@@ -670,14 +652,23 @@ def macro_visual_card(key,label,meaning,data,chart_keys):
             +graphic+'<p style="margin:8px 0"><strong>Por qué importa:</strong> '+esc(meaning)+'</p>'+link)
 
 def render_macro_visuals(data,chart_keys=None):
+    """Semáforo compacto: conserva valores y fechas, evita diez gráficos repetitivos."""
     lookup={key:(label,meaning) for key,label,meaning in SERIES}
-    blocks=['<p><strong>Lectura rápida:</strong> selección de 10 indicadores que más ayudan a evaluar inflación, crecimiento, política monetaria y apetito por riesgo. Cada tarjeta identifica el último dato publicado, su cambio, su gráfico y la relación que conviene vigilar. Las fechas varían según la frecuencia de cada serie.</p>']
+    blocks=['<p><strong>Semáforo macro:</strong> lectura compacta de inflación, actividad y tipos. Las cifras de volatilidad, crédito y Tesoro a 10 años se muestran una sola vez en el pulso de riesgo.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:8px 0"><tr>']
     for title,keys in MACRO_GROUPS:
-        cards=[macro_visual_card(key,*lookup[key],data,chart_keys) for key in keys]
-        blocks.append('<h3 style="margin:20px 0 8px">'+esc(title)+'</h3>')
-        for start in range(0,len(cards),3):
-            blocks.append(three_column_panel(cards[start:start+3]))
-    return ''.join(blocks)
+        rows=[]
+        available=0
+        for key in keys:
+            series=data.get("series",{}).get(key,{})
+            points=series.get("points",[])
+            latest=points[-1] if points else None
+            if latest:
+                available+=1
+                rows.append('<li><strong>'+esc(lookup[key][0])+':</strong> '+esc(macro_value(key,latest.get("value",0)))+' <span style="color:#64748b">('+esc(latest.get("date",""))+')</span></li>')
+        color="#16803c" if available==len(keys) else "#c97a00" if available else "#c32f27"
+        status="Disponible" if available==len(keys) else "Parcial" if available else "Sin datos"
+        blocks.append('<td valign="top" width="33.33%" style="padding:12px;border:1px solid #dfe5ec"><h3 style="margin:0"><span style="color:'+color+'">●</span> '+esc(title)+'</h3><p style="margin:5px 0"><strong>'+status+'</strong></p><ul style="padding-left:18px;margin:8px 0">'+''.join(rows or ['<li>Sin observaciones verificables</li>'])+'</ul></td>')
+    return ''.join(blocks)+'</tr></table><p style="font-size:12px;color:#64748b">Verde: cobertura completa; ámbar: cobertura parcial; rojo: sin lectura disponible. El color expresa disponibilidad de datos, no una recomendación.</p>'
 
 def executive_summary(data, history=None, market_news=None):
     """Resume hechos de la última sesión disponible, sin convertirlos en pronóstico."""
@@ -704,21 +695,44 @@ def executive_summary(data, history=None, market_news=None):
     else:
         session_text="No hay suficientes cierres recientes y verificables para resumir la sesión bursátil."
     series=data.get("series",{})
-    risk=[]
-    for key,label,limit,suffix in (("vix","VIX",7,""),("treasury10y","Tesoro a 10 años",7,"%"),("credit","diferencial high yield",7," puntos")):
-        points=series.get(key,{}).get("points",[])
-        if points and is_recent(points[-1]["date"],limit):
-            risk.append(f"{label} {float(points[-1]['value']):.2f}{suffix} ({points[-1]['date']})")
-    risk_text=(" · ".join(risk) if risk else
-               "No hay lecturas recientes verificables de volatilidad, bonos o crédito para contextualizar el riesgo.")
     catalyst_text=(f"Se seleccionaron {len(market_news)} noticias relevantes para seguimiento; su efecto debe comprobarse con la reacción de precios."
                    if market_news else
                    "No se recuperaron catalizadores recientes suficientes para atribuir causas al movimiento.")
     return ('<div style="padding:16px;border:1px solid #cfdbe8;border-radius:10px;background:#f7faff">'
             '<p style="margin:0 0 8px"><strong>Qué hizo el mercado:</strong> '+esc(session_text)+'</p>'
-            '<p style="margin:8px 0"><strong>Riesgo y tasas:</strong> '+esc(risk_text)+'.</p>'
+            '<p style="margin:8px 0"><strong>Riesgo y tasas:</strong> lectura desarrollada en el panel “Pulso de mercados”, sin repetir aquí sus cifras.</p>'
             '<p style="margin:8px 0 0"><strong>Catalizadores a vigilar:</strong> '+esc(catalyst_text)+'</p>'
             '</div>')
+
+def market_narrative(data, history=None):
+    """Tesis breve basada en índices y riesgo observados, no en predicciones."""
+    assets=(history or {}).get("assets",{})
+    index_moves=[]
+    for key,label in (("sp500","S&P 500"),("nasdaq100","Nasdaq 100"),("dow","Dow Jones")):
+        points=assets.get(key,{}).get("points",[])
+        if len(points)>=2 and points[-1].get("close") and points[-2].get("close"):
+            change=100*(points[-1]["close"]/points[-2]["close"]-1)
+            index_moves.append((label,change))
+    if not index_moves:
+        return '<p><strong>Tesis de apertura:</strong> faltan cierres recientes suficientes para construir una tesis verificable.</p>'
+    gains=sum(change>0 for _,change in index_moves); losses=sum(change<0 for _,change in index_moves)
+    direction="predomina una sesión de avance" if gains>losses else "predomina una sesión de retroceso" if losses>gains else "la sesión fue mixta"
+    names=", ".join(label+f" {change:+.2f}%" for label,change in index_moves)
+    return '<p style="padding:14px 16px;border-left:4px solid #1f4e79;background:#f4f8fc"><strong>Tesis de apertura:</strong> '+esc(direction)+" entre los grandes índices ("+esc(names)+"). La narrativa inmediata debe contrastarse con el panel de riesgo y los próximos catalizadores; un solo cierre no confirma una tendencia.</p>"
+
+SECTOR_ETFS={"XLK":"Tecnología","XLF":"Financieras","XLE":"Energía","XLI":"Industriales","XLV":"Salud","XLU":"Utilities","XLP":"Consumo básico","XLY":"Consumo discrecional","XLB":"Materiales","XLRE":"Inmobiliario","XLC":"Comunicación"}
+def sector_rotation(history=None):
+    assets=(history or {}).get("assets",{})
+    rows=[]
+    for ticker,label in SECTOR_ETFS.items():
+        points=assets.get(ticker,{}).get("points",[])
+        if len(points)>=6 and points[-1].get("close") and points[-6].get("close"):
+            change=100*(points[-1]["close"]/points[-6]["close"]-1)
+            rows.append((label,ticker,change))
+    if not rows:return '<p>Sin históricos sectoriales recientes verificables.</p>'
+    rows.sort(key=lambda item:item[2],reverse=True)
+    body=''.join('<tr><td>'+esc(label)+" ("+ticker+")</td><td>"+colored_change(change,"%")+'</td></tr>' for label,ticker,change in rows)
+    return '<p>Variación de cinco sesiones: permite identificar liderazgo relativo, no entradas o salidas automáticas.</p><table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;font-size:13px"><tr><th>Sector S&P 500</th><th>5 sesiones</th></tr>'+body+'</table>'
 
 def render_week_ahead(agenda):
     """Agenda breve con fecha, fuente y alcance; nunca rellena eventos no publicados."""
@@ -883,7 +897,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         '<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA '
         'publicados en los últimos cuatro días.</p><ul>'+news_html+'</ul>'
         if market_news is None else '')
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Próxima semana en Wall Street</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{render_macro_visuals(data,chart_keys)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p>{render_stock_breadth(breadth or {})}<h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Tabla comparativa de cierres, tendencia y fuerza relativa. La muestra reúne líderes tecnológicos y de semiconductores, banca, consumo, movilidad y cadena global de chips para seguir sectores que suelen influir en el mercado. Las fichas ampliadas se reservan para movimientos que requieren revisión.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}<h2>Calidad y límites de la información</h2>{data_confidence_section(data, sec, len(market_news) if market_news is not None else len(news), sec_status, warnings)}{methodology_note()}</body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Tesis central de apertura</h2>{market_narrative(data,history)}<h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}<h2>Próxima semana: macro y resultados corporativos</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: semáforo de señales</h2>{render_macro_visuals(data,chart_keys)}<h2>Rotación sectorial S&P 500</h2>{sector_rotation(history)}<h2>Consulta profunda: amplitud y acciones</h2>{index_breadth(data)}{render_stock_breadth(breadth or {})}<h3>Acciones: valoración, momentum y catalizadores</h3><p>Tabla comparativa de cierres, tendencia y fuerza relativa. La muestra reúne líderes tecnológicos y de semiconductores, banca, consumo, movilidad y cadena global de chips para seguir sectores que suelen influir en el mercado.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}<h2>Calidad y límites de la información</h2>{data_confidence_section(data, sec, len(market_news) if market_news is not None else len(news), sec_status, warnings)}{methodology_note()}</body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
