@@ -18,6 +18,7 @@ ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/"data"/"price_history.json"
 INDEX_KEYS={"sp500":("S&P 500","SP500"),"nasdaq100":("Nasdaq 100","NASDAQ100"),"dow":("Dow Jones Industrial Average","DJIA"),"russell":("Russell 2000","RU2000PR")}
 COMPANIES=("NVDA","MSFT","AAPL","AMZN","GOOGL","META","AVGO","JPM","TSLA","TSM","SPCX")
+SECTOR_ETFS={"XLK":"Tecnología","XLF":"Financieras","XLE":"Energía","XLI":"Industriales","XLV":"Salud","XLU":"Utilities","XLP":"Consumo básico","XLY":"Consumo discrecional","XLB":"Materiales","XLRE":"Inmobiliario","XLC":"Comunicación"}
 TRADINGVIEW_SYMBOLS={
     "gold":"OANDA:XAUUSD", "wti":"TVC:USOIL", "btc":"BINANCE:BTCUSDT",
     "sp500":"SP:SPX", "nasdaq":"NASDAQ:IXIC", "nasdaq100":"NASDAQ:NDX",
@@ -112,7 +113,7 @@ def btc_history():
 
 def collect():
     result={"updated_at":datetime.now(timezone.utc).isoformat(),"assets":{}}
-    for key in ("gold","wti","btc",*INDEX_KEYS,*COMPANIES):
+    for key in ("gold","wti","btc",*INDEX_KEYS,*COMPANIES,*SECTOR_ETFS):
         proxy=None
         try:
             if key=="gold":
@@ -170,8 +171,8 @@ def collect():
                 except (OSError,ValueError,KeyError,TypeError):
                     points=yahoo_stock(key)
                     source="https://finance.yahoo.com/quote/"+key+"/history/"
-                label=key
-                unit="USD/acción"
+                label=(SECTOR_ETFS[key]+" ("+key+")") if key in SECTOR_ETFS else key
+                unit="USD/participación ETF" if key in SECTOR_ETFS else "USD/acción"
             result["assets"][key]={"label":label,"unit":unit,"source":source,"points":points,
                                   "tradingview_url":"https://www.tradingview.com/chart/?symbol="
                                   +urllib.parse.quote(TRADINGVIEW_SYMBOLS.get(key,""),safe="")}

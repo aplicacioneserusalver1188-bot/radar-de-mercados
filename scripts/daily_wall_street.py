@@ -704,6 +704,36 @@ def executive_summary(data, history=None, market_news=None):
             '<p style="margin:8px 0 0"><strong>Catalizadores a vigilar:</strong> '+esc(catalyst_text)+'</p>'
             '</div>')
 
+def market_narrative(data, history=None):
+    """Tesis breve basada en índices y riesgo observados, no en predicciones."""
+    assets=(history or {}).get("assets",{})
+    index_moves=[]
+    for key,label in (("sp500","S&P 500"),("nasdaq100","Nasdaq 100"),("dow","Dow Jones")):
+        points=assets.get(key,{}).get("points",[])
+        if len(points)>=2 and points[-1].get("close") and points[-2].get("close"):
+            change=100*(points[-1]["close"]/points[-2]["close"]-1)
+            index_moves.append((label,change))
+    if not index_moves:
+        return '<p><strong>Tesis de apertura:</strong> faltan cierres recientes suficientes para construir una tesis verificable.</p>'
+    gains=sum(change>0 for _,change in index_moves); losses=sum(change<0 for _,change in index_moves)
+    direction="predomina una sesión de avance" if gains>losses else "predomina una sesión de retroceso" if losses>gains else "la sesión fue mixta"
+    names=", ".join(label+f" {change:+.2f}%" for label,change in index_moves)
+    return '<p style="padding:14px 16px;border-left:4px solid #1f4e79;background:#f4f8fc"><strong>Tesis de apertura:</strong> '+esc(direction)+" entre los grandes índices ("+esc(names)+"). La narrativa inmediata debe contrastarse con el panel de riesgo y los próximos catalizadores; un solo cierre no confirma una tendencia.</p>"
+
+SECTOR_ETFS={"XLK":"Tecnología","XLF":"Financieras","XLE":"Energía","XLI":"Industriales","XLV":"Salud","XLU":"Utilities","XLP":"Consumo básico","XLY":"Consumo discrecional","XLB":"Materiales","XLRE":"Inmobiliario","XLC":"Comunicación"}
+def sector_rotation(history=None):
+    assets=(history or {}).get("assets",{})
+    rows=[]
+    for ticker,label in SECTOR_ETFS.items():
+        points=assets.get(ticker,{}).get("points",[])
+        if len(points)>=6 and points[-1].get("close") and points[-6].get("close"):
+            change=100*(points[-1]["close"]/points[-6]["close"]-1)
+            rows.append((label,ticker,change))
+    if not rows:return '<p>Sin históricos sectoriales recientes verificables.</p>'
+    rows.sort(key=lambda item:item[2],reverse=True)
+    body=''.join('<tr><td>'+esc(label)+" ("+ticker+")</td><td>"+colored_change(change,"%")+'</td></tr>' for label,ticker,change in rows)
+    return '<p>Variación de cinco sesiones: permite identificar liderazgo relativo, no entradas o salidas automáticas.</p><table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;font-size:13px"><tr><th>Sector S&P 500</th><th>5 sesiones</th></tr>'+body+'</table>'
+
 def render_week_ahead(agenda):
     """Agenda breve con fecha, fuente y alcance; nunca rellena eventos no publicados."""
     events=(agenda or {}).get("events",[])
@@ -867,7 +897,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         '<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA '
         'publicados en los últimos cuatro días.</p><ul>'+news_html+'</ul>'
         if market_news is None else '')
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Próxima semana en Wall Street</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{render_macro_visuals(data,chart_keys)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p>{render_stock_breadth(breadth or {})}<h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Tabla comparativa de cierres, tendencia y fuerza relativa. La muestra reúne líderes tecnológicos y de semiconductores, banca, consumo, movilidad y cadena global de chips para seguir sectores que suelen influir en el mercado. Las fichas ampliadas se reservan para movimientos que requieren revisión.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}<h2>Calidad y límites de la información</h2>{data_confidence_section(data, sec, len(market_news) if market_news is not None else len(news), sec_status, warnings)}{methodology_note()}</body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Tesis central de apertura</h2>{market_narrative(data,history)}<h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}<h2>Próxima semana: macro y resultados corporativos</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: semáforo de señales</h2>{render_macro_visuals(data,chart_keys)}<h2>Rotación sectorial S&P 500</h2>{sector_rotation(history)}<h2>Consulta profunda: amplitud y acciones</h2>{index_breadth(data)}{render_stock_breadth(breadth or {})}<h3>Acciones: valoración, momentum y catalizadores</h3><p>Tabla comparativa de cierres, tendencia y fuerza relativa. La muestra reúne líderes tecnológicos y de semiconductores, banca, consumo, movilidad y cadena global de chips para seguir sectores que suelen influir en el mercado.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}<h2>Calidad y límites de la información</h2>{data_confidence_section(data, sec, len(market_news) if market_news is not None else len(news), sec_status, warnings)}{methodology_note()}</body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
