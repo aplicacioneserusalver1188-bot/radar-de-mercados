@@ -1,5 +1,13 @@
 # Informe diario Wall Street — módulo en desarrollo
 
+> Estado operativo verificado el 15/11/2026: la automatización programada de `main` puede intentar enviar correo si los secretos Gmail existen. Esta rama de desarrollo no cambia esa configuración. Antes de cualquier modificación en producción se requiere autorización expresa.
+
+## Recuperación segura ante SEC HTTP 403
+
+- `SEC_USER_AGENT` debe identificar la aplicación e incluir un correo de contacto monitorizado (por ejemplo, `RadarWallStreet/1.0 soporte@ejemplo.com`). Si falta, no se consulta SEC ni se intenta eludir sus controles.
+- Ante HTTP 403, el proceso deja de consultar SEC y conserva el último resumen verificable disponible, en vez de reemplazarlo por errores. El informe identifica que las cifras conservadas pueden estar desactualizadas.
+- Si no hay resumen previo, la edición se etiqueta como cobertura empresarial parcial. La solución definitiva depende de configurar un contacto real autorizado y de que SEC permita solicitudes desde el ejecutor de GitHub; no se usa scraping alternativo ni se inventan cifras.
+
 ## Avances implementados
 - Fuentes FRED: 13 indicadores originales más PIB, PCE, PCE subyacente, PPI de materias primas, desempleo, ventas minoristas, Fed, Tesoro a dos años e índices estadounidenses (según disponibilidad de cada serie).
 - Fuente SEC: `scripts/update_sec.py` intenta obtener datos XBRL oficiales de nueve empresas: NVIDIA, Microsoft, Apple, Amazon, Alphabet, Meta, Broadcom, JPMorgan y Tesla. Solo se incluyen cifras anuales de ejercicios completos de formularios 10-K, con fecha fiscal y variación frente al año anterior, cuando están disponibles.
