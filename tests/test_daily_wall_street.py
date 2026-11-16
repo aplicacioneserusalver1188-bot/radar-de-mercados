@@ -93,7 +93,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(radar.annual_company_coverage({}), 0)
         self.assertIn("macroeconómica", radar.edition_label({}))
         result=radar.render({"series": {}}, {})
-        self.assertIn("cobertura empresarial pendiente", result)
+        self.assertNotIn("cobertura empresarial pendiente", result)
         self.assertIn("histórico reciente suficiente para describir la acción", result)
 
     def test_sec_403_preserves_existing_summary_and_labels_report(self):
@@ -312,7 +312,7 @@ class ReportTests(unittest.TestCase):
         self.assertAlmostEqual(p["daily"],100*(110/108-1))
         self.assertAlmostEqual(p["weekly"],10)
         self.assertIn("última sesión",company_pulse.reading(p))
-        self.assertIn("Continuación favorable",company_pulse.scenarios(p))
+        self.assertIn("Sin medias móviles suficientes",company_pulse.scenarios(p))
         news=[{"title":"Company shares rose after an announcement",
                "url":"https://news.google.com/rss/articles/example",
                "source":"Financial Times","date":today.isoformat()}]
