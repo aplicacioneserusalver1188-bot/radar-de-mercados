@@ -67,9 +67,22 @@ def build_charts(history):
         fig,ax=plt.subplots(figsize=(7.2,2.9),dpi=110)
         fig.patch.set_facecolor("white")
         ax.set_facecolor("white")
-        # El precio siempre es negro; las medias conservan el mismo color en
-        # cada gráfico para que la lectura sea inmediata y comparable.
-        ax.plot(dates[-90:],values[-90:],color=LINE_COLORS["price"],linewidth=2.3,label="Precio/cierre")
+        shown=points[-90:]
+        shown_dates=dates[-90:]
+        # Las velas se dibujan solamente cuando la fuente entregó OHLC
+        # completo. La línea de cierres se conserva negra por consistencia.
+        has_ohlc=all(all(name in point for name in ("open","high","low","close")) for point in shown)
+        if has_ohlc:
+            import matplotlib.dates as mdates
+            xs=mdates.date2num(shown_dates)
+            for x,point in zip(xs,shown):
+                opening,high,low,closing=(float(point[name]) for name in ("open","high","low","close"))
+                color="#15803d" if closing>=opening else "#dc2626"
+                ax.vlines(x,low,high,color=color,linewidth=.75,zorder=1)
+                ax.bar(x,abs(closing-opening) or max(high-low,1)*.015,bottom=min(opening,closing),
+                       width=.62,color=color,edgecolor=color,linewidth=.4,zorder=2)
+        ax.plot(shown_dates,values[-90:],color=LINE_COLORS["price"],linewidth=1.05,
+                alpha=.88,label="Cierre",zorder=3)
         for term in (20,50,200):
             if len(values)>=term+25:
                 cumulative=[sum(values[i-term+1:i+1])/term
@@ -81,7 +94,8 @@ def build_charts(history):
         ax.spines[["top","right","left"]].set_visible(False)
         ax.tick_params(axis="both",labelsize=8,length=0,pad=8)
         ax.legend(loc="upper left",fontsize=7,ncol=4,frameon=False)
-        ax.set_title(obj.get("label",key)+" — últimos cierres disponibles",loc="left",fontsize=11,pad=12)
+        title="velas diarias y cierres" if has_ohlc else "últimos cierres disponibles"
+        ax.set_title(obj.get("label",key)+" — "+title,loc="left",fontsize=11,pad=12)
         fig.autofmt_xdate(rotation=0)
         fig.tight_layout()
         path=CHART_DIR/(key.lower()+".png")
