@@ -65,9 +65,19 @@ def topic_for(title,summary=""):
     # El titular determina la categoría: evita elevar notas de poca importancia
     # por mencionar un tema económico solo en el pie del artículo.
     t=title.casefold()
+    named_major=("nvidia","apple","microsoft","amazon","alphabet","google",
+                 "meta platforms","tesla","broadcom","tsmc","jpmorgan",
+                 "berkshire","walmart","eli lilly","oracle","amd","netflix")
     for cat in TOPICS:
-        if any(word in t for word in cat[1]):
-            return cat
+        if not any(word in t for word in cat[1]):
+            continue
+        if cat[0]=="Megacapitalización y beneficios":
+            # "Earnings" o "guidance" de cualquier empresa pequeña NO equivalen
+            # a una noticia capaz de mover los principales índices.
+            sector_terms=("semiconductor","ai chips","data center")
+            if not any(word in t for word in (*named_major,*sector_terms)):
+                continue
+        return cat
     return None
 
 def score(item,now=None):
