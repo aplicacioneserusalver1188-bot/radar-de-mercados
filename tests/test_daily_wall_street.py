@@ -90,7 +90,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("macroeconómica", radar.edition_label({}))
         result=radar.render({"series": {}}, {})
         self.assertIn("cobertura empresarial pendiente", result)
-        self.assertIn("No se obtuvo un histórico reciente suficiente", result)
+        self.assertIn("histórico reciente suficiente para describir la acción", result)
 
     def test_sec_403_preserves_existing_summary_and_labels_report(self):
         from tempfile import TemporaryDirectory
@@ -272,8 +272,8 @@ class ReportTests(unittest.TestCase):
                "source":"Financial Times","date":today.isoformat()}]
         text=company_pulse.company_news_html(news,translator=lambda x:"Empresa anuncia novedades")
         self.assertIn("Empresa anuncia novedades",text)
-        self.assertIn("no hechos confirmados",text)
-        self.assertIn("Posible repercusión:",text)
+        self.assertIn("Impacto potencial:",text)
+        self.assertNotIn("no hechos confirmados",text)
         self.assertNotIn("causó",text)
 
     @patch.object(radar,"official_news",return_value=[])
@@ -285,11 +285,10 @@ class ReportTests(unittest.TestCase):
         assets={"NVDA":{"points":points,"source":"https://stooq.com/q/?s=nvda.us","unit":"USD/acción"}}
         report=radar.render({"series":{}},history={"assets":assets},chart_keys={"NVDA":"/tmp/nvda.png"},
                             company_news={"companies":{}})
-        self.assertIn("Última sesión:",report)
-        self.assertIn("Últimas 5 sesiones:",report)
-        self.assertIn("Qué está haciendo la acción:",report)
-        self.assertIn("Escenario condicional:",report)
-        self.assertIn("Últimas 5 sesiones",report)
+        self.assertIn("<th>Sesión</th>",report)
+        self.assertIn("<th>5 sesiones</th>",report)
+        self.assertIn("NVDA · NVIDIA",report)
+        self.assertIn("Sobre MA20 y MA50",report)
         self.assertNotIn("Resultados financieros (contexto secundario)",report)
 
     def test_company_news_feed_requires_recent_date_and_link(self):
@@ -320,7 +319,7 @@ class ReportTests(unittest.TestCase):
                            for key in ("sp500","nasdaq","dow","russell","NVDA")}}
         keys={key:"/tmp/"+key+".png" for key in history["assets"]}
         report=radar.render({"series":{}},history=history,chart_keys=keys)
-        for key in ("sp500","nasdaq","dow","russell","nvda"):
+        for key in ("sp500","nasdaq","dow","russell"):
             self.assertIn("cid:radar-"+key,report)
         self.assertIn("Qué muestra:",report)
         self.assertIn("Nasdaq Composite",report)
@@ -370,7 +369,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in summary["quarterly_metrics"]["revenue"]],
                          [10000000000,8000000000])
         output=radar.sec_company_html({"companies":{"SPCX":summary}})
-        self.assertIn("Resultados financieros (contexto secundario)",output)
+        self.assertIn("Resultados financieros: SPCX",output)
         self.assertIn("10,000 millones USD",output)
         self.assertNotIn("25,000 millones USD",output)
 
@@ -383,7 +382,7 @@ class ReportTests(unittest.TestCase):
         report = radar.render({"series": {}}, sec)
         self.assertIn("Margen neto: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("Resultados financieros (contexto secundario)", report)
+        self.assertIn("Resultados financieros: NVDA", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):

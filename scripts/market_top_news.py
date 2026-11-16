@@ -8,6 +8,7 @@ import html
 import re
 from datetime import datetime,timezone,timedelta
 from urllib.parse import urlsplit
+from news_offline_es import translation_is_usable
 
 MIN_SCORE=65
 STOP={"the","a","an","of","for","to","and","in","on","with","at","as",
@@ -112,11 +113,12 @@ def rank_news(items,now=None,limit=5):
         if not rating or rating["score"]<MIN_SCORE:continue
         evaluated.append(dict(item,**rating))
     evaluated.sort(key=lambda p:(p["score"],p["published"]),reverse=True)
-    chosen=[]
+    chosen=[]; topics=set()
     for item in evaluated:
-        if any(same_story(item,other) for other in chosen):
+        if item["topic"] in topics or any(same_story(item,other) for other in chosen):
             continue
         chosen.append(item)
+        topics.add(item["topic"])
         if len(chosen)>=limit:break
     return chosen
 
@@ -129,18 +131,13 @@ def render_top_news(items,translate_fn=None):
     blocks=[]
     for idx,n in enumerate(items[:5],1):
         headline=n.get("title","")
-        description=n.get("description","")
         if translate_fn:
             try:
-                headline=translate_fn(headline) or headline
-                if description:description=translate_fn(description) or description
+                translated=translate_fn(headline)
+                if translation_is_usable(translated):
+                    headline=translated.strip()
             except (ImportError,OSError,ValueError,RuntimeError):
                 pass
-        # Descarta los extractos que duplican esencialmente el titular.
-        if description and len(normalized(description)&normalized(headline))>=len(normalized(description))*.85:
-            description=""
-        fact=(description if len(description)>=55 else
-              "La fuente disponible solo ofrece el titular. No hay detalles verificables suficientes.")
         ts=n["published"]
         if isinstance(ts,str):
             ts=datetime.fromisoformat(ts.replace("Z","+00:00"))
@@ -152,10 +149,6 @@ def render_top_news(items,translate_fn=None):
             +f'<p style="font-size:12px;color:#57677c">{escape(n["source"])} · '
             +escape(ts.strftime("%d/%m/%Y %H:%M UTC"))
             +f' · {age_label} · Prioridad editorial {n["score"]}/100</p>'
-            +'<p><strong>¿Qué ocurrió?</strong> '+escape(fact)+'</p>'
-            +'<p><strong>¿Por qué importa?</strong> '+escape(n["mechanism"])+'</p>'
-            +'<p><strong>Activos expuestos:</strong> '+escape(n["assets"])+'</p>'
-            +'<p><strong>¿Qué observar?</strong> '+escape(n["watch"])+'</p>'
-            +'<p style="color:#64748b;font-size:12px">La clasificación expresa relevancia potencial, '
-            'no probabilidad de subida o bajada. El titular no prueba causalidad bursátil.</p></div>')
+            +'<p><strong>Impacto potencial:</strong> '+escape(n["mechanism"])+'</p>'
+            +'<p><strong>Activos afectados:</strong> '+escape(n["assets"])+'</p></div>')
     return "".join(blocks)

@@ -2,6 +2,7 @@
 """Señales de 1 y 5 sesiones para acciones, sin inferir causalidad de titulares."""
 import html
 from render_charts import metrics, interpretation
+from news_offline_es import translation_is_usable
 
 def e(value):return html.escape(str(value))
 def momentum(points,benchmark=None):
@@ -43,8 +44,7 @@ def reading(p):
             base+=" Las medias MA20 y MA50 ofrecen señales mixtas."
     if "relative_weekly" in p:
         rel=p["relative_weekly"]
-        base+=(f" Frente al S&P 500, su desempeño semanal es {rel:+.1f} puntos "
-               "porcentuales (comparación, no predicción).")
+        base+=f" Frente al S&P 500, su desempeño semanal es {rel:+.1f} puntos porcentuales."
     return base
 
 def scenarios(p):
@@ -90,8 +90,7 @@ def possible_news_impact(title,ticker):
         "TSM":"Pedidos de fabricación avanzada y capacidad de producción",
         "SPCX":"Lanzamientos, contratos y necesidades de inversión",
     }
-    return (f"Vigilar {sectors.get(ticker,'beneficios y competencia').lower()}; "
-            "con este titular no está acreditado que haya causado el movimiento de la acción.")
+    return f"Vigilar {sectors.get(ticker,'beneficios y competencia').lower()}."
 
 def company_news_html(items,translator=None,ticker=""):
     if not items:
@@ -104,18 +103,15 @@ def company_news_html(items,translator=None,ticker=""):
         if translator:
             try:
                 candidate=translator(title)
-                if candidate and candidate.strip():shown=candidate.strip()
+                if translation_is_usable(candidate):shown=candidate.strip()
             except (ImportError,ValueError,RuntimeError,OSError):
                 pass
         url=item.get("url","")
         if not url.startswith("https://news.google.com/"):continue
         rows.append('<li><a href="'+e(url)+'">'+e(shown)+'</a>'
                     +' — '+e(item.get("source","Agregador"))+' ('+e(item.get("date",""))+')'
-                    +'<p style="font-size:12px"><strong>Posible repercusión:</strong> '
+                    +'<p style="font-size:12px"><strong>Impacto potencial:</strong> '
                     +e(possible_news_impact(title,ticker))+'</p></li>')
     if not rows:
         return '<p>Sin noticias recientes con fuente y fecha verificables.</p>'
-    return ('<p><strong>Noticias de los últimos siete días:</strong></p><ul>'
-            +''.join(rows)+'</ul><p style="font-size:12px;color:#64748b">'
-            'Titulares de medios agregados, no hechos confirmados independientemente. '
-            'No se puede atribuir la variación de la acción a estos titulares sin evidencia.</p>')
+    return '<p><strong>Noticias de los últimos siete días:</strong></p><ul>'+''.join(rows)+'</ul>'

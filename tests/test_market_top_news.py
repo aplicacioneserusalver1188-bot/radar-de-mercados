@@ -36,8 +36,7 @@ class TopNewsTests(unittest.TestCase):
         recent["url"]="https://www.cnbc.com/article/fed-today"
         previous["url"]="https://www.cnbc.com/article/fed-yesterday"
         result=top.rank_news([recent,previous],now=NOW)
-        self.assertEqual(len(result),2)
-        self.assertGreater(result[0]["score"],result[1]["score"])
+        self.assertEqual(len(result),1)
         old=item("FOMC announces rate hike",age_hours=170)
         self.assertFalse(top.rank_news([old],now=NOW))
 
@@ -72,12 +71,18 @@ class TopNewsTests(unittest.TestCase):
                   description="Published consumer inflation figures differed from earlier projections. Financial markets may adjust their rate expectations.")
         result=top.rank_news([news],now=NOW)
         text=top.render_top_news(result)
-        self.assertIn("¿Por qué importa?",text)
-        self.assertIn("¿Qué observar?",text)
+        self.assertIn("Impacto potencial:",text)
+        self.assertIn("Activos afectados:",text)
         self.assertIn("Prioridad editorial 100/100",text)
         self.assertIn("Nasdaq 100",text)
         self.assertNotIn("revisar el comunicado",text.lower())
         self.assertEqual(text.count("US inflation CPI surprises investors"),1)
+
+    def test_translation_noise_is_rejected(self):
+        news=top.rank_news([item("US inflation CPI surprises investors")],now=NOW)
+        text=top.render_top_news(news,translate_fn=lambda _:"URL structure: https://example.gov/policy")
+        self.assertIn("US inflation CPI surprises investors",text)
+        self.assertNotIn("URL structure",text)
 
     @patch.object(radar,"official_news",return_value=[])
     def test_report_top_news_is_unique_and_near_front(self,_news):

@@ -5,6 +5,15 @@ No genera análisis nuevo: únicamente traduce un extracto literal del comunicad
 """
 import re
 
+TRANSLATION_NOISE=("http://","https://","www.",".gov","url structure",
+                   "privacy policy","terms of use","cookie policy")
+
+def translation_is_usable(text):
+    """Descarta salidas de traducción contaminadas por URLs o texto de navegación."""
+    compact=" ".join((text or "").split())
+    lowered=compact.casefold()
+    return bool(len(compact)>=8 and not any(token in lowered for token in TRANSLATION_NOISE))
+
 def factual_extract(description, max_chars=560):
     """Dos primeras frases completas de la descripción institucional, sin añadir hechos."""
     original=" ".join((description or "").split())
@@ -41,7 +50,7 @@ def local_news(news, translate_fn=None):
         try:
             title_es=translate_fn(title)
             summary_es=translate_fn(excerpt)
-            if not title_es or not summary_es:
+            if not translation_is_usable(title_es) or not translation_is_usable(summary_es):
                 continue
             results[i]={"title_es":title_es[:300],"summary_es":summary_es[:1000]}
         except (ImportError,ValueError,RuntimeError,OSError) as error:
