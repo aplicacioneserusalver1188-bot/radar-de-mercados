@@ -274,20 +274,53 @@ def company_conclusion(metrics):
         diagnosis+=f" El margen neto de este ejercicio fue {margin:.1f}%."
     return diagnosis+" El movimiento bursátil se analiza por separado; los resultados contables no predicen el precio."
 
+def quick_trend(pulse):
+    if not pulse:
+        return "Sin histórico reciente"
+    above20=pulse.get("ma20") and pulse["close"]>pulse["ma20"]
+    above50=pulse.get("ma50") and pulse["close"]>pulse["ma50"]
+    if above20 and above50:
+        return "Sobre MA20 y MA50"
+    if not above20 and not above50:
+        return "Bajo MA20 y MA50"
+    return "Señal mixta"
+
+def is_notable_move(pulse):
+    """Reserva las fichas largas para movimientos que merecen una segunda lectura."""
+    return bool(pulse and (abs(pulse.get("weekly",0))>=5 or
+                           abs(pulse.get("relative_weekly",0))>=3))
+
 def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
-    """Acción primero: sesión, semana, catalizadores y escenario técnico.
-    Resultados financieros quedan opcionales y secundarios.
-    """
+    """Vista comparativa compacta; detalle solo en acciones con movimiento destacable."""
     companies=sec.get("companies",{})
     histories=(history or {}).get("assets",{})
     benchmark=histories.get("sp500",{}).get("points",[])
     headlines=(company_news or {}).get("companies",{})
-    cards=[]
+    rows=[]; details=[]
     for ticker,name in COMPANIES:
         info=companies.get(ticker,{})
         asset=histories.get(ticker,{})
         pulse=momentum(asset.get("points",[]),benchmark)
-        content=f'<h3 style="margin:0 0 8px">{esc(name)} ({esc(ticker)})</h3>'
+        if pulse:
+            relative=(f'{pulse["relative_weekly"]:+.2f} pp' if "relative_weekly" in pulse else "No comparable")
+            rows.append(f'<tr><th>{esc(ticker)}</th><td>{pulse["close"]:,.2f} USD</td>'
+                        f'<td>{pulse["daily"]:+.2f}%</td><td>{pulse["weekly"]:+.2f}%</td>'
+                        f'<td>{esc(quick_trend(pulse))}</td><td>{esc(relative)}</td></tr>')
+        else:
+            rows.append(f'<tr><th>{esc(ticker)}</th><td colspan="5">Sin cierre reciente verificable</td></tr>')
+        if not is_notable_move(pulse):
+            annual=company_metric_rows(info.get("metrics",{}))
+            quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
+            if annual or quarterly:
+                financial='<details><summary>Resultados financieros: '+esc(ticker)+'</summary>'
+                if annual:
+                    financial+='<ul>'+''.join(annual)+'</ul><p>'+esc(company_conclusion(info.get("metrics",{})))+'</p>'
+                if quarterly:
+                    financial+='<ul>'+''.join(quarterly)+'</ul>'
+                financial+='</details>'
+                details.append(financial)
+            continue
+        content=f'<h3 style="margin:0 0 8px">Detalle destacado: {esc(name)} ({esc(ticker)})</h3>'
         if pulse:
             content+=('<p><strong>Último cierre:</strong> '
                       f'{pulse["close"]:,.2f} USD · {esc(pulse["date"])}'
@@ -295,8 +328,6 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
                       f' &nbsp; <strong>Últimas 5 sesiones:</strong> {pulse["weekly"]:+.2f}%</p>')
             content+='<p><strong>Qué está haciendo la acción:</strong> '+esc(stock_reading(pulse))+'</p>'
             content+='<p><strong>Escenario condicional:</strong> '+esc(stock_scenarios(pulse))+'</p>'
-        else:
-            content+='<p>No se obtuvo un histórico reciente suficiente para describir la última sesión y semana.</p>'
         content+=chart_fragment(ticker,history,chart_keys)
         content+=company_news_html(headlines.get(ticker,[]),translator=local_translation,ticker=ticker)
         annual=company_metric_rows(info.get("metrics",{}))
@@ -307,10 +338,14 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
                 content+='<ul>'+''.join(annual)+'</ul><p>'+esc(company_conclusion(info.get("metrics",{})))+'</p>'
             if quarterly:content+='<ul>'+''.join(quarterly)+'</ul>'
             content+='</details>'
-        # No saturar 11 fichas con ausencia repetitiva de datos SEC.
-        cards.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
-                     +content+'</div>')
-    return ''.join(cards)
+        details.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
+                       +content+'</div>')
+    table=('<table border="1" cellpadding="7" style="border-collapse:collapse;width:100%;font-size:13px">'
+           '<tr><th>Ticker</th><th>Cierre</th><th>Sesión</th><th>5 sesiones</th>'
+           '<th>Tendencia</th><th>vs. S&amp;P 500</th></tr>'+''.join(rows)+'</table>')
+    note=('<p style="font-size:12px;color:#64748b">Las fichas detalladas aparecen solo cuando '
+          'el movimiento semanal o relativo amerita una revisión adicional.</p>')
+    return table+note+''.join(details)
 
 def data_quality_summary(data, sec=None, news_count=0, sec_status=None):
     """Informe auditable de cobertura, frescura y límites, no una nota de confianza inventada."""
@@ -585,6 +620,13 @@ def macro_asset_chart(history=None, chart_keys=None):
             '<p>Su tendencia aporta contexto sobre energía y costes; no demuestra por sí sola una trayectoria de inflación.</p>'
             +chart_fragment("wti",history,chart_keys)+'</div>')
 
+def methodology_note():
+    """Una sola nota de alcance sustituye advertencias repetidas en cada bloque."""
+    return ('<details style="margin-top:16px"><summary><strong>Metodología y nota legal</strong></summary>'
+            '<p>Las variaciones, medias móviles y rankings describen datos históricos y cobertura de fuentes públicas; '
+            'no son recomendaciones de inversión ni pronósticos. Las noticias se clasifican por relevancia potencial, '
+            'no demuestran causalidad de precios. Verifique fecha, fuente y cobertura antes de tomar decisiones.</p></details>')
+
 def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=None, company_news=None, market_news=None, sec_status=None):
     now=datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y %H:%M")
     items=[]; flags=[]; news=official_news() if market_news is None else []
@@ -672,7 +714,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         '<p>Selección editorial de las últimas 24 horas, con catalizadores anteriores '
         'hasta siete días si siguen siendo relevantes. Prioridad sobre 100 puntos '
         'según alcance, relevancia económica, expectativas, actualidad y fiabilidad '
-        'de la fuente. No es probabilidad de movimiento ni prueba de causalidad.</p>'
+        'de la fuente.</p>'
         +render_top_news(market_news,translate_fn=local_translation)
         if market_news is not None else '')
     # Mantener el formato previo solo para funciones y pruebas de compatibilidad.
@@ -680,7 +722,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         '<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA '
         'publicados en los últimos cuatro días.</p><ul>'+news_html+'</ul>'
         if market_news is None else '')
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{macro_story(data)}{macro_asset_chart(history,chart_keys)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. Nasdaq Composite es distinto de Nasdaq 100. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p>{render_stock_breadth(breadth or {})}<h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Se comparan cierres de la última sesión y de cinco sesiones, tendencia técnica, fuerza frente al S&amp;P 500 (cuando hay cierres coincidentes) y titulares empresariales de siete días. Las noticias son referencias a investigar, no pruebas de causalidad. Resultados contables solo como contexto secundario.</p>{companies}{legacy_news_section}<h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Cobertura y calidad de datos</h2>{data_quality_summary(data, sec, len(market_news) if market_news is not None else len(news), sec_status)}<p>{esc(warnings)}</p><p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{macro_story(data)}{macro_asset_chart(history,chart_keys)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. Nasdaq Composite es distinto de Nasdaq 100. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p>{render_stock_breadth(breadth or {})}<h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Tabla comparativa de cierres, tendencia y fuerza relativa. Las fichas ampliadas se reservan para movimientos que requieren revisión.</p>{companies}{legacy_news_section}<h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Cobertura y calidad de datos</h2>{data_quality_summary(data, sec, len(market_news) if market_news is not None else len(news), sec_status)}<p>{esc(warnings)}</p>{methodology_note()}<p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}

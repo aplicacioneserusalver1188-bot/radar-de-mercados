@@ -272,8 +272,8 @@ class ReportTests(unittest.TestCase):
                "source":"Financial Times","date":today.isoformat()}]
         text=company_pulse.company_news_html(news,translator=lambda x:"Empresa anuncia novedades")
         self.assertIn("Empresa anuncia novedades",text)
-        self.assertIn("no hechos confirmados",text)
-        self.assertIn("Posible repercusión:",text)
+        self.assertIn("Impacto potencial:",text)
+        self.assertNotIn("no hechos confirmados",text)
         self.assertNotIn("causó",text)
 
     @patch.object(radar,"official_news",return_value=[])
@@ -370,7 +370,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in summary["quarterly_metrics"]["revenue"]],
                          [10000000000,8000000000])
         output=radar.sec_company_html({"companies":{"SPCX":summary}})
-        self.assertIn("Resultados financieros (contexto secundario)",output)
+        self.assertIn("Resultados financieros: SPCX",output)
         self.assertIn("10,000 millones USD",output)
         self.assertNotIn("25,000 millones USD",output)
 
@@ -383,7 +383,7 @@ class ReportTests(unittest.TestCase):
         report = radar.render({"series": {}}, sec)
         self.assertIn("Margen neto: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("Resultados financieros (contexto secundario)", report)
+        self.assertIn("Resultados financieros: NVDA", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):

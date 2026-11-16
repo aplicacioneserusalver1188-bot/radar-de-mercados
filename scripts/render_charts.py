@@ -48,7 +48,7 @@ def interpretation(data):
         description+=(" También supera la media de 200 sesiones."
                       if data["close"]>data["ma200"] else
                       " Permanece por debajo de la media de 200 sesiones.")
-    return description+" Son señales técnicas, no predicciones."
+    return description
 
 def build_charts(history):
     """Genera PNG solo para series recientes y completas. Otros se omiten."""
