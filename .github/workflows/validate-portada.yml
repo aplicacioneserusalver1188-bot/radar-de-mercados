@@ -1,0 +1,45 @@
+name: Validar portada de desarrollo
+on:
+  pull_request:
+    paths:
+      - 'portada-preview.html'
+      - 'index.html'
+      - 'consultor.html'
+      - 'oportunidades.html'
+      - 'data/market.json'
+      - 'tests/test_portada_static.py'
+      - '.github/workflows/validate-portada.yml'
+  workflow_dispatch:
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar estructura y fuentes
+        run: python3 tests/test_portada_static.py
+      - name: Preparar paquete de revisión sin despliegue
+        run: |
+          mkdir -p revision-rm/data
+          cp portada-preview.html index.html consultor.html oportunidades.html revision-rm/
+          cp data/market.json revision-rm/data/
+          cp revision-rm/portada-preview.html revision-rm/abrir-portada.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("revision-rm/INSTRUCCIONES.txt")
+          p.write_text(
+              "RADAR DE MERCADOS — VISTA DE DESARROLLO\\n"
+              "Abra una terminal en esta carpeta y ejecute:\\n"
+              "python -m http.server 8765\\n"
+              "Luego visite http://localhost:8765/abrir-portada.html\\n"
+              "La carga de datos requiere servidor HTTP local, no abrir file://.\\n"
+              "Este paquete no incluye servicios de backend del Consultor.\\n"
+              "No modifica la web pública.\\n", encoding="utf-8")
+          PY
+      - name: Adjuntar vista previa descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-portada-revision
+          path: revision-rm/
+          retention-days: 14
