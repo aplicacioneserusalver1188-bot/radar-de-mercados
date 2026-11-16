@@ -632,6 +632,23 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Petróleo WTI",report)
         self.assertNotIn("Petróleo Brent",report)
         self.assertIn("Bitcoin BTC/USDT",report)
+
+    def test_index_and_market_pulse_use_compact_visual_panels(self):
+        from datetime import datetime, timedelta, timezone
+        today=datetime.now(timezone.utc).date()
+        points=[{"date":(today-timedelta(days=220-i)).isoformat(),"close":100+i}
+                for i in range(221)]
+        history={"assets":{key:{"points":points,"unit":"puntos",
+                 "tradingview_url":"https://www.tradingview.com/chart/?symbol=SP%3ASPX"}
+                 for key in ("sp500","nasdaq","nasdaq100","dow","russell","gold","wti","btc")}}
+        indices=radar.render_index_cards(history,{"sp500":"/tmp/a.png","nasdaq":"/tmp/b.png","nasdaq100":"/tmp/c.png","dow":"/tmp/d.png","russell":"/tmp/e.png"})
+        self.assertIn("Índices a primera vista",indices)
+        self.assertIn("20 sesiones",indices)
+        self.assertIn("Nasdaq 100",indices)
+        self.assertIn("Russell 2000",indices)
+        pulse=radar.render_market_references({"assets":{}},history,{"gold":"/tmp/a.png","wti":"/tmp/b.png","btc":"/tmp/c.png"})
+        self.assertIn("Lectura rápida:",pulse)
+        self.assertIn('width="33.33%"',pulse)
         self.assertIn("Bitcoin BTC/USDT",report)
 
     @patch.object(radar, "official_news", return_value=[
