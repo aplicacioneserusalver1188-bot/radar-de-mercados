@@ -90,7 +90,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("macroeconómica", radar.edition_label({}))
         result=radar.render({"series": {}}, {})
         self.assertIn("cobertura empresarial pendiente", result)
-        self.assertIn("No se obtuvo un histórico reciente suficiente", result)
+        self.assertIn("histórico reciente suficiente para describir la acción", result)
 
     def test_sec_403_preserves_existing_summary_and_labels_report(self):
         from tempfile import TemporaryDirectory
