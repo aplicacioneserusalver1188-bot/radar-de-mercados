@@ -90,6 +90,34 @@ class ReportTests(unittest.TestCase):
         self.assertIn("cobertura empresarial pendiente", result)
         self.assertIn("No se obtuvo un histórico reciente suficiente", result)
 
+    def test_sec_403_preserves_existing_summary_and_labels_report(self):
+        from tempfile import TemporaryDirectory
+        from urllib.error import HTTPError
+        import json
+        with TemporaryDirectory() as temp, \
+             patch.object(update_sec, "OUT", Path(temp) / "sec.json"), \
+             patch.object(update_sec, "STATUS_OUT", Path(temp) / "status.json"), \
+             patch.dict(os.environ, {"SEC_USER_AGENT": "RadarWallStreet/1.0 soporte@example.com"}, clear=False), \
+             patch.object(update_sec.urllib.request, "urlopen", side_effect=HTTPError("https://data.sec.gov",403,"blocked",None,None)), \
+             patch.object(update_sec.time, "sleep"):
+            update_sec.OUT.write_text(json.dumps({"companies":{"NVDA":{"metrics":{"revenue":[{"value":1}]}}}}),encoding="utf-8")
+            update_sec.main()
+            self.assertTrue(update_sec.has_financial_data(update_sec.load_summary()))
+            status=json.loads(update_sec.STATUS_OUT.read_text(encoding="utf-8"))
+            self.assertTrue(status["preserved_cached_summary"])
+        report=radar.render({"series":{}}, {}, sec_status={"state":"blocked","http_status":403})
+        self.assertIn("HTTP 403", report)
+
+    def test_sec_without_contact_does_not_make_request(self):
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as temp, \
+             patch.object(update_sec, "OUT", Path(temp) / "sec.json"), \
+             patch.object(update_sec, "STATUS_OUT", Path(temp) / "status.json"), \
+             patch.dict(os.environ, {"SEC_USER_AGENT": "ObservatorioRM/1.0"}, clear=False), \
+             patch.object(update_sec.urllib.request, "urlopen") as request:
+            update_sec.main()
+            request.assert_not_called()
+
     def test_sec_annual_values_excludes_quarter_and_compares_fiscal_years(self):
         facts = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
             {"form": "10-Q", "fp": "Q1", "start": "2026-01-01", "end": "2026-03-31", "filed": "2026-04-20", "val": 5},

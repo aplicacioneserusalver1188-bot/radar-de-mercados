@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "sec_company_summary.json"
+STATUS_OUT = ROOT / "data" / "sec_fetch_status.json"
 COMPANIES = {
     "NVDA": 1045810, "MSFT": 789019, "AAPL": 320193,
     "AMZN": 1018724, "GOOGL": 1652044, "META": 1326801,
@@ -57,7 +58,30 @@ def financial_series(facts, namespaces, names, forms, months, currency):
                 return sorted(latest.values(),key=lambda x:x["end"],reverse=True)[:2]
     return []
 
-AGENT = os.getenv("SEC_USER_AGENT") or "ObservatorioRM/1.0 (contact: https://github.com/aplicacioneserusalver1188-bot/radar-de-mercados)"
+def sec_user_agent():
+    """Return only an SEC identity with a contact address.
+
+    A repository URL is not an operational contact.  Avoid requests using the
+    old generic identity, which predictably receives HTTP 403.
+    """
+    value = os.getenv("SEC_USER_AGENT", "").strip()
+    return value if "@" in value and len(value) >= 12 else ""
+
+def load_summary():
+    try:
+        value = json.loads(OUT.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) and isinstance(value.get("companies"), dict) else {}
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+
+def has_financial_data(summary):
+    return any(info.get("metrics") for info in summary.get("companies", {}).values()
+               if isinstance(info, dict))
+
+def write_status(**status):
+    status["attempted_at"] = datetime.now(timezone.utc).isoformat()
+    STATUS_OUT.parent.mkdir(parents=True, exist_ok=True)
+    STATUS_OUT.write_text(json.dumps(status, ensure_ascii=False), encoding="utf-8")
 
 def annual_values(facts, tags):
     """Escoger el año fiscal más reciente ENTRE TODAS las etiquetas GAAP alternativas.
@@ -120,6 +144,12 @@ def summarize(facts, ticker):
 
 def main():
     result = {"updated_at": datetime.now(timezone.utc).isoformat(), "companies": {}}
+    previous = load_summary()
+    agent = sec_user_agent()
+    if not agent:
+        write_status(state="not_attempted", reason="SEC_USER_AGENT_REQUIRES_CONTACT_EMAIL")
+        print("SEC no consultada: configurar SEC_USER_AGENT con nombre de aplicación y correo de contacto válido.")
+        return
     sec_access_blocked = False
     for ticker, cik in COMPANIES.items():
         if sec_access_blocked:
@@ -128,7 +158,7 @@ def main():
         url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
         try:
             request = urllib.request.Request(url, headers={
-                "User-Agent": AGENT, "Accept-Encoding": "identity",
+                "User-Agent": agent, "Accept-Encoding": "identity",
                 "Accept": "application/json"})
             with urllib.request.urlopen(request, timeout=18) as response:
                 facts = json.loads(response.read(25_000_000))
@@ -140,10 +170,17 @@ def main():
                 sec_access_blocked = True
                 print("SEC HTTP 403: detener consultas restantes, respetando el control de acceso del proveedor.")
         time.sleep(0.15)  # Respect SEC limits, one sequential request per company.
+    available=sum(bool(c.get("metrics", {}).get("revenue")) for c in result["companies"].values())
+    if sec_access_blocked and not available and has_financial_data(previous):
+        write_status(state="blocked", http_status=403, preserved_cached_summary=True)
+        print("SEC HTTP 403: se conserva el último resumen SEC verificable; no se reemplaza por ausencias.")
+        return
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
-    print("SEC: métricas empresariales disponibles:",
-          sum(bool(c.get("metrics", {}).get("revenue")) for c in result["companies"].values()))
+    write_status(state="blocked" if sec_access_blocked else "ok",
+                 http_status=403 if sec_access_blocked else None,
+                 preserved_cached_summary=False)
+    print("SEC: métricas empresariales disponibles:", available)
     print("SEC: fallos por empresa (tipo y HTTP):",
           {ticker: (item.get("error"), item.get("http_status"))
            for ticker, item in result["companies"].items() if item.get("error")})
