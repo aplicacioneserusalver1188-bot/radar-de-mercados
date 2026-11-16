@@ -282,12 +282,13 @@ class ReportTests(unittest.TestCase):
     @patch.object(radar,"official_news",return_value=[])
     def test_report_uses_reader_first_section_order(self,_news):
         report=radar.render({"series":{}},market_news=[])
-        ordered=("Resumen ejecutivo","Noticias clave que pueden influir en Wall Street",
-                 "Pulso de mercados: riesgo, energía y activos de referencia",
-                 "Macroeconomía: señales y consecuencias para el mercado",
+        ordered=("Tesis central de apertura","Resumen ejecutivo",
                  "Índices: tendencia, gráficos y confirmación",
-                 "Amplitud: empresas por encima de sus medias móviles",
-                 "Acciones: qué pasó ayer, esta semana y qué puede cambiar",
+                 "Próxima semana: macro y resultados corporativos",
+                 "Noticias clave que pueden influir en Wall Street",
+                 "Pulso de mercados: riesgo, energía y activos de referencia",
+                 "Macroeconomía: semáforo de señales","Rotación sectorial S&P 500",
+                 "Consulta profunda: amplitud y acciones",
                  "Escenarios","Calidad y límites de la información")
         positions=[report.index(title) for title in ordered]
         self.assertEqual(positions,sorted(positions))
@@ -414,8 +415,8 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in summary["quarterly_metrics"]["revenue"]],
                          [10000000000,8000000000])
         output=radar.sec_company_html({"companies":{"SPCX":summary}})
-        self.assertIn("Resultados financieros: SPCX",output)
-        self.assertIn("10,000 millones USD",output)
+        self.assertNotIn("Resultados financieros: SPCX",output)
+        self.assertNotIn("10,000 millones USD",output)
         self.assertNotIn("25,000 millones USD",output)
 
     @patch.object(radar, "official_news", return_value=[])
