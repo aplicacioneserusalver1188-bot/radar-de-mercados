@@ -660,11 +660,11 @@ class ReportTests(unittest.TestCase):
         data={"series":{key:{"points":points,"source_url":"https://fred.stlouisfed.org/series/TEST"}
                           for key,_,_ in radar.SERIES}}
         rendered=radar.render_macro_visuals(data,{"macro_"+key:"/tmp/x.png" for key,_,_ in radar.SERIES})
-        self.assertIn("selección de 10 indicadores",rendered)
+        self.assertIn("Semáforo macro",rendered)
         self.assertIn("Inflación: lo que vigila la Fed",rendered)
         self.assertIn("Actividad y empleo",rendered)
-        self.assertIn("Condiciones financieras y riesgo",rendered)
-        self.assertIn("cid:radar-macro_inflation",rendered)
+        self.assertIn("Tipos de interés",rendered)
+        self.assertIn("Verde: cobertura completa",rendered)
         self.assertNotIn("Precio minorista del diésel</h3>",rendered)
 
     @patch.object(radar, "official_news", return_value=[
