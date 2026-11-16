@@ -36,6 +36,10 @@ jobs:
         run: python scripts/update_company_news.py
         timeout-minutes: 3
         continue-on-error: true
+      - name: Seleccionar hasta cinco noticias relevantes de Wall Street
+        run: python scripts/update_market_top_news.py
+        timeout-minutes: 3
+        continue-on-error: true
       - name: Calcular amplitud S&P 500 y Nasdaq 100
         run: python scripts/update_breadth.py
       - name: Preparar traductor local gratuito inglés-español
