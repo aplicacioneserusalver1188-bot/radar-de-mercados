@@ -27,6 +27,8 @@ class TopNewsTests(unittest.TestCase):
         self.assertIsNone(top.score(item("New pricing for payment services"),now=NOW))
         self.assertIsNone(top.score(item("Best stocks to buy amid inflation"),now=NOW))
         self.assertIsNone(top.score(item("Analyst picks top technology stocks"),now=NOW))
+        self.assertIsNone(top.score(item("Small biotech earnings beat estimates"),now=NOW))
+        self.assertIsNotNone(top.score(item("Nvidia earnings change AI chip outlook"),now=NOW))
 
     def test_recent_news_is_prioritized_without_dropping_ongoing_catalysts(self):
         recent=item("Federal Reserve considers interest rate policy",age_hours=2)
