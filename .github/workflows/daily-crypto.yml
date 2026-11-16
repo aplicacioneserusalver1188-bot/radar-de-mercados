@@ -32,7 +32,7 @@ jobs:
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          REPORT_TO: aplicacioneserusalver1188@gmail.com
+          REPORT_TO: increiblepero18@gmail.com
           RADAR_DRY_RUN: ${{ (github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.send_test_email == true)) && '0' || '1' }}
         run: python scripts/daily_crypto.py
       - name: Guardar copia del informe
