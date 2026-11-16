@@ -1,5 +1,8 @@
 name: Radar diario de criptomonedas (Gmail)
 on:
+  push:
+    paths:
+      - 'ops/trigger-crypto-email.txt'
   schedule:
     # 07:00 hora de Venezuela = 11:00 UTC, todos los días.
     - cron: '0 11 * * *'
@@ -30,7 +33,7 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           REPORT_TO: ${{ secrets.REPORT_TO }}
-          RADAR_DRY_RUN: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.send_test_email == true)) && '0' || '1' }}
+          RADAR_DRY_RUN: ${{ (github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.send_test_email == true)) && '0' || '1' }}
         run: python scripts/daily_crypto.py
       - name: Guardar copia del informe
         if: always()
