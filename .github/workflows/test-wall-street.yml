@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'scripts/daily_wall_street.py'
+      - 'scripts/market_top_news.py'
+      - 'scripts/update_market_top_news.py'
       - 'scripts/macro_story.py'
       - 'scripts/company_pulse.py'
       - 'scripts/update_company_news.py'
@@ -42,6 +44,10 @@ jobs:
         run: python -m pip install --disable-pip-version-check -q matplotlib
       - name: Consultar noticias recientes por empresa (fuentes gratuitas)
         run: python scripts/update_company_news.py
+        timeout-minutes: 3
+        continue-on-error: true
+      - name: Seleccionar hasta cinco noticias relevantes de Wall Street
+        run: python scripts/update_market_top_news.py
         timeout-minutes: 3
         continue-on-error: true
       - name: Consultar amplitud de índices
