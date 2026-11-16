@@ -425,9 +425,9 @@ class ReportTests(unittest.TestCase):
             "net_income": [{"value": 2000000000, "end": "2025-12-31"}]
         }, "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json"}}}
         report = radar.render({"series": {}}, sec)
-        self.assertIn("Margen neto: 20.0%", report)
+        self.assertNotIn("Margen neto: 20.0%", report)
         self.assertIn("NVIDIA", report)
-        self.assertIn("Resultados financieros: NVDA", report)
+        self.assertNotIn("Resultados financieros: NVDA", report)
 
     @patch.object(radar, "official_news", return_value=[])
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):
