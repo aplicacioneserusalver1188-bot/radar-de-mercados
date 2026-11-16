@@ -569,7 +569,7 @@ def visual_card(key, name, history=None, chart_keys=None, context="", current=No
     return ('<h3 style="margin:0;font-size:18px">'+esc(name)+'</h3>'
             '<p style="font-size:22px;font-weight:bold;margin:8px 0 2px">'+esc(level)+'</p>'
             '<p style="margin:0;color:#526579;font-size:12px">Cierre / referencia: '+day+' · '+esc(move)+'</p>'
-            +img+'<p style="margin:8px 0"><strong>Lectura:</strong> '+esc(reading)+'</p>'
+            +img+'<p style="margin:8px 0"><strong>Qué muestra:</strong> '+esc(reading)+'</p>'
             '<p style="margin:8px 0;color:#455267">'+esc(context)+'</p>'+link)
 
 def three_column_panel(cards):

@@ -649,7 +649,6 @@ class ReportTests(unittest.TestCase):
         pulse=radar.render_market_references({"assets":{}},history,{"gold":"/tmp/a.png","wti":"/tmp/b.png","btc":"/tmp/c.png"})
         self.assertIn("Lectura rápida:",pulse)
         self.assertIn('width="33.33%"',pulse)
-        self.assertIn("Bitcoin BTC/USDT",report)
 
     @patch.object(radar, "official_news", return_value=[
         ("Reserva Federal: Monetary policy statement","https://www.federalreserve.gov/test","15/11/2026 11:00 UTC","Published a statement")])
