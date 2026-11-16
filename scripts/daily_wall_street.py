@@ -607,11 +607,14 @@ def render_index_cards(history=None,chart_keys=None):
             +three_column_panel(cards[:3])+three_column_panel(cards[3:]))
 
 MACRO_GROUPS=(
-    ("Inflación y costes",("pce","corepce","inflation","ppi","diesel")),
-    ("Actividad, empleo y hogares",("gdp","retail","payrolls","unemployment","claims","consumer")),
-    ("Tipos, crédito y condiciones financieras",("fedfunds","treasury2y","treasury10y","sofr","credit","vix","nfci")),
-    ("Liquidez",("rrp","tga","reserves")),
+    ("Inflación: lo que vigila la Fed",("inflation","corepce")),
+    ("Actividad y empleo",("gdp","payrolls","unemployment")),
+    ("Condiciones financieras y riesgo",("fedfunds","treasury2y","treasury10y","credit","vix")),
 )
+
+# Señales que forman la pantalla diaria. El resto se conserva en los datos de
+# respaldo, pero no compite por atención en la lectura rápida del inversor.
+PRIMARY_MACRO_KEYS=tuple(key for _,keys in MACRO_GROUPS for key in keys)
 
 def macro_value(key,value):
     suffix="%" if key in {"unemployment","fedfunds","treasury2y","treasury10y","sofr"} else ""
@@ -646,7 +649,7 @@ def macro_visual_card(key,label,meaning,data,chart_keys):
 
 def render_macro_visuals(data,chart_keys=None):
     lookup={key:(label,meaning) for key,label,meaning in SERIES}
-    blocks=['<p><strong>Lectura rápida:</strong> cada tarjeta identifica el último dato publicado, su cambio, su gráfico y la relación que conviene vigilar. Las fechas varían según la frecuencia de cada serie.</p>']
+    blocks=['<p><strong>Lectura rápida:</strong> selección de 10 indicadores que más ayudan a evaluar inflación, crecimiento, política monetaria y apetito por riesgo. Cada tarjeta identifica el último dato publicado, su cambio, su gráfico y la relación que conviene vigilar. Las fechas varían según la frecuencia de cada serie.</p>']
     for title,keys in MACRO_GROUPS:
         cards=[macro_visual_card(key,*lookup[key],data,chart_keys) for key in keys]
         blocks.append('<h3 style="margin:20px 0 8px">'+esc(title)+'</h3>')
@@ -917,7 +920,7 @@ def main():
     week_ahead=json.loads(WEEK_AHEAD.read_text(encoding="utf-8")) if WEEK_AHEAD.exists() else {}
     try:
         charts=build_charts(history)
-        charts.update(build_macro_charts(data))
+        charts.update(build_macro_charts(data, PRIMARY_MACRO_KEYS))
     except (ImportError,RuntimeError,OSError,ValueError) as error:
         print("Gráficos no disponibles:",type(error).__name__)
         charts={}
