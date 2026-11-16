@@ -303,7 +303,9 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
         asset=histories.get(ticker,{})
         pulse=momentum(asset.get("points",[]),benchmark)
         if pulse:
-            relative=(colored_change(pulse["relative_weekly"]," pp") if "relative_weekly" in pulse else "No comparable")
+            relative=(colored_change(pulse["relative_weekly"]," pp")+
+                      ('<br><span style="font-size:10px;color:#64748b">ref. cierre '+esc(pulse["sp500_reference_date"])+"</span>" if pulse.get("sp500_reference_date") else "")
+                      if "relative_weekly" in pulse else "Sin cierre común verificable")
             rows.append(f'<tr><th>{esc(ticker)} · {esc(name)}</th><td>{pulse["close"]:,.2f} USD</td>'
                         f'<td>{colored_change(pulse["daily"],"%")}</td><td>{colored_change(pulse["weekly"],"%")}</td>'
                         f'<td>{esc(quick_trend(pulse))}</td><td>{relative}</td></tr>')
@@ -724,8 +726,10 @@ def market_narrative(data, history=None):
         return '<p><strong>Tesis de apertura:</strong> faltan cierres recientes suficientes para construir una tesis verificable.</p>'
     gains=sum(change>0 for _,change in index_moves); losses=sum(change<0 for _,change in index_moves)
     direction="predomina una sesión de avance" if gains>losses else "predomina una sesión de retroceso" if losses>gains else "la sesión fue mixta"
-    names=", ".join(label+f" {change:+.2f}%" for label,change in index_moves)
-    return '<p style="padding:14px 16px;border-left:4px solid #1f4e79;background:#f4f8fc"><strong>Tesis de apertura:</strong> '+esc(direction)+" entre los grandes índices ("+esc(names)+"). La narrativa inmediata debe contrastarse con el panel de riesgo y los próximos catalizadores; un solo cierre no confirma una tendencia.</p>"
+    tech=next((change for label,change in index_moves if label=="Nasdaq 100"),None)
+    dow=next((change for label,change in index_moves if label=="Dow Jones"),None)
+    nuance=(" El retroceso está liderado por tecnología mientras el Dow resiste." if tech is not None and dow is not None and tech<0<dow else "")
+    return '<p style="padding:14px 16px;border-left:4px solid #1f4e79;background:#f4f8fc"><strong>Tesis de apertura:</strong> '+esc(direction)+" entre los grandes índices."+esc(nuance)+" La narrativa inmediata debe contrastarse con el panel de riesgo y los próximos catalizadores; un solo cierre no confirma una tendencia.</p>"
 
 SECTOR_ETFS={"XLK":"Tecnología","XLF":"Financieras","XLE":"Energía","XLI":"Industriales","XLV":"Salud","XLU":"Utilities","XLP":"Consumo básico","XLY":"Consumo discrecional","XLB":"Materiales","XLRE":"Inmobiliario","XLC":"Comunicación"}
 def sector_rotation(history=None):
