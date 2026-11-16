@@ -662,7 +662,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Actividad, empleo y hogares",rendered)
         self.assertIn("Tipos, crédito y condiciones financieras",rendered)
         self.assertIn("Liquidez",rendered)
-        self.assertIn("cid:radar-macro-pce",rendered)
+        self.assertIn("cid:radar-macro_pce",rendered)
 
     @patch.object(radar, "official_news", return_value=[
         ("Reserva Federal: Monetary policy statement","https://www.federalreserve.gov/test","15/11/2026 11:00 UTC","Published a statement")])
