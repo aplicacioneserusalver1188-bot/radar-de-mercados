@@ -104,14 +104,17 @@ def build_charts(history):
         generated[key]=path
     return generated
 
-def build_macro_charts(data):
+def build_macro_charts(data, keys=None):
     """Gráficos simples de las series macro: muestran observaciones, no velas ficticias."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     CHART_DIR.mkdir(parents=True,exist_ok=True)
     generated={}
-    for key,obj in data.get("series",{}).items():
+    series=data.get("series",{})
+    selected=keys if keys is not None else series.keys()
+    for key in selected:
+        obj=series.get(key,{})
         points=[]
         for point in obj.get("points",[]):
             try:

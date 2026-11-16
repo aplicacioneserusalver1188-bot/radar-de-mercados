@@ -650,7 +650,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Lectura rápida:",pulse)
         self.assertIn('width="33.33%"',pulse)
 
-    def test_macro_section_has_visual_card_for_each_macro_group(self):
+    def test_macro_section_shows_only_priority_visual_cards(self):
         from datetime import datetime, timedelta, timezone
         today=datetime.now(timezone.utc).date()
         points=[{"date":(today-timedelta(days=4-i)).isoformat(),"value":100+i}
@@ -658,11 +658,12 @@ class ReportTests(unittest.TestCase):
         data={"series":{key:{"points":points,"source_url":"https://fred.stlouisfed.org/series/TEST"}
                           for key,_,_ in radar.SERIES}}
         rendered=radar.render_macro_visuals(data,{"macro_"+key:"/tmp/x.png" for key,_,_ in radar.SERIES})
-        self.assertIn("Inflación y costes",rendered)
-        self.assertIn("Actividad, empleo y hogares",rendered)
-        self.assertIn("Tipos, crédito y condiciones financieras",rendered)
-        self.assertIn("Liquidez",rendered)
-        self.assertIn("cid:radar-macro_pce",rendered)
+        self.assertIn("selección de 10 indicadores",rendered)
+        self.assertIn("Inflación: lo que vigila la Fed",rendered)
+        self.assertIn("Actividad y empleo",rendered)
+        self.assertIn("Condiciones financieras y riesgo",rendered)
+        self.assertIn("cid:radar-macro_inflation",rendered)
+        self.assertNotIn("Precio minorista del diésel</h3>",rendered)
 
     @patch.object(radar, "official_news", return_value=[
         ("Reserva Federal: Monetary policy statement","https://www.federalreserve.gov/test","15/11/2026 11:00 UTC","Published a statement")])
