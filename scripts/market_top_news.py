@@ -143,6 +143,20 @@ def factual_summary(item, translate_fn=None, max_chars=360):
         text=clip[:ending+1] if ending>100 else clip.rsplit(" ",1)[0]+"…"
     return text
 
+def financial_spanish(text):
+    """Corrige calcos recurrentes del traductor local sin alterar hechos."""
+    fixes=(
+        ("El stock de ","Las acciones de "),(" stock cae"," acciones caen"),
+        (" como producción industrial",", mientras la producción industrial"),
+        ("como las ventas minoristas",", las ventas minoristas"),
+        ("rollos globales", "continúa el auge global"),
+        ("bomba de stock", "caída de las acciones"),
+        ("bomba de inteligencia artificial", "auge de la inteligencia artificial"),
+    )
+    for before,after in fixes:
+        text=text.replace(before,after)
+    return " ".join(text.split())
+
 def render_top_news(items,translate_fn=None):
     if not items:
         return ("<p>No se obtuvieron noticias con relevancia y fecha verificables suficientes. "
@@ -154,7 +168,7 @@ def render_top_news(items,translate_fn=None):
             try:
                 translated=translate_fn(headline)
                 if translation_is_usable(translated):
-                    headline=translated.strip()
+                    headline=financial_spanish(translated.strip())
             except (ImportError,OSError,ValueError,RuntimeError):
                 pass
         ts=n["published"]

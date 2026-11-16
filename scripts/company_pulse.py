@@ -15,11 +15,16 @@ def momentum(points,benchmark=None):
     weekly=100*(close/points[-6]["close"]-1)
     result={"close":close,"date":points[-1]["date"],"daily":daily,"weekly":weekly,
             "ma20":chart.get("ma20"),"ma50":chart.get("ma50"),"ma200":chart.get("ma200")}
-    if (benchmark and len(benchmark)>=6 and
-            benchmark[-1]["date"]==points[-1]["date"] and
-            benchmark[-6]["date"]==points[-6]["date"]):
-        result["sp500_weekly"]=100*(benchmark[-1]["close"]/benchmark[-6]["close"]-1)
-        result["relative_weekly"]=weekly-result["sp500_weekly"]
+    if benchmark and len(benchmark)>=6:
+        # Si la acción ya tiene vela intradía pero el índice conserva el cierre
+        # del viernes, comparamos ambos hasta el último cierre común verificable.
+        reference=benchmark[-1]["date"]
+        comparable=[p for p in points if p.get("date","")<=reference and p.get("close")]
+        if len(comparable)>=6:
+            stock_weekly=100*(comparable[-1]["close"]/comparable[-6]["close"]-1)
+            result["sp500_weekly"]=100*(benchmark[-1]["close"]/benchmark[-6]["close"]-1)
+            result["relative_weekly"]=stock_weekly-result["sp500_weekly"]
+            result["sp500_reference_date"]=reference
     return result
 
 def reading(p):
