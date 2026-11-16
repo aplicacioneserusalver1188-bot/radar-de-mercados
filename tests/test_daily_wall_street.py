@@ -44,6 +44,8 @@ class ReportTests(unittest.TestCase):
         self.assertTrue((root/"scripts/update_wall_street_data.py").is_file())
         self.assertIn("scripts/update_wall_street_data.py", scheduled)
         self.assertIn("scripts/update_wall_street_data.py", testing)
+        self.assertIn("scripts/update_week_ahead.py", scheduled)
+        self.assertIn("scripts/update_week_ahead.py", testing)
         self.assertIn("workflow_dispatch:", scheduled)
         self.assertIn("github.event_name == 'schedule'", scheduled)
         self.assertIn("inputs.send_test_email == true", scheduled)
@@ -235,6 +237,29 @@ class ReportTests(unittest.TestCase):
         self.assertIn("S&amp;P 500 +0.02%",report)
         self.assertIn("Activo macro destacado: petróleo WTI",report)
         self.assertIn("cid:radar-wti",report)
+
+    def test_week_ahead_renders_only_dated_and_sourced_events(self):
+        agenda={"window_start":"2026-11-15","window_end":"2026-11-22","events":[
+            {"date":"2026-11-17","time":"08:30","timezone":"ET","category":"Macro",
+             "title":"U.S. Import and Export Price Indexes","source":"BLS","url":"https://www.bls.gov/schedule/"},
+            {"date":"2026-11-18","time":"14:00","timezone":"ET","category":"Fed",
+             "title":"Publicación estimada de minutas FOMC","source":"Reserva Federal","url":"https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"}
+        ]}
+        text=radar.render_week_ahead(agenda)
+        self.assertIn("U.S. Import and Export Price Indexes",text)
+        self.assertIn("Publicación estimada de minutas FOMC",text)
+        self.assertIn("https://www.bls.gov/schedule/",text)
+        self.assertNotIn("No hay eventos",text)
+
+    def test_week_ahead_parses_official_calendar_and_nyse_holiday(self):
+        import update_week_ahead
+        from datetime import date
+        start=date(2026,11,15); end=date(2026,11,22)
+        source="""<table><tr><td>Tuesday, November 17, 2026</td><td>08:30 AM</td><td>U.S. Import and Export Price Indexes for October 2026</td></tr><tr><td>Friday, November 20, 2026</td><td>10:00 AM</td><td>State Employment and Unemployment (Monthly) for October 2026</td></tr></table>"""
+        events=update_week_ahead.parse_bls_schedule(source,start,end)
+        self.assertEqual([item["date"] for item in events],["2026-11-17","2026-11-20"])
+        holiday=update_week_ahead.market_holiday_events(date(2026,11,23),date(2026,11,29))
+        self.assertTrue(any("Thanksgiving" in item["title"] for item in holiday))
 
     @patch.object(radar,"official_news",return_value=[])
     def test_report_uses_reader_first_section_order(self,_news):
