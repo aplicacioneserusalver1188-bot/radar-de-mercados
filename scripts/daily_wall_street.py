@@ -310,16 +310,6 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
         else:
             rows.append(f'<tr><th>{esc(ticker)} · {esc(name)}</th><td colspan="5">Sin cierre reciente verificable</td></tr>')
         if not is_notable_move(pulse):
-            annual=company_metric_rows(info.get("metrics",{}))
-            quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
-            if annual or quarterly:
-                financial='<details><summary>Resultados financieros: '+esc(ticker)+'</summary>'
-                if annual:
-                    financial+='<ul>'+''.join(annual)+'</ul><p>'+esc(company_conclusion(info.get("metrics",{})))+'</p>'
-                if quarterly:
-                    financial+='<ul>'+''.join(quarterly)+'</ul>'
-                financial+='</details>'
-                details.append(financial)
             continue
         content=f'<h3 style="margin:0 0 8px">Detalle destacado: {esc(name)} ({esc(ticker)})</h3>'
         if pulse:
@@ -331,14 +321,6 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
             content+='<p><strong>Escenario condicional:</strong> '+esc(stock_scenarios(pulse))+'</p>'
         content+=chart_fragment(ticker,history,chart_keys)
         content+=company_news_html(headlines.get(ticker,[]),translator=local_translation,ticker=ticker)
-        annual=company_metric_rows(info.get("metrics",{}))
-        quarterly=company_metric_rows(info.get("quarterly_metrics",{}),"trimestral") if ticker=="SPCX" else []
-        if annual or quarterly:
-            content+='<details><summary>Resultados financieros (contexto secundario)</summary>'
-            if annual:
-                content+='<ul>'+''.join(annual)+'</ul><p>'+esc(company_conclusion(info.get("metrics",{})))+'</p>'
-            if quarterly:content+='<ul>'+''.join(quarterly)+'</ul>'
-            content+='</details>'
         details.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
                        +content+'</div>')
     table=('<table border="1" cellpadding="7" style="border-collapse:collapse;width:100%;font-size:13px">'
@@ -631,7 +613,7 @@ def render_index_cards(history=None,chart_keys=None):
 MACRO_GROUPS=(
     ("Inflación: lo que vigila la Fed",("inflation","corepce")),
     ("Actividad y empleo",("gdp","payrolls","unemployment")),
-    ("Condiciones financieras y riesgo",("fedfunds","treasury2y","treasury10y","credit","vix")),
+    ("Tipos de interés",("fedfunds","treasury2y")),
 )
 
 # Señales que forman la pantalla diaria. El resto se conserva en los datos de
@@ -670,14 +652,23 @@ def macro_visual_card(key,label,meaning,data,chart_keys):
             +graphic+'<p style="margin:8px 0"><strong>Por qué importa:</strong> '+esc(meaning)+'</p>'+link)
 
 def render_macro_visuals(data,chart_keys=None):
+    """Semáforo compacto: conserva valores y fechas, evita diez gráficos repetitivos."""
     lookup={key:(label,meaning) for key,label,meaning in SERIES}
-    blocks=['<p><strong>Lectura rápida:</strong> selección de 10 indicadores que más ayudan a evaluar inflación, crecimiento, política monetaria y apetito por riesgo. Cada tarjeta identifica el último dato publicado, su cambio, su gráfico y la relación que conviene vigilar. Las fechas varían según la frecuencia de cada serie.</p>']
+    blocks=['<p><strong>Semáforo macro:</strong> lectura compacta de inflación, actividad y tipos. Las cifras de volatilidad, crédito y Tesoro a 10 años se muestran una sola vez en el pulso de riesgo.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:8px 0"><tr>']
     for title,keys in MACRO_GROUPS:
-        cards=[macro_visual_card(key,*lookup[key],data,chart_keys) for key in keys]
-        blocks.append('<h3 style="margin:20px 0 8px">'+esc(title)+'</h3>')
-        for start in range(0,len(cards),3):
-            blocks.append(three_column_panel(cards[start:start+3]))
-    return ''.join(blocks)
+        rows=[]
+        available=0
+        for key in keys:
+            series=data.get("series",{}).get(key,{})
+            points=series.get("points",[])
+            latest=points[-1] if points else None
+            if latest:
+                available+=1
+                rows.append('<li><strong>'+esc(lookup[key][0])+':</strong> '+esc(macro_value(key,latest.get("value",0)))+' <span style="color:#64748b">('+esc(latest.get("date",""))+')</span></li>')
+        color="#16803c" if available==len(keys) else "#c97a00" if available else "#c32f27"
+        status="Disponible" if available==len(keys) else "Parcial" if available else "Sin datos"
+        blocks.append('<td valign="top" width="33.33%" style="padding:12px;border:1px solid #dfe5ec"><h3 style="margin:0"><span style="color:'+color+'">●</span> '+esc(title)+'</h3><p style="margin:5px 0"><strong>'+status+'</strong></p><ul style="padding-left:18px;margin:8px 0">'+''.join(rows or ['<li>Sin observaciones verificables</li>'])+'</ul></td>')
+    return ''.join(blocks)+'</tr></table><p style="font-size:12px;color:#64748b">Verde: cobertura completa; ámbar: cobertura parcial; rojo: sin lectura disponible. El color expresa disponibilidad de datos, no una recomendación.</p>'
 
 def executive_summary(data, history=None, market_news=None):
     """Resume hechos de la última sesión disponible, sin convertirlos en pronóstico."""
@@ -704,19 +695,12 @@ def executive_summary(data, history=None, market_news=None):
     else:
         session_text="No hay suficientes cierres recientes y verificables para resumir la sesión bursátil."
     series=data.get("series",{})
-    risk=[]
-    for key,label,limit,suffix in (("vix","VIX",7,""),("treasury10y","Tesoro a 10 años",7,"%"),("credit","diferencial high yield",7," puntos")):
-        points=series.get(key,{}).get("points",[])
-        if points and is_recent(points[-1]["date"],limit):
-            risk.append(f"{label} {float(points[-1]['value']):.2f}{suffix} ({points[-1]['date']})")
-    risk_text=(" · ".join(risk) if risk else
-               "No hay lecturas recientes verificables de volatilidad, bonos o crédito para contextualizar el riesgo.")
     catalyst_text=(f"Se seleccionaron {len(market_news)} noticias relevantes para seguimiento; su efecto debe comprobarse con la reacción de precios."
                    if market_news else
                    "No se recuperaron catalizadores recientes suficientes para atribuir causas al movimiento.")
     return ('<div style="padding:16px;border:1px solid #cfdbe8;border-radius:10px;background:#f7faff">'
             '<p style="margin:0 0 8px"><strong>Qué hizo el mercado:</strong> '+esc(session_text)+'</p>'
-            '<p style="margin:8px 0"><strong>Riesgo y tasas:</strong> '+esc(risk_text)+'.</p>'
+            '<p style="margin:8px 0"><strong>Riesgo y tasas:</strong> lectura desarrollada en el panel “Pulso de mercados”, sin repetir aquí sus cifras.</p>'
             '<p style="margin:8px 0 0"><strong>Catalizadores a vigilar:</strong> '+esc(catalyst_text)+'</p>'
             '</div>')
 
