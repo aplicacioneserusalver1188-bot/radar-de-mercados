@@ -248,6 +248,7 @@ class ReportTests(unittest.TestCase):
         ])
         self.assertEqual(points[-1]["open"],100.0)
         self.assertEqual(points[-1]["high"],105.0)
+        self.assertEqual(points[-1]["close"],103.0)
         self.assertEqual(prices.TRADINGVIEW_SYMBOLS["NVDA"],"NASDAQ:NVDA")
         history={"assets":{"NVDA":{"unit":"USD/acción","tradingview_url":
                  "https://www.tradingview.com/chart/?symbol=NASDAQ%3ANVDA","points":points}}}
