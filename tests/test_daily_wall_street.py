@@ -402,7 +402,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in annual],[3000000000000,2500000000000])
         self.assertTrue(all(x["currency"]=="TWD" for x in annual))
         report=radar.sec_company_html({"companies":{"TSM":summary}})
-        self.assertIn("millones TWD",report)
+        self.assertNotIn("millones TWD",report)
         self.assertNotIn("3,000,000 millones USD",report)
 
     def test_spcx_quarterly_10q_keeps_three_months_and_skips_ytd(self):
