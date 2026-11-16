@@ -644,7 +644,8 @@ class ReportTests(unittest.TestCase):
                  for key in ("sp500","nasdaq","nasdaq100","dow","russell","gold","wti","btc")}}
         indices=radar.render_index_cards(history,{"sp500":"/tmp/a.png","nasdaq":"/tmp/b.png","nasdaq100":"/tmp/c.png","dow":"/tmp/d.png","russell":"/tmp/e.png"})
         self.assertIn("Índices a primera vista",indices)
-        self.assertIn("20 sesiones",indices)
+        self.assertIn("20 ruedas bursátiles",indices)
+        self.assertIn('width="25%"',indices)
         self.assertIn("Nasdaq 100",indices)
         self.assertIn("Russell 2000",indices)
         pulse=radar.render_market_references({"assets":{}},history,{"gold":"/tmp/a.png","wti":"/tmp/b.png","btc":"/tmp/c.png"})
