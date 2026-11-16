@@ -234,6 +234,19 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Activo macro destacado: petróleo WTI",report)
         self.assertIn("cid:radar-wti",report)
 
+    @patch.object(radar,"official_news",return_value=[])
+    def test_report_uses_reader_first_section_order(self,_news):
+        report=radar.render({"series":{}},market_news=[])
+        ordered=("Resumen ejecutivo","Las 5 noticias que pueden mover Wall Street",
+                 "Pulso de mercados: riesgo, energía y activos de referencia",
+                 "Macroeconomía: señales y consecuencias para el mercado",
+                 "Índices: tendencia, gráficos y confirmación",
+                 "Amplitud: empresas por encima de sus medias móviles",
+                 "Acciones: qué pasó ayer, esta semana y qué puede cambiar",
+                 "Escenarios","Cobertura y calidad de datos")
+        positions=[report.index(title) for title in ordered]
+        self.assertEqual(positions,sorted(positions))
+
     def test_news_official_body_extraction_no_duplicate_title(self):
         import news_story
         page="<html><main><p>Economy report details a change in inflation expectations and monetary policy assumptions for the coming fiscal year.</p><p>Officials also described changes in bond yields and lending conditions for banks after the announcement.</p></main></html>"
