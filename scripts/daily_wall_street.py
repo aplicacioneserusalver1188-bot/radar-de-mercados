@@ -544,40 +544,68 @@ def chart_fragment(key, history=None, chart_keys=None):
             +'<p><strong>Qué muestra:</strong> '+esc(trend_interpretation(measure))+'</p>'
             +'<p style="font-size:12px">'+source+'</p>')
 
+def visual_card(key, name, history=None, chart_keys=None, context="", current=None):
+    """Tarjeta breve para email: nivel, gráfico, lectura y enlace de detalle."""
+    asset=(history or {}).get("assets",{}).get(key,{})
+    measure=chart_metrics(asset.get("points",[]))
+    if measure and not measure.get("stale"):
+        level=f'{measure["close"]:,.2f} {asset.get("unit","")}'
+        day=esc(measure.get("date",""))
+        move=(f'{measure["change20"]:+.1f}% en 20 sesiones' if "change20" in measure else "histórico aún corto")
+        reading=trend_interpretation(measure)
+    elif current and "value" in current:
+        level=f'{float(current["value"]):,.2f} {current.get("unit","")}'
+        day=esc((current.get("timestamp") or current.get("date") or "")[:10])
+        move="sin histórico reciente suficiente"
+        reading="El nivel se muestra sin atribuir una tendencia no verificable."
+    else:
+        level="No disponible"; day=""; move="sin histórico reciente"; reading="No se obtuvo una lectura verificable."
+    img=(f'<a href="{esc(asset.get("tradingview_url",""))}"><img src="cid:radar-{key.lower()}" alt="Gráfico de {esc(name)}" '
+         'style="display:block;width:100%;max-width:255px;height:auto;border:1px solid #dfe5ec;margin:10px 0"></a>'
+         if key in (chart_keys or ()) else '<p style="color:#65758a">Gráfico no disponible en esta ejecución.</p>')
+    tv=asset.get("tradingview_url","")
+    link=(f'<p style="margin:8px 0 0;font-size:12px"><a href="{esc(tv)}">Ver velas y precio exacto en TradingView</a></p>'
+          if tv.startswith("https://www.tradingview.com/") else "")
+    return ('<h3 style="margin:0;font-size:18px">'+esc(name)+'</h3>'
+            '<p style="font-size:22px;font-weight:bold;margin:8px 0 2px">'+esc(level)+'</p>'
+            '<p style="margin:0;color:#526579;font-size:12px">Cierre / referencia: '+day+' · '+esc(move)+'</p>'
+            +img+'<p style="margin:8px 0"><strong>Qué muestra:</strong> '+esc(reading)+'</p>'
+            '<p style="margin:8px 0;color:#455267">'+esc(context)+'</p>'+link)
+
+def three_column_panel(cards):
+    """Tabla HTML, más compatible con Gmail que grid/flex para lectura de primera vista."""
+    cells=[]
+    for card in cards:
+        cells.append('<td valign="top" width="33.33%" style="padding:10px;border:1px solid #dfe5ec">'+card+'</td>')
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:8px 0"><tr>'+''.join(cells)+'</tr></table>'
+
 def render_market_references(refs,history=None,chart_keys=None):
-    """Tres referencias clave, cada una con conclusión y gráfico individual."""
+    """Un solo tablero comparativo: los tres activos se leen juntos."""
     assets=refs.get("assets",{})
-    blocks=[]
+    cards=[]
     for key,name,context in (
-        ("gold","Oro XAU/USD","Activo de referencia de refugio; se compara su propia tendencia, no se deduce miedo a partir de un solo precio."),
-        ("wti","Petróleo WTI — Estados Unidos","Referencia de energía que puede presionar costes e inflación; interpretar movimiento de varias sesiones."),
-        ("btc","Bitcoin BTC/USDT","Activo digital sensible a la liquidez y al apetito por riesgo; USDT no equivale exactamente a USD.")):
-        obj=assets.get(key,{})
-        if "value" in obj:
-            last=(obj.get("timestamp") or obj.get("date") or "")[:10]
-            price=f'{obj["value"]:,.2f} {obj.get("unit","")}'
-            latest=f'<p style="font-size:24px;font-weight:bold;margin:8px 0">{esc(price)}</p><p>Referencia: {esc(last)}</p>'
-        else:
-            latest='<p>Precio actual no disponible en la fuente consultada.</p>'
-        blocks.append('<div style="margin:14px 0;padding:18px;border:1px solid #dfe5ec;border-radius:12px">'
-                      f'<h3 style="margin:0">{esc(name)}</h3>'+latest+
-                      '<p style="color:#455267">'+esc(context)+'</p>'
-                      +chart_fragment(key,history,chart_keys)+'</div>')
+        ("gold","Oro XAU/USD","Contexto de refugio y tipos reales: una tendencia aislada no demuestra aversión al riesgo."),
+        ("wti","Petróleo WTI","Puede trasladarse a costes e inflación; observar si el cambio persiste más de una sesión."),
+        ("btc","Bitcoin BTC/USDT","Termómetro adicional de liquidez y apetito por riesgo; no equivale al comportamiento de las acciones.")):
+        cards.append(visual_card(key,name,history,chart_keys,context,assets.get(key,{})))
     return ('<h2>Pulso de los mercados: oro, petróleo WTI y Bitcoin</h2>'
-            '<p>Comparaciones de cierre con periodos y horarios distintos. Los gráficos muestran tendencias, '
-            'no precios en tiempo real. El petróleo internacional Brent queda excluido.</p>'
-            +''.join(blocks))
+            '<p><strong>Lectura rápida:</strong> compara tres activos con motores distintos. Las cifras indican su propio cierre o referencia; '
+            'los horarios de mercado no son idénticos.</p>'+three_column_panel(cards))
 
 
 def render_index_cards(history=None,chart_keys=None):
-    """Un gráfico y una conclusión individual por cada índice económico."""
-    cards=[]
-    for key,name in INDICES:
-        cards.append('<div style="padding:16px;border:1px solid #dde5ec;border-radius:10px;margin:12px 0">'
-                     +f'<h3 style="margin:0">{esc(name)}</h3>'
-                     +chart_fragment(key,history,chart_keys)
-                     +'</div>')
-    return ''.join(cards)
+    """Los cinco índices reciben la misma lectura visual que los activos de referencia."""
+    cards=[
+        visual_card("sp500","S&P 500",history,chart_keys,"Referencia amplia de grandes empresas de EE. UU."),
+        visual_card("nasdaq100","Nasdaq 100",history,chart_keys,"Concentrado en líderes de tecnología y crecimiento."),
+        visual_card("dow","Dow Jones",history,chart_keys,"Lectura de grandes compañías industriales y maduras."),
+        visual_card("nasdaq","Nasdaq Composite",history,chart_keys,"Mide un universo tecnológico más amplio que el Nasdaq 100."),
+        visual_card("russell","Russell 2000",history,chart_keys,"Señal de empresas pequeñas y sensibilidad al crecimiento interno."),
+    ]
+    return ('<p><strong>Lectura rápida:</strong> cada tarjeta muestra cierre, cambio de 20 sesiones, tendencia y gráfico. '
+            'La comparación visual ayuda a identificar si el movimiento es amplio o está concentrado en un grupo de empresas.</p>'
+            '<h3 style="margin:16px 0 8px">Índices a primera vista</h3>'
+            +three_column_panel(cards[:3])+three_column_panel(cards[3:]))
 
 def executive_summary(data, history=None, market_news=None):
     """Resume hechos de la última sesión disponible, sin convertirlos en pronóstico."""
