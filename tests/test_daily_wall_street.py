@@ -16,9 +16,9 @@ class ReportTests(unittest.TestCase):
             "payrolls":{"points":[{"date":"2026-09-01","value":150000},{"date":"2026-10-01","value":150200}]}
         }}
         result=radar.render(data)
-        self.assertIn("IPC: precios al consumidor",result)
-        self.assertIn("+3.00% interanual",result)
-        self.assertIn("+200,000 puestos frente al mes anterior",result)
+        self.assertIn("Inflación (IPC, nivel del índice)",result)
+        self.assertIn("103.00",result)
+        self.assertIn("Empleo no agrícola (nivel)",result)
         self.assertIn("Decisión de política",result)
         self.assertIn("No disponible",result)
         self.assertIn("S&amp;P 500",result)
@@ -27,7 +27,7 @@ class ReportTests(unittest.TestCase):
     def test_ppi_is_not_reported_as_consumer_inflation(self, _news):
         data={"series":{"ppi":{"points":[{"date":"2025-10-01","value":200},{"date":"2026-10-01","value":210}]}}}
         result=radar.render(data)
-        self.assertIn("PPI de materias primas cambió +5.00% interanual",result)
+        self.assertIn("Precios al productor",result)
         self.assertNotIn("inflación interanual: +5.00%",result)
 
     @patch.object(radar, "official_news", return_value=[])
@@ -231,11 +231,11 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(render_charts.LINE_COLORS,
                          {"price":"#000000","ma20":"#0066cc","ma50":"#dc2626","ma200":"#15803d"})
         history={"assets":{key:{"points":points,"unit":"puntos","source":"https://fred.stlouisfed.org/series/SP500"}
-                           for key in ("sp500","nasdaq","dow","wti")}}
+                           for key in ("sp500","nasdaq100","dow","wti")}}
         report=radar.render({"series":{}},history=history,chart_keys={"wti":"/tmp/wti.png"},market_news=[])
         self.assertIn("Qué hizo el mercado:",report)
         self.assertIn("S&amp;P 500 +0.02%",report)
-        self.assertIn("Activo macro destacado: petróleo WTI",report)
+        self.assertIn("Petróleo WTI",report)
         self.assertIn("cid:radar-wti",report)
 
     def test_price_history_preserves_ohlc_and_report_links_tradingview(self):
@@ -361,13 +361,13 @@ class ReportTests(unittest.TestCase):
         source="https://fred.stlouisfed.org/series/SP500"
         history={"assets":{key:{"points":points,"unit":"puntos",
                                  "source":source,"label":key}
-                           for key in ("sp500","nasdaq","dow","russell","NVDA")}}
+                           for key in ("sp500","nasdaq100","dow","russell","NVDA")}}
         keys={key:"/tmp/"+key+".png" for key in history["assets"]}
         report=radar.render({"series":{}},history=history,chart_keys=keys)
-        for key in ("sp500","nasdaq","dow","russell"):
+        for key in ("sp500","nasdaq100","dow","russell"):
             self.assertIn("cid:radar-"+key,report)
         self.assertIn("Qué muestra:",report)
-        self.assertIn("Nasdaq Composite",report)
+        self.assertIn("Nasdaq 100",report)
         self.assertNotIn("Última lectura y cambio",report)
 
     def test_macro_stories_replace_dictionary_table(self):
@@ -649,6 +649,20 @@ class ReportTests(unittest.TestCase):
         pulse=radar.render_market_references({"assets":{}},history,{"gold":"/tmp/a.png","wti":"/tmp/b.png","btc":"/tmp/c.png"})
         self.assertIn("Lectura rápida:",pulse)
         self.assertIn('width="33.33%"',pulse)
+
+    def test_macro_section_has_visual_card_for_each_macro_group(self):
+        from datetime import datetime, timedelta, timezone
+        today=datetime.now(timezone.utc).date()
+        points=[{"date":(today-timedelta(days=4-i)).isoformat(),"value":100+i}
+                for i in range(5)]
+        data={"series":{key:{"points":points,"source_url":"https://fred.stlouisfed.org/series/TEST"}
+                          for key,_,_ in radar.SERIES}}
+        rendered=radar.render_macro_visuals(data,{"macro_"+key:"/tmp/x.png" for key,_,_ in radar.SERIES})
+        self.assertIn("Inflación y costes",rendered)
+        self.assertIn("Actividad, empleo y hogares",rendered)
+        self.assertIn("Tipos, crédito y condiciones financieras",rendered)
+        self.assertIn("Liquidez",rendered)
+        self.assertIn("cid:radar-macro_pce",rendered)
 
     @patch.object(radar, "official_news", return_value=[
         ("Reserva Federal: Monetary policy statement","https://www.federalreserve.gov/test","15/11/2026 11:00 UTC","Published a statement")])

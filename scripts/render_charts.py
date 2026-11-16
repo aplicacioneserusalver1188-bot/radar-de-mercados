@@ -103,3 +103,37 @@ def build_charts(history):
         plt.close(fig)
         generated[key]=path
     return generated
+
+def build_macro_charts(data):
+    """Gráficos simples de las series macro: muestran observaciones, no velas ficticias."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    CHART_DIR.mkdir(parents=True,exist_ok=True)
+    generated={}
+    for key,obj in data.get("series",{}).items():
+        points=[]
+        for point in obj.get("points",[]):
+            try:
+                day=datetime.fromisoformat(point["date"])
+                value=float(point["value"])
+                if math.isfinite(value):
+                    points.append((day,value))
+            except (KeyError,TypeError,ValueError):
+                continue
+        if len(points)<2:
+            continue
+        dates,values=zip(*points[-48:])
+        fig,ax=plt.subplots(figsize=(5.6,2.2),dpi=105)
+        fig.patch.set_facecolor("white"); ax.set_facecolor("white")
+        ax.plot(dates,values,color="#1f4e79",linewidth=2.1,marker="o",markersize=2.2)
+        ax.fill_between(dates,values,min(values),color="#1f4e79",alpha=.08)
+        ax.grid(axis="y",color="#e7ebf0",linewidth=.7)
+        ax.spines[["top","right","left"]].set_visible(False)
+        ax.tick_params(axis="both",labelsize=7,length=0,pad=6)
+        ax.set_title(obj.get("label",key)+" — observaciones publicadas",loc="left",fontsize=9,pad=9)
+        fig.autofmt_xdate(rotation=0); fig.tight_layout()
+        path=CHART_DIR/("macro_"+key.lower()+".png")
+        fig.savefig(path,format="png",facecolor="white",bbox_inches="tight")
+        plt.close(fig); generated["macro_"+key]=path
+    return generated

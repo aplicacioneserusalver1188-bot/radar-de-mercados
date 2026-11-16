@@ -16,7 +16,6 @@ def main():
     for key, fred_id, label, frequency in [
         ("vix", "VIXCLS", "VIX", "daily"),
         ("sp500", "SP500", "S&P 500", "daily"),
-        ("nasdaq", "NASDAQCOM", "Nasdaq Composite", "daily"),
         ("nasdaq100", "NASDAQ100", "Nasdaq 100", "daily"),
         ("dow", "DJIA", "Dow Jones Industrial Average", "daily"),
         ("russell", "RU2000PR", "Russell 2000 (precio)", "daily"),
