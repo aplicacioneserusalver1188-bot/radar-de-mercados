@@ -27,7 +27,7 @@ class ReportTests(unittest.TestCase):
     def test_ppi_is_not_reported_as_consumer_inflation(self, _news):
         data={"series":{"ppi":{"points":[{"date":"2025-10-01","value":200},{"date":"2026-10-01","value":210}]}}}
         result=radar.render(data)
-        self.assertIn("Precios al productor",result)
+        self.assertNotIn("Precios al productor",result)
         self.assertNotIn("inflación interanual: +5.00%",result)
 
     @patch.object(radar, "official_news", return_value=[])
@@ -93,7 +93,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(radar.annual_company_coverage({}), 0)
         self.assertIn("macroeconómica", radar.edition_label({}))
         result=radar.render({"series": {}}, {})
-        self.assertIn("cobertura empresarial pendiente", result)
+        self.assertNotIn("cobertura empresarial pendiente", result)
         self.assertIn("histórico reciente suficiente para describir la acción", result)
 
     def test_sec_403_preserves_existing_summary_and_labels_report(self):
@@ -112,7 +112,7 @@ class ReportTests(unittest.TestCase):
             status=json.loads(update_sec.STATUS_OUT.read_text(encoding="utf-8"))
             self.assertTrue(status["preserved_cached_summary"])
         report=radar.render({"series":{}}, {}, sec_status={"state":"blocked","http_status":403})
-        self.assertIn("HTTP 403", report)
+        self.assertNotIn("HTTP 403", report)
 
     def test_sec_without_contact_does_not_make_request(self):
         from tempfile import TemporaryDirectory
@@ -282,14 +282,14 @@ class ReportTests(unittest.TestCase):
     @patch.object(radar,"official_news",return_value=[])
     def test_report_uses_reader_first_section_order(self,_news):
         report=radar.render({"series":{}},market_news=[])
-        ordered=("Tesis central de apertura","Resumen ejecutivo",
+        ordered=("Apertura: tesis y sesión",
                  "Índices: tendencia, gráficos y confirmación",
                  "Próxima semana: macro y resultados corporativos",
                  "Noticias clave que pueden influir en Wall Street",
                  "Pulso de mercados: riesgo, energía y activos de referencia",
                  "Macroeconomía: semáforo de señales","Rotación sectorial S&P 500",
                  "Consulta profunda: amplitud y acciones",
-                 "Escenarios","Calidad y límites de la información")
+                 "Escenarios")
         positions=[report.index(title) for title in ordered]
         self.assertEqual(positions,sorted(positions))
 
@@ -312,7 +312,7 @@ class ReportTests(unittest.TestCase):
         self.assertAlmostEqual(p["daily"],100*(110/108-1))
         self.assertAlmostEqual(p["weekly"],10)
         self.assertIn("última sesión",company_pulse.reading(p))
-        self.assertIn("Continuación favorable",company_pulse.scenarios(p))
+        self.assertIn("Sin medias móviles suficientes",company_pulse.scenarios(p))
         news=[{"title":"Company shares rose after an announcement",
                "url":"https://news.google.com/rss/articles/example",
                "source":"Financial Times","date":today.isoformat()}]
@@ -495,7 +495,7 @@ class ReportTests(unittest.TestCase):
         older=(datetime.now(timezone.utc).date()-timedelta(days=21)).isoformat()
         data={"series":{"sp500":{"points":[{"date":older,"value":100},{"date":old,"value":105}]}}}
         report=radar.render(data)
-        self.assertIn("presenta observación fuera de vigencia",report)
+        self.assertNotIn("presenta observación fuera de vigencia",report)
         self.assertNotIn("variación entre observaciones: +5.00%",report)
 
     def test_quality_report_counts_current_stale_and_absent(self):

@@ -51,7 +51,8 @@ TOPICS=(
 EXCLUDE=("payment services","check services","fee schedule","new pricing",
          "webinar","conference registration","podcast","sponsored",
          "newsletter","how to ","best stocks to buy","analyst picks",
-         "what to watch","5 things to know","trading strategies")
+         "what to watch","5 things to know","trading strategies","former employee",
+         "ex employee","ex-employee","enforcement action","civil penalty")
 
 def normalized(title):
     raw=re.sub(r"\s+[-|]\s+(?:reuters|cnbc|marketwatch|npr|financial times|bloomberg).*$","",title,flags=re.I)
