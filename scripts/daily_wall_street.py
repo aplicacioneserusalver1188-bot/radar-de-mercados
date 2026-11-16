@@ -530,12 +530,17 @@ def chart_fragment(key, history=None, chart_keys=None):
             details.append(f'MA{n}: {measure["ma"+str(n)]:,.2f}')
     proxy_warning=('<p style="color:#9b5d18;font-weight:bold">'+esc(asset["proxy"])+'</p>'
                    if asset.get("proxy") else "")
-    graphic=(f'<p><img src="cid:radar-{key.lower()}" alt="Gráfico histórico de {esc(key)}" '
-             'style="width:100%;max-width:630px;height:auto;border:1px solid #e8edf2"></p>'
+    tv_url=asset.get("tradingview_url","")
+    chart_image=(f'<img src="cid:radar-{key.lower()}" alt="Gráfico histórico de {esc(key)}" '
+                 'style="width:100%;max-width:630px;height:auto;border:1px solid #e8edf2">')
+    graphic=(f'<p><a href="{esc(tv_url)}">{chart_image}</a></p>'
              if key in (chart_keys or ()) else '<p>Gráfico no disponible en esta ejecución.</p>')
     url=asset.get("source","")
     source=f'<a href="{esc(url)}">Histórico y fuente</a>' if url.startswith("https://") else ""
-    return ('<p>'+' · '.join(details)+'</p>'+proxy_warning+graphic
+    tradingview=(f'<p><a href="{esc(tv_url)}"><strong>Abrir gráfico interactivo en TradingView</strong></a> '
+                 '— velas, escala temporal y lectura exacta al mover el cursor. La disponibilidad de cotizaciones en tiempo real depende de TradingView.</p>'
+                 if tv_url.startswith("https://www.tradingview.com/") else "")
+    return ('<p>'+' · '.join(details)+'</p>'+proxy_warning+graphic+tradingview
             +'<p><strong>Qué muestra:</strong> '+esc(trend_interpretation(measure))+'</p>'
             +'<p style="font-size:12px">'+source+'</p>')
 

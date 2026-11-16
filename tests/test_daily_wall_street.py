@@ -238,6 +238,24 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Activo macro destacado: petróleo WTI",report)
         self.assertIn("cid:radar-wti",report)
 
+    def test_price_history_preserves_ohlc_and_report_links_tradingview(self):
+        import update_price_history as prices
+        from datetime import datetime, timedelta, timezone
+        today=datetime.now(timezone.utc).date()
+        points=prices.standardize([
+            {"date":(today-timedelta(days=19-day)).isoformat(),"open":"100","high":"105","low":"99","close":"103"}
+            for day in range(20)
+        ])
+        self.assertEqual(points[-1]["open"],100.0)
+        self.assertEqual(points[-1]["high"],105.0)
+        self.assertEqual(points[-1]["close"],103.0)
+        self.assertEqual(prices.TRADINGVIEW_SYMBOLS["NVDA"],"NASDAQ:NVDA")
+        history={"assets":{"NVDA":{"unit":"USD/acción","tradingview_url":
+                 "https://www.tradingview.com/chart/?symbol=NASDAQ%3ANVDA","points":points}}}
+        html=radar.chart_fragment("NVDA",history,{"NVDA":"/tmp/nvda.png"})
+        self.assertIn("TradingView",html)
+        self.assertIn("NASDAQ%3ANVDA",html)
+
     def test_week_ahead_renders_only_dated_and_sourced_events(self):
         agenda={"window_start":"2026-11-15","window_end":"2026-11-22","events":[
             {"date":"2026-11-17","time":"08:30","timezone":"ET","category":"Macro",

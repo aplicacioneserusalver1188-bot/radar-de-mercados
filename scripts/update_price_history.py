@@ -18,6 +18,12 @@ ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/"data"/"price_history.json"
 INDEX_KEYS={"sp500":("S&P 500","SP500"),"nasdaq":("Nasdaq Composite","NASDAQCOM"),"nasdaq100":("Nasdaq 100","NASDAQ100"),"dow":("Dow Jones Industrial Average","DJIA"),"russell":("Russell 2000","RU2000PR")}
 COMPANIES=("NVDA","MSFT","AAPL","AMZN","GOOGL","META","AVGO","JPM","TSLA","TSM","SPCX")
+TRADINGVIEW_SYMBOLS={
+    "gold":"OANDA:XAUUSD", "wti":"TVC:USOIL", "btc":"BINANCE:BTCUSDT",
+    "sp500":"SP:SPX", "nasdaq":"NASDAQ:IXIC", "nasdaq100":"NASDAQ:NDX",
+    "dow":"DJ:DJI", "russell":"TVC:RUT", "JPM":"NYSE:JPM", "TSM":"NYSE:TSM",
+    **{ticker:"NASDAQ:"+ticker for ticker in COMPANIES if ticker not in ("JPM","TSM")},
+}
 
 def get(url):
     req=urllib.request.Request(url,headers={"User-Agent":"ObservatorioRM/1.0 (personal financial report)","Accept":"application/json,text/csv"})
@@ -33,7 +39,9 @@ def stooq(symbol):
     rows=list(csv.DictReader(io.StringIO(get(url).decode("utf-8","replace"))))
     if not rows or "Date" not in rows[0] or "Close" not in rows[0]:
         raise ValueError("Stooq no devolvió serie diaria CSV")
-    return standardize((row["Date"],row["Close"]) for row in rows)
+    return standardize({"date":row["Date"],"open":row.get("Open"),
+                        "high":row.get("High"),"low":row.get("Low"),
+                        "close":row["Close"]} for row in rows)
 
 def yahoo_stock(ticker):
     # Interfaz pública no oficial: alternativa gratuita, sin garantía de acceso.
@@ -44,22 +52,37 @@ def yahoo_stock(ticker):
     if result.get("meta",{}).get("currency")!="USD":
         raise ValueError("Yahoo respondió otra moneda")
     times=result["timestamp"]
-    close=result["indicators"]["quote"][0]["close"]
-    rows=[(datetime.fromtimestamp(ts,timezone.utc).date().isoformat(),p)
-          for ts,p in zip(times,close) if p is not None]
+    quote=result["indicators"]["quote"][0]
+    rows=[{"date":datetime.fromtimestamp(ts,timezone.utc).date().isoformat(),
+           "open":o,"high":h,"low":l,"close":c}
+          for ts,o,h,l,c in zip(times,quote["open"],quote["high"],quote["low"],quote["close"])
+          if c is not None]
     return standardize(rows)
 
 def standardize(rows):
+    """Normaliza cierres y conserva OHLC solo si los cuatro valores son válidos."""
     seen={}
-    for day,price in rows:
+    for row in rows:
+        if isinstance(row,dict):
+            day,price=row.get("date"),row.get("close")
+        else:
+            day,price=row
         try:
             value=float(price)
             datetime.fromisoformat(day)
         except (ValueError,TypeError):
             continue
         if value>0 and value<1e9:
-            seen[day]=round(value,6)
-    out=[{"date":day,"close":seen[day]} for day in sorted(seen)]
+            point={"date":day,"close":round(value,6)}
+            if isinstance(row,dict):
+                try:
+                    o,h,l=(float(row[name]) for name in ("open","high","low"))
+                    if all(0 < item < 1e9 for item in (o,h,l)) and l<=min(o,value)<=max(o,value)<=h:
+                        point.update(open=round(o,6),high=round(h,6),low=round(l,6))
+                except (ValueError,TypeError,KeyError):
+                    pass
+            seen[day]=point
+    out=[seen[day] for day in sorted(seen)]
     if len(out)<20:
         raise ValueError("Menos de 20 cierres comprobables")
     return out[-300:]
@@ -82,7 +105,8 @@ def btc_history():
     url="https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=300"
     rows=json.loads(get(url))
     today=datetime.now(timezone.utc).date().isoformat()
-    return standardize((datetime.fromtimestamp(int(r[0])/1000,timezone.utc).date().isoformat(),r[4])
+    return standardize({"date":datetime.fromtimestamp(int(r[0])/1000,timezone.utc).date().isoformat(),
+                        "open":r[1],"high":r[2],"low":r[3],"close":r[4]}
                        for r in rows if len(r)>=7 and
                        datetime.fromtimestamp(int(r[0])/1000,timezone.utc).date().isoformat()<today)
 
@@ -148,7 +172,9 @@ def collect():
                     source="https://finance.yahoo.com/quote/"+key+"/history/"
                 label=key
                 unit="USD/acción"
-            result["assets"][key]={"label":label,"unit":unit,"source":source,"points":points}
+            result["assets"][key]={"label":label,"unit":unit,"source":source,"points":points,
+                                  "tradingview_url":"https://www.tradingview.com/chart/?symbol="
+                                  +urllib.parse.quote(TRADINGVIEW_SYMBOLS.get(key,""),safe="")}
             if proxy:
                 result["assets"][key]["proxy"]=proxy
         except (OSError,ValueError,KeyError,TypeError,IndexError) as error:
