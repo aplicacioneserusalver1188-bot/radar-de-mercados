@@ -408,17 +408,26 @@ def market_diagnosis(data):
         lines.append(f'Diferencial Tesoro 10 menos 2 años {spread:+.2f} puntos porcentuales ({y10["date"]}): {reading}.')
     if not lines:
         return "<p>Datos insuficientes para diagnóstico cuantitativo.</p><p><strong>Conclusión:</strong> Faltan indicadores recientes para determinar el estado del mercado.</p>"
-    observations=[]
-    if vix and is_recent(vix["date"],7):
-        observations.append("volatilidad alta" if vix["value"]>=25 else "volatilidad intermedia" if vix["value"]>=20 else "volatilidad moderada")
-    if len(credit)>=2 and is_recent(credit[-1]["date"],7) and credit[-2]["date"]<credit[-1]["date"]:
-        observations.append("más tensión crediticia" if credit[-1]["value"]>credit[-2]["value"] else "sin aumento de tensión crediticia")
-    if y10 and y2 and y10["date"]==y2["date"] and is_recent(y10["date"],7):
-        observations.append("curva de bonos invertida" if y10["value"]<y2["value"] else "curva de bonos no invertida")
-    summary="; ".join(observations).capitalize()
+    vix_high=bool(vix and is_recent(vix["date"],7) and vix["value"]>=25)
+    credit_widening=bool(len(credit)>=2 and is_recent(credit[-1]["date"],7)
+                         and credit[-2]["date"]<credit[-1]["date"] and credit[-1]["value"]>credit[-2]["value"])
+    curve_inverted=bool(y10 and y2 and y10["date"]==y2["date"]
+                        and is_recent(y10["date"],7) and y10["value"]<y2["value"])
+    if vix_high and credit_widening:
+        summary=("La combinación de volatilidad elevada y crédito encareciéndose es una señal de cautela: el mercado está exigiendo más compensación por riesgo. "
+                 "Conviene vigilar si el VIX y el diferencial de crédito continúan subiendo, porque confirmaría un entorno menos favorable para activos de riesgo.")
+    elif not vix_high and not credit_widening and not curve_inverted:
+        summary=("Las tres señales apuntan a un entorno financiero estable, no a estrés: la volatilidad está contenida, el crédito no se ha deteriorado y la curva mantiene pendiente positiva. "
+                 "Esto deja al mercado más sensible a los próximos datos de inflación, empleo y tasas que a una alerta financiera inmediata; una subida sostenida del VIX o del crédito cambiaría esa lectura.")
+    elif curve_inverted:
+        summary=("La curva invertida mantiene una advertencia sobre el ciclo económico, aunque por sí sola no fija cuándo ni si habrá una desaceleración. "
+                 "La señal gana relevancia si coincide con mayor volatilidad o ampliación del crédito; sin esa confirmación, conviene tratarla como un riesgo a vigilar, no como una orden de venta.")
+    else:
+        summary=("Las señales son mixtas: no hay confirmación simultánea de estrés en volatilidad, crédito y curva de tasas. "
+                 "El punto de control es la convergencia: si dos o más indicadores empeoran a la vez, aumentaría la necesidad de una postura más defensiva.")
     return ("<ul>" + "".join("<li>" + esc(item) + "</li>" for item in lines) + "</ul>"
             + "<p><strong>Conclusión de los indicadores:</strong> " + esc(summary)
-            + ". Es una lectura de condiciones financieras; no determina por sí sola la dirección futura de las acciones.</p>")
+            + "</p>")
 
 def macro_pulse(data):
     """Síntesis del PCE anual sobre variación interanual real, no sobre nivel índice."""
@@ -849,7 +858,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         index_rows.append(f"<tr><th>{fred_link(data.get('series',{}).get(key,{}),label)}</th><td>{esc(value)}</td></tr>")
     warnings="; ".join(flags) if flags else "Sin errores de disponibilidad detectados en las series incluidas."
     top_news_section=(
-        '<h2>Las 5 noticias que pueden mover Wall Street</h2>'
+        '<h2>Noticias clave que pueden influir en Wall Street</h2>'
         '<p>Selección editorial de las últimas 24 horas, con catalizadores anteriores '
         'hasta siete días si siguen siendo relevantes. Prioridad sobre 100 puntos '
         'según alcance, relevancia económica, expectativas, actualidad y fiabilidad '

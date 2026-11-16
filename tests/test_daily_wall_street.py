@@ -282,7 +282,7 @@ class ReportTests(unittest.TestCase):
     @patch.object(radar,"official_news",return_value=[])
     def test_report_uses_reader_first_section_order(self,_news):
         report=radar.render({"series":{}},market_news=[])
-        ordered=("Resumen ejecutivo","Las 5 noticias que pueden mover Wall Street",
+        ordered=("Resumen ejecutivo","Noticias clave que pueden influir en Wall Street",
                  "Pulso de mercados: riesgo, energía y activos de referencia",
                  "Macroeconomía: señales y consecuencias para el mercado",
                  "Índices: tendencia, gráficos y confirmación",
@@ -570,6 +570,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn("28.20", result)
         self.assertIn("aumenta la prima de riesgo", result)
         self.assertIn("curva invertida", result)
+        self.assertIn("señal de cautela", result)
         self.assertNotIn("probabilidad", result)
 
     @patch.object(radar, "official_news", return_value=[
