@@ -8,7 +8,7 @@ from email.message import EmailMessage
 from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
 from news_offline_es import local_news
-from render_charts import metrics as chart_metrics, interpretation as trend_interpretation, build_charts
+from render_charts import metrics as chart_metrics, interpretation as trend_interpretation, build_charts, build_macro_charts
 from news_story import official_details
 from macro_story import macro_story
 from company_pulse import momentum, reading as stock_reading, scenarios as stock_scenarios, company_news_html
@@ -49,7 +49,7 @@ SERIES = [
  ("consumer", "Sentimiento del consumidor", "Contexto para gasto y expectativas de hogares."),
  ("diesel", "Precio minorista del diésel", "Señal parcial de costos energéticos y transporte.")
 ]
-INDICES = [("sp500","S&P 500"),("nasdaq","Nasdaq Composite"),("nasdaq100","Nasdaq 100"),("dow","Dow Jones Industrial Average"),("russell","Russell 2000")]
+INDICES = [("sp500","S&P 500"),("nasdaq100","Nasdaq 100"),("dow","Dow Jones Industrial Average"),("russell","Russell 2000")]
 COMPANIES = [("NVDA","NVIDIA"),("MSFT","Microsoft"),("AAPL","Apple"),("AMZN","Amazon"),("GOOGL","Alphabet"),("META","Meta"),("AVGO","Broadcom"),("JPM","JPMorgan"),("TSLA","Tesla"),("TSM","Taiwan Semiconductor (TSMC)"),("SPCX","SpaceX")]
 FRESHNESS_LIMITS = {"daily": 7, "weekly": 17, "monthly": 75, "quarterly": 155}
 def age_days(date_text):
@@ -599,7 +599,6 @@ def render_index_cards(history=None,chart_keys=None):
         visual_card("sp500","S&P 500",history,chart_keys,"Referencia amplia de grandes empresas de EE. UU."),
         visual_card("nasdaq100","Nasdaq 100",history,chart_keys,"Concentrado en líderes de tecnología y crecimiento."),
         visual_card("dow","Dow Jones",history,chart_keys,"Lectura de grandes compañías industriales y maduras."),
-        visual_card("nasdaq","Nasdaq Composite",history,chart_keys,"Mide un universo tecnológico más amplio que el Nasdaq 100."),
         visual_card("russell","Russell 2000",history,chart_keys,"Señal de empresas pequeñas y sensibilidad al crecimiento interno."),
     ]
     return ('<p><strong>Lectura rápida:</strong> cada tarjeta muestra cierre, cambio de 20 sesiones, tendencia y gráfico. '
@@ -607,11 +606,58 @@ def render_index_cards(history=None,chart_keys=None):
             '<h3 style="margin:16px 0 8px">Índices a primera vista</h3>'
             +three_column_panel(cards[:3])+three_column_panel(cards[3:]))
 
+MACRO_GROUPS=(
+    ("Inflación y costes",("pce","corepce","inflation","ppi","diesel")),
+    ("Actividad, empleo y hogares",("gdp","retail","payrolls","unemployment","claims","consumer")),
+    ("Tipos, crédito y condiciones financieras",("fedfunds","treasury2y","treasury10y","sofr","credit","vix","nfci")),
+    ("Liquidez",("rrp","tga","reserves")),
+)
+
+def macro_value(key,value):
+    suffix="%" if key in {"unemployment","fedfunds","treasury2y","treasury10y","sofr"} else ""
+    return f"{float(value):,.2f}{suffix}"
+
+def macro_visual_card(key,label,meaning,data,chart_keys):
+    """Tarjeta macro con valor exacto, fecha, gráfico y una consecuencia explicada."""
+    series=data.get("series",{}).get(key,{})
+    points=series.get("points",[])
+    latest=points[-1] if points else None
+    previous=points[-2] if len(points)>1 else None
+    if latest:
+        level=macro_value(key,latest.get("value",0)); date=latest.get("date","")
+        try:
+            delta=float(latest["value"])-float(previous["value"]) if previous else None
+            change=(f"Cambio vs. lectura previa: {delta:+,.2f}{' puntos' if key not in {'unemployment','fedfunds','treasury2y','treasury10y','sofr'} else ' pp'}"
+                    if delta is not None else "Sin lectura previa comparable")
+        except (KeyError,TypeError,ValueError): change="Sin lectura previa comparable"
+    else:
+        level="No disponible"; date=""; change="Sin observación verificable"
+    cid="macro_"+key
+    graphic=(f'<img src="cid:radar-{cid}" alt="Gráfico de {esc(label)}" style="display:block;width:100%;max-width:255px;height:auto;border:1px solid #dfe5ec;margin:10px 0">'
+             if cid in (chart_keys or ()) else '<p style="color:#65758a">Gráfico no disponible: faltan observaciones suficientes.</p>')
+    source=series.get("source_url","")
+    link=(f'<p style="margin:7px 0 0;font-size:12px"><a href="{esc(source)}">Fuente y serie</a></p>'
+          if source.startswith("https://") else "")
+    return ('<h3 style="margin:0;font-size:17px">'+esc(label)+'</h3>'
+            '<p style="font-size:21px;font-weight:bold;margin:8px 0 2px">'+esc(level)+'</p>'
+            '<p style="margin:0;color:#526579;font-size:12px">Publicado: '+esc(date)+' · '+esc(change)+'</p>'
+            +graphic+'<p style="margin:8px 0"><strong>Por qué importa:</strong> '+esc(meaning)+'</p>'+link)
+
+def render_macro_visuals(data,chart_keys=None):
+    lookup={key:(label,meaning) for key,label,meaning in SERIES}
+    blocks=['<p><strong>Lectura rápida:</strong> cada tarjeta identifica el último dato publicado, su cambio, su gráfico y la relación que conviene vigilar. Las fechas varían según la frecuencia de cada serie.</p>']
+    for title,keys in MACRO_GROUPS:
+        cards=[macro_visual_card(key,*lookup[key],data,chart_keys) for key in keys]
+        blocks.append('<h3 style="margin:20px 0 8px">'+esc(title)+'</h3>')
+        for start in range(0,len(cards),3):
+            blocks.append(three_column_panel(cards[start:start+3]))
+    return ''.join(blocks)
+
 def executive_summary(data, history=None, market_news=None):
     """Resume hechos de la última sesión disponible, sin convertirlos en pronóstico."""
     assets=(history or {}).get("assets",{})
     moves=[]
-    for key,label in (("sp500","S&P 500"),("nasdaq","Nasdaq Composite"),("dow","Dow Jones")):
+    for key,label in (("sp500","S&P 500"),("nasdaq100","Nasdaq 100"),("dow","Dow Jones")):
         points=assets.get(key,{}).get("points",[])
         if len(points)<2:
             continue
@@ -811,7 +857,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         '<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA '
         'publicados en los últimos cuatro días.</p><ul>'+news_html+'</ul>'
         if market_news is None else '')
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Próxima semana en Wall Street</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{macro_story(data)}{macro_asset_chart(history,chart_keys)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. Nasdaq Composite es distinto de Nasdaq 100. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p>{render_stock_breadth(breadth or {})}<h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Tabla comparativa de cierres, tendencia y fuerza relativa. Las fichas ampliadas se reservan para movimientos que requieren revisión.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}<h2>Calidad y límites de la información</h2>{data_confidence_section(data, sec, len(market_news) if market_news is not None else len(news), sec_status, warnings)}{methodology_note()}</body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Próxima semana en Wall Street</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{render_macro_visuals(data,chart_keys)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p>{render_stock_breadth(breadth or {})}<h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Tabla comparativa de cierres, tendencia y fuerza relativa. Las fichas ampliadas se reservan para movimientos que requieren revisión.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}<h2>Calidad y límites de la información</h2>{data_confidence_section(data, sec, len(market_news) if market_news is not None else len(news), sec_status, warnings)}{methodology_note()}</body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
@@ -870,6 +916,7 @@ def main():
     week_ahead=json.loads(WEEK_AHEAD.read_text(encoding="utf-8")) if WEEK_AHEAD.exists() else {}
     try:
         charts=build_charts(history)
+        charts.update(build_macro_charts(data))
     except (ImportError,RuntimeError,OSError,ValueError) as error:
         print("Gráficos no disponibles:",type(error).__name__)
         charts={}
