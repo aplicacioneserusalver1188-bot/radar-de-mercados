@@ -125,6 +125,24 @@ def rank_news(items,now=None,limit=5):
 
 def escape(v):return html.escape(str(v),quote=True)
 
+def factual_summary(item, translate_fn=None, max_chars=360):
+    """Extracto breve de la fuente; nunca completa hechos ausentes con IA."""
+    text=" ".join(str(item.get("description","")).split())
+    if not text:
+        return "La fuente no publicó un extracto verificable para resumir el contenido."
+    if translate_fn:
+        try:
+            candidate=translate_fn(text)
+            if translation_is_usable(candidate):
+                text=" ".join(candidate.split())
+        except (ImportError,OSError,ValueError,RuntimeError):
+            pass
+    if len(text)>max_chars:
+        clip=text[:max_chars]
+        ending=max(clip.rfind(". "),clip.rfind("; "),clip.rfind("! "),clip.rfind("? "))
+        text=clip[:ending+1] if ending>100 else clip.rsplit(" ",1)[0]+"…"
+    return text
+
 def render_top_news(items,translate_fn=None):
     if not items:
         return ("<p>No se obtuvieron noticias con relevancia y fecha verificables suficientes. "
@@ -144,12 +162,14 @@ def render_top_news(items,translate_fn=None):
             ts=datetime.fromisoformat(ts.replace("Z","+00:00"))
         age_label=("Últimas 24 horas" if n.get("freshness_hours",999)<=24 else
                    "Catalizador previo aún relevante")
+        summary=factual_summary(n,translate_fn)
         blocks.append(
             '<div style="border:1px solid #dce3ec;border-radius:10px;padding:16px;margin:14px 0">'
             +f'<h3 style="margin:0 0 8px">{idx}. <a href="{escape(n["url"])}">{escape(headline)}</a></h3>'
             +f'<p style="font-size:12px;color:#57677c">{escape(n["source"])} · '
             +escape(ts.strftime("%d/%m/%Y %H:%M UTC"))
             +f' · {age_label} · Prioridad editorial {n["score"]}/100</p>'
+            +'<p><strong>Resumen:</strong> '+escape(summary)+'</p>'
             +'<p><strong>Impacto potencial:</strong> '+escape(n["mechanism"])+'</p>'
             +'<p><strong>Activos afectados:</strong> '+escape(n["assets"])+'</p></div>')
     return "".join(blocks)
