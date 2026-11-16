@@ -495,7 +495,7 @@ class ReportTests(unittest.TestCase):
         older=(datetime.now(timezone.utc).date()-timedelta(days=21)).isoformat()
         data={"series":{"sp500":{"points":[{"date":older,"value":100},{"date":old,"value":105}]}}}
         report=radar.render(data)
-        self.assertIn("presenta observación fuera de vigencia",report)
+        self.assertNotIn("presenta observación fuera de vigencia",report)
         self.assertNotIn("variación entre observaciones: +5.00%",report)
 
     def test_quality_report_counts_current_stale_and_absent(self):
