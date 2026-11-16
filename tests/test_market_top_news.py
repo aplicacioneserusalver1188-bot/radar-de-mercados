@@ -43,7 +43,7 @@ class TopNewsTests(unittest.TestCase):
         first=item("Federal Reserve signals interest rate cut")
         second=item("Federal Reserve signals interest rate cut")
         second["url"]="https://www.cnbc.com/another"
-        third=item("Federal Reserve signals interest rate cuts amid inflation")
+        third=item("Federal Reserve signals interest rate cut on Sunday")
         third["url"]="https://www.cnbc.com/third"
         filler=item("Interesting lifestyle story about celebrities")
         result=top.rank_news([first,second,third,filler],now=NOW)
