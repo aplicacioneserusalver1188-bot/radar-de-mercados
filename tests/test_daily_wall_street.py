@@ -112,7 +112,7 @@ class ReportTests(unittest.TestCase):
             status=json.loads(update_sec.STATUS_OUT.read_text(encoding="utf-8"))
             self.assertTrue(status["preserved_cached_summary"])
         report=radar.render({"series":{}}, {}, sec_status={"state":"blocked","http_status":403})
-        self.assertIn("HTTP 403", report)
+        self.assertNotIn("HTTP 403", report)
 
     def test_sec_without_contact_does_not_make_request(self):
         from tempfile import TemporaryDirectory
