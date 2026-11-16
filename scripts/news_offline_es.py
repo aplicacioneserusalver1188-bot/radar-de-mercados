@@ -6,7 +6,8 @@ No genera análisis nuevo: únicamente traduce un extracto literal del comunicad
 import re
 
 TRANSLATION_NOISE=("http://","https://","www.",".gov","url structure",
-                   "privacy policy","terms of use","cookie policy")
+                   "privacy policy","terms of use","cookie policy","gitación",
+                   "bomba de stock","rollos globales","stock de ")
 
 def translation_is_usable(text):
     """Descarta salidas de traducción contaminadas por URLs o texto de navegación."""

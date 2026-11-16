@@ -317,9 +317,8 @@ def sec_company_html(sec,history=None,chart_keys=None,company_news=None):
                       f'{pulse["close"]:,.2f} USD · {esc(pulse["date"])}'
                       f' &nbsp; <strong>Última sesión:</strong> {pulse["daily"]:+.2f}%'
                       f' &nbsp; <strong>Últimas 5 sesiones:</strong> {pulse["weekly"]:+.2f}%</p>')
-            content+='<p><strong>Qué está haciendo la acción:</strong> '+esc(stock_reading(pulse))+'</p>'
-            content+='<p><strong>Escenario condicional:</strong> '+esc(stock_scenarios(pulse))+'</p>'
-        content+=chart_fragment(ticker,history,chart_keys)
+            content+='<p><strong>Estructura técnica y escenario:</strong> '+esc(stock_scenarios(pulse))+'</p>'
+        content+=chart_fragment(ticker,history,chart_keys,compact=True)
         content+=company_news_html(headlines.get(ticker,[]),translator=local_translation,ticker=ticker)
         details.append('<div style="padding:16px;border:1px solid #dfe5ec;margin:14px 0;border-radius:10px">'
                        +content+'</div>')
@@ -505,7 +504,7 @@ def render_stock_breadth(breadth):
             +'</p><p>Por encima del 50% equivale a mayoría de los valores evaluados, '
             'pero no garantiza movimientos futuros ni supone una señal de compra.</p>')
 
-def chart_fragment(key, history=None, chart_keys=None):
+def chart_fragment(key, history=None, chart_keys=None, compact=False):
     """Imagen CID incrustada en Gmail, más conclusión calculada con los cierres."""
     asset=(history or {}).get("assets",{}).get(key,{})
     points=asset.get("points",[])
@@ -529,11 +528,11 @@ def chart_fragment(key, history=None, chart_keys=None):
              if key in (chart_keys or ()) else '<p>Gráfico no disponible en esta ejecución.</p>')
     url=asset.get("source","")
     source=f'<a href="{esc(url)}">Histórico y fuente</a>' if url.startswith("https://") else ""
-    tradingview=(f'<p><a href="{esc(tv_url)}"><strong>Abrir gráfico interactivo en TradingView</strong></a> '
-                 '— velas, escala temporal y lectura exacta al mover el cursor. La disponibilidad de cotizaciones en tiempo real depende de TradingView.</p>'
+    tradingview=(f'<a href="{esc(tv_url)}" title="Abrir en TradingView">▣ ↗</a>'
                  if tv_url.startswith("https://www.tradingview.com/") else "")
-    return ('<p>'+' · '.join(details)+'</p>'+proxy_warning+graphic+tradingview
-            +'<p><strong>Qué muestra:</strong> '+esc(trend_interpretation(measure))+'</p>'
+    lead="" if compact else '<p>'+' · '.join(details)+'</p>'
+    reading="" if compact else '<p><strong>Qué muestra:</strong> '+esc(trend_interpretation(measure))+'</p>'
+    return (lead+proxy_warning+graphic+tradingview+reading
             +'<p style="font-size:12px">'+source+'</p>')
 
 def colored_change(value, suffix="%"):
@@ -563,7 +562,7 @@ def visual_card(key, name, history=None, chart_keys=None, context="", current=No
          'style="display:block;width:100%;max-width:255px;height:auto;border:1px solid #dfe5ec;margin:10px 0"></a>'
          if key in (chart_keys or ()) else '<p style="color:#65758a">Gráfico no disponible en esta ejecución.</p>')
     tv=asset.get("tradingview_url","")
-    link=(f'<p style="margin:8px 0 0;font-size:12px"><a href="{esc(tv)}">Ver velas y precio exacto en TradingView</a></p>'
+    link=(f'<p style="margin:8px 0 0;font-size:12px"><a href="{esc(tv)}" title="Abrir en TradingView">▣ ↗</a></p>'
           if tv.startswith("https://www.tradingview.com/") else "")
     return ('<h3 style="margin:0;font-size:18px">'+esc(name)+'</h3>'
             '<p style="font-size:22px;font-weight:bold;margin:8px 0 2px">'+esc(level)+'</p>'
@@ -664,7 +663,15 @@ def render_macro_visuals(data,chart_keys=None):
             latest=points[-1] if points else None
             if latest:
                 available+=1
-                rows.append('<li><strong>'+esc(lookup[key][0])+':</strong> '+esc(macro_value(key,latest.get("value",0)))+' <span style="color:#64748b">('+esc(latest.get("date",""))+')</span></li>')
+                text=macro_value(key,latest.get("value",0))
+                if key in {"inflation","corepce","gdp"} and len(points)>=2:
+                    prior=points[-2]
+                    try:
+                        pct=100*(float(latest["value"])/float(prior["value"])-1)
+                        text+=f" · variación vs. publicación previa {pct:+.2f}%"
+                    except (KeyError,TypeError,ValueError,ZeroDivisionError):
+                        pass
+                rows.append('<li><strong>'+esc(lookup[key][0])+':</strong> '+esc(text)+' <span style="color:#64748b">('+esc(latest.get("date",""))+')</span></li>')
         color="#16803c" if available==len(keys) else "#c97a00" if available else "#c32f27"
         status="Disponible" if available==len(keys) else "Parcial" if available else "Sin datos"
         blocks.append('<td valign="top" width="33.33%" style="padding:12px;border:1px solid #dfe5ec"><h3 style="margin:0"><span style="color:'+color+'">●</span> '+esc(title)+'</h3><p style="margin:5px 0"><strong>'+status+'</strong></p><ul style="padding-left:18px;margin:8px 0">'+''.join(rows or ['<li>Sin observaciones verificables</li>'])+'</ul></td>')
@@ -732,7 +739,10 @@ def sector_rotation(history=None):
     if not rows:return '<p>Sin históricos sectoriales recientes verificables.</p>'
     rows.sort(key=lambda item:item[2],reverse=True)
     body=''.join('<tr><td>'+esc(label)+" ("+ticker+")</td><td>"+colored_change(change,"%")+'</td></tr>' for label,ticker,change in rows)
-    return '<p>Variación de cinco sesiones: permite identificar liderazgo relativo, no entradas o salidas automáticas.</p><table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;font-size:13px"><tr><th>Sector S&P 500</th><th>5 sesiones</th></tr>'+body+'</table>'
+    leaders=", ".join(label for label,_,_ in rows[:2]); laggards=", ".join(label for label,_,_ in rows[-2:])
+    cross=(f'<p><strong>Lectura cruzada:</strong> liderazgo relativo en {esc(leaders)} y rezago en {esc(laggards)}. '
+           'Contrasta esta rotación con tecnología, energía y rendimientos antes de concluir que existe un cambio de tendencia sostenido.</p>')
+    return '<p>Variación de cinco sesiones: permite identificar liderazgo relativo, no entradas o salidas automáticas.</p>'+cross+'<table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;font-size:13px"><tr><th>Sector S&P 500</th><th>5 sesiones</th></tr>'+body+'</table>'
 
 def render_week_ahead(agenda):
     """Agenda breve con fecha, fuente y alcance; nunca rellena eventos no publicados."""
@@ -897,7 +907,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         '<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA '
         'publicados en los últimos cuatro días.</p><ul>'+news_html+'</ul>'
         if market_news is None else '')
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Tesis central de apertura</h2>{market_narrative(data,history)}<h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}<h2>Próxima semana: macro y resultados corporativos</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: semáforo de señales</h2>{render_macro_visuals(data,chart_keys)}<h2>Rotación sectorial S&P 500</h2>{sector_rotation(history)}<h2>Consulta profunda: amplitud y acciones</h2>{index_breadth(data)}{render_stock_breadth(breadth or {})}<h3>Acciones: valoración, momentum y catalizadores</h3><p>Tabla comparativa de cierres, tendencia y fuerza relativa. La muestra reúne líderes tecnológicos y de semiconductores, banca, consumo, movilidad y cadena global de chips para seguir sectores que suelen influir en el mercado.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}<h2>Calidad y límites de la información</h2>{data_confidence_section(data, sec, len(market_news) if market_news is not None else len(news), sec_status, warnings)}{methodology_note()}</body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}</p><h2>Apertura: tesis y sesión</h2>{market_narrative(data,history)}{executive_summary(data,history,market_news)}<h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}<h2>Próxima semana: macro y resultados corporativos</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: semáforo de señales</h2>{render_macro_visuals(data,chart_keys)}<h2>Rotación sectorial S&P 500</h2>{sector_rotation(history)}<h2>Consulta profunda: amplitud y acciones</h2>{index_breadth(data)}{render_stock_breadth(breadth or {})}<h3>Acciones: valoración, momentum y catalizadores</h3><p>Tabla comparativa de cierres, tendencia y fuerza relativa.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}</body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}

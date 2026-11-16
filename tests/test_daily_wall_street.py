@@ -282,14 +282,14 @@ class ReportTests(unittest.TestCase):
     @patch.object(radar,"official_news",return_value=[])
     def test_report_uses_reader_first_section_order(self,_news):
         report=radar.render({"series":{}},market_news=[])
-        ordered=("Tesis central de apertura","Resumen ejecutivo",
+        ordered=("Apertura: tesis y sesión",
                  "Índices: tendencia, gráficos y confirmación",
                  "Próxima semana: macro y resultados corporativos",
                  "Noticias clave que pueden influir en Wall Street",
                  "Pulso de mercados: riesgo, energía y activos de referencia",
                  "Macroeconomía: semáforo de señales","Rotación sectorial S&P 500",
                  "Consulta profunda: amplitud y acciones",
-                 "Escenarios","Calidad y límites de la información")
+                 "Escenarios")
         positions=[report.index(title) for title in ordered]
         self.assertEqual(positions,sorted(positions))
 

@@ -49,14 +49,15 @@ def reading(p):
 
 def scenarios(p):
     if not p:return "Sin cotizaciones verificables no se determina escenario."
-    if p["weekly"]>1:
-        return ("Continuación favorable si se mantiene sobre MA20 y conserva fuerza relativa; "
-                "alerta si pierde esa referencia o vuelve a retroceder varias sesiones.")
-    if p["weekly"]< -1:
-        return ("Persistencia de debilidad mientras no recupere MA20; "
-                "un rebote aislado no invalida el deterioro de la semana.")
-    return ("Posible consolidación; un movimiento sostenido y confirmado por MA20 "
-            "sería necesario para hablar de dirección más definida.")
+    close=p["close"]; ma20=p.get("ma20"); ma50=p.get("ma50"); ma200=p.get("ma200")
+    levels=" · ".join(f"MA{n} ${value:,.2f}" for n,value in ((20,ma20),(50,ma50),(200,ma200)) if value)
+    if ma20 and close<ma20:
+        return (f"Presión vendedora mientras cotice bajo MA20 (${ma20:,.2f}). Una recuperación técnica exige reconquistar esa referencia"
+                +(f" y después MA50 (${ma50:,.2f})" if ma50 else "")+f". Niveles observados: {levels}.")
+    if ma20 and close>=ma20:
+        return (f"La estructura se sostiene mientras mantenga MA20 (${ma20:,.2f})"
+                +(f" y MA50 (${ma50:,.2f})" if ma50 else "")+f". Niveles observados: {levels}.")
+    return "Sin medias móviles suficientes para definir niveles técnicos verificables."
 
 def possible_news_impact(title,ticker):
     """Mecanismo sectorial plausible, no reacción de precio verificada."""
