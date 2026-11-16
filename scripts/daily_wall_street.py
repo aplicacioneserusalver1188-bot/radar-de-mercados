@@ -633,8 +633,9 @@ def macro_visual_card(key,label,meaning,data,chart_keys):
     else:
         level="No disponible"; date=""; change="Sin observación verificable"
     cid="macro_"+key
+    has_chart=(chart_keys or {}).get(cid) if isinstance(chart_keys,dict) else cid in (chart_keys or ())
     graphic=(f'<img src="cid:radar-{cid}" alt="Gráfico de {esc(label)}" style="display:block;width:100%;max-width:255px;height:auto;border:1px solid #dfe5ec;margin:10px 0">'
-             if cid in (chart_keys or ()) else '<p style="color:#65758a">Gráfico no disponible: faltan observaciones suficientes.</p>')
+             if has_chart else '<p style="color:#65758a">Gráfico no disponible: faltan observaciones suficientes.</p>')
     source=series.get("source_url","")
     link=(f'<p style="margin:7px 0 0;font-size:12px"><a href="{esc(source)}">Fuente y serie</a></p>'
           if source.startswith("https://") else "")

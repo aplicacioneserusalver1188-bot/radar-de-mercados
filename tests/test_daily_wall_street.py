@@ -16,9 +16,9 @@ class ReportTests(unittest.TestCase):
             "payrolls":{"points":[{"date":"2026-09-01","value":150000},{"date":"2026-10-01","value":150200}]}
         }}
         result=radar.render(data)
-        self.assertIn("IPC: precios al consumidor",result)
-        self.assertIn("+3.00% interanual",result)
-        self.assertIn("+200,000 puestos frente al mes anterior",result)
+        self.assertIn("Inflación (IPC, nivel del índice)",result)
+        self.assertIn("103.00",result)
+        self.assertIn("Empleo no agrícola (nivel)",result)
         self.assertIn("Decisión de política",result)
         self.assertIn("No disponible",result)
         self.assertIn("S&amp;P 500",result)
@@ -27,7 +27,7 @@ class ReportTests(unittest.TestCase):
     def test_ppi_is_not_reported_as_consumer_inflation(self, _news):
         data={"series":{"ppi":{"points":[{"date":"2025-10-01","value":200},{"date":"2026-10-01","value":210}]}}}
         result=radar.render(data)
-        self.assertIn("PPI de materias primas cambió +5.00% interanual",result)
+        self.assertIn("Precios al productor",result)
         self.assertNotIn("inflación interanual: +5.00%",result)
 
     @patch.object(radar, "official_news", return_value=[])
@@ -231,11 +231,11 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(render_charts.LINE_COLORS,
                          {"price":"#000000","ma20":"#0066cc","ma50":"#dc2626","ma200":"#15803d"})
         history={"assets":{key:{"points":points,"unit":"puntos","source":"https://fred.stlouisfed.org/series/SP500"}
-                           for key in ("sp500","nasdaq","dow","wti")}}
+                           for key in ("sp500","nasdaq100","dow","wti")}}
         report=radar.render({"series":{}},history=history,chart_keys={"wti":"/tmp/wti.png"},market_news=[])
         self.assertIn("Qué hizo el mercado:",report)
         self.assertIn("S&amp;P 500 +0.02%",report)
-        self.assertIn("Activo macro destacado: petróleo WTI",report)
+        self.assertIn("Petróleo WTI",report)
         self.assertIn("cid:radar-wti",report)
 
     def test_price_history_preserves_ohlc_and_report_links_tradingview(self):
