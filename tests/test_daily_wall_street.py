@@ -218,6 +218,22 @@ class ReportTests(unittest.TestCase):
         self.assertIn("cid:radar-gold",html)
         self.assertIn("Qué muestra:",html)
 
+    def test_chart_palette_and_executive_session_summary(self):
+        import render_charts
+        from datetime import datetime,timedelta,timezone
+        end=datetime.now(timezone.utc).date()
+        points=[{"date":(end-timedelta(days=240-i)).isoformat(),"close":4000+i}
+                for i in range(241)]
+        self.assertEqual(render_charts.LINE_COLORS,
+                         {"price":"#000000","ma20":"#0066cc","ma50":"#dc2626","ma200":"#15803d"})
+        history={"assets":{key:{"points":points,"unit":"puntos","source":"https://fred.stlouisfed.org/series/SP500"}
+                           for key in ("sp500","nasdaq","dow","wti")}}
+        report=radar.render({"series":{}},history=history,chart_keys={"wti":"/tmp/wti.png"},market_news=[])
+        self.assertIn("Qué hizo el mercado:",report)
+        self.assertIn("S&amp;P 500 +0.02%",report)
+        self.assertIn("Activo macro destacado: petróleo WTI",report)
+        self.assertIn("cid:radar-wti",report)
+
     def test_news_official_body_extraction_no_duplicate_title(self):
         import news_story
         page="<html><main><p>Economy report details a change in inflation expectations and monetary policy assumptions for the coming fiscal year.</p><p>Officials also described changes in bond yields and lending conditions for banks after the announcement.</p></main></html>"

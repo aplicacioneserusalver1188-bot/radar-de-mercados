@@ -8,6 +8,8 @@ from update_price_history import COMPANIES
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 CHART_DIR=ROOT/"reports"/"charts"
 COLORS={"up":"#087e64","down":"#bd4141","flat":"#4c6278"}
+# Paleta fija en todos los activos: la leyenda coincide con cada trazo.
+LINE_COLORS={"price":"#000000","ma20":"#0066cc","ma50":"#dc2626","ma200":"#15803d"}
 
 def metrics(points,now=None):
     """Medias móviles simples sobre cierres, sin extrapolar datos."""
@@ -65,15 +67,16 @@ def build_charts(history):
         fig,ax=plt.subplots(figsize=(7.2,2.9),dpi=110)
         fig.patch.set_facecolor("white")
         ax.set_facecolor("white")
-        color=COLORS["up"] if "change20" in view and view["change20"]>=0 else COLORS["down"]
-        ax.plot(dates[-90:],values[-90:],color=color,linewidth=2.3,label="Precio/cierre")
-        for term,shade in ((20,"#3d78a8"),(50,"#b08037"),(200,"#7467a8")):
+        # El precio siempre es negro; las medias conservan el mismo color en
+        # cada gráfico para que la lectura sea inmediata y comparable.
+        ax.plot(dates[-90:],values[-90:],color=LINE_COLORS["price"],linewidth=2.3,label="Precio/cierre")
+        for term in (20,50,200):
             if len(values)>=term+25:
                 cumulative=[sum(values[i-term+1:i+1])/term
                             for i in range(len(values)-90,len(values)) if i>=term-1]
                 xs=dates[max(len(values)-90,term-1):]
                 if len(xs)==len(cumulative):
-                    ax.plot(xs,cumulative,color=shade,linewidth=1.1,alpha=.85,label=f"MA{term}")
+                    ax.plot(xs,cumulative,color=LINE_COLORS["ma"+str(term)],linewidth=1.3,alpha=.95,label=f"MA{term}")
         ax.grid(axis="y",color="#e7ebf0",linewidth=.7)
         ax.spines[["top","right","left"]].set_visible(False)
         ax.tick_params(axis="both",labelsize=8,length=0,pad=8)
