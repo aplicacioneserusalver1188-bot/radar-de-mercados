@@ -288,7 +288,7 @@ class ReportTests(unittest.TestCase):
                  "Índices: tendencia, gráficos y confirmación",
                  "Amplitud: empresas por encima de sus medias móviles",
                  "Acciones: qué pasó ayer, esta semana y qué puede cambiar",
-                 "Escenarios","Cobertura y calidad de datos")
+                 "Escenarios","Calidad y límites de la información")
         positions=[report.index(title) for title in ordered]
         self.assertEqual(positions,sorted(positions))
 
@@ -433,9 +433,11 @@ class ReportTests(unittest.TestCase):
     def test_scenarios_are_separate_and_diagnosis_has_conclusion(self, _news):
         data={"series":{}}
         report=radar.render(data)
-        self.assertIn("<li><strong>Favorable:</strong>",report)
-        self.assertIn("<li><strong>Neutral:</strong>",report)
-        self.assertIn("<li><strong>Adverso:</strong>",report)
+        self.assertIn("Favorable — desinflación ordenada",report)
+        self.assertIn("Neutral — crecimiento con señales cruzadas",report)
+        self.assertIn("Adverso — presión financiera",report)
+        self.assertIn("Qué lo confirmaría:",report)
+        self.assertIn("Cómo usarlo:",report)
         self.assertIn("Conclusión:",report)
         self.assertIn("Taiwan Semiconductor (TSMC)",report)
         self.assertIn("SpaceX",report)

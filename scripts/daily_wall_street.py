@@ -648,11 +648,45 @@ def macro_asset_chart(history=None, chart_keys=None):
             +chart_fragment("wti",history,chart_keys)+'</div>')
 
 def methodology_note():
-    """Una sola nota de alcance sustituye advertencias repetidas en cada bloque."""
+    """Alcance compacto, orientado a la lectura práctica del informe."""
     return ('<details style="margin-top:16px"><summary><strong>Metodología y nota legal</strong></summary>'
-            '<p>Las variaciones, medias móviles y rankings describen datos históricos y cobertura de fuentes públicas; '
-            'no son recomendaciones de inversión ni pronósticos. Las noticias se clasifican por relevancia potencial, '
-            'no demuestran causalidad de precios. Verifique fecha, fuente y cobertura antes de tomar decisiones.</p></details>')
+            '<p><strong>¿Para qué sirve?</strong> Para saber de dónde salen las cifras y qué se puede —o no se puede— concluir de ellas. '
+            'El radar combina fuentes públicas, cierres históricos, indicadores macroeconómicos y noticias verificables. '
+            'Las medias y variaciones describen el comportamiento observado; no predicen precios. Las noticias son posibles catalizadores, '
+            'no pruebas de causalidad. El informe es informativo y no sustituye un análisis de riesgo, horizonte ni situación financiera personal.</p></details>')
+
+def scenario_analysis():
+    """Escenarios operativos: condiciones, confirmación y utilidad para el lector."""
+    cards=(
+        ('Favorable — desinflación ordenada', '#eaf7ef', '#18733d',
+         'La inflación pierde impulso sin un deterioro brusco del empleo. Eso permitiría que los rendimientos se estabilicen y que el crédito siga financiando actividad y beneficios.',
+         'Confirmar con varias publicaciones, no con un solo dato: inflación moderándose, rendimientos contenidos, diferenciales de crédito estables y revisiones de beneficios sin deterioro.',
+         'Útil para contrastar si la fortaleza de índices y empresas sensibles al crecimiento tiene respaldo macroeconómico. Si dos de esos pilares se debilitan, la lectura deja de ser consistente.'),
+        ('Neutral — crecimiento con señales cruzadas', '#fff7e6', '#9a6700',
+         'La economía evita una ruptura clara, pero inflación, empleo, rendimientos y beneficios no apuntan todos en la misma dirección. El mercado puede alternar avances y retrocesos según cada publicación.',
+         'Señales típicas: inflación que baja lentamente, empleo resistente pero enfriándose, rendimientos volátiles o amplitud de mercado limitada a pocas empresas.',
+         'Sirve para evitar construir una tesis sobre un titular aislado. Conviene comparar la reacción de índices, crédito y volatilidad antes de interpretar un movimiento como cambio de tendencia.'),
+        ('Adverso — presión financiera y revisión de expectativas', '#fdecec', '#b42318',
+         'La inflación vuelve a presionar o las condiciones financieras se endurecen al mismo tiempo que empleo o beneficios pierden fuerza. En ese entorno aumenta el riesgo de que el mercado revalore crecimiento, márgenes y múltiplos.',
+         'Confirmar con una combinación de rendimientos al alza, crédito deteriorándose, volatilidad persistente y revisiones negativas de beneficios o empleo.',
+         'Ayuda a identificar qué debe vigilarse antes de asumir que una caída es una oportunidad: si la presión se extiende a crédito y beneficios, el riesgo no se limita a un sector o a una sola sesión.'),
+    )
+    blocks=[]
+    for title,bg,color,idea,signals,use in cards:
+        blocks.append('<section style="margin:12px 0;padding:14px 16px;border-left:4px solid '+color+';background:'+bg+'">'
+                      '<h3 style="margin:0 0 7px">'+title+'</h3>'
+                      '<p><strong>Idea central:</strong> '+idea+'</p>'
+                      '<p><strong>Qué lo confirmaría:</strong> '+signals+'</p>'
+                      '<p><strong>Cómo usarlo:</strong> '+use+'</p></section>')
+    return ('<p>Los escenarios no son pronósticos ni probabilidades. Son un mapa para conectar datos, noticias y reacción de mercado, y para reconocer qué evidencia cambiaría la lectura.</p>'
+            +''.join(blocks))
+
+def data_confidence_section(data, sec, news_count, sec_status, warnings):
+    """Presenta controles de calidad como ayuda de interpretación, no como ruido técnico."""
+    return ('<p><strong>¿Para qué sirve al inversor?</strong> Para distinguir una señal respaldada por datos recientes de una lectura que puede estar incompleta o desactualizada. '
+            'No indica si el mercado subirá o bajará; indica cuánta cautela usar al interpretar el informe.</p>'
+            '<details><summary><strong>Ver cobertura, fechas y limitaciones de esta edición</strong></summary>'
+            +data_quality_summary(data, sec, news_count, sec_status)+'<p>'+esc(warnings)+'</p></details>')
 
 def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=None, company_news=None, market_news=None, sec_status=None, week_ahead=None):
     now=datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y %H:%M")
@@ -749,7 +783,7 @@ def render(data, sec=None, refs=None, breadth=None, history=None, chart_keys=Non
         '<h2>Noticias y catalizadores</h2><p>Comunicados oficiales de Fed, BLS, SEC y BEA '
         'publicados en los últimos cuatro días.</p><ul>'+news_html+'</ul>'
         if market_news is None else '')
-    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Próxima semana en Wall Street</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{macro_story(data)}{macro_asset_chart(history,chart_keys)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. Nasdaq Composite es distinto de Nasdaq 100. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p>{render_stock_breadth(breadth or {})}<h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Tabla comparativa de cierres, tendencia y fuerza relativa. Las fichas ampliadas se reservan para movimientos que requieren revisión.</p>{companies}{legacy_news_section}<h2>Escenarios</h2><ul><li><strong>Favorable:</strong> inflación moderándose, rendimientos estables, crédito resistente y mejora de beneficios.</li><li><strong>Neutral:</strong> señales contradictorias entre inflación, empleo, rendimientos y beneficios.</li><li><strong>Adverso:</strong> presión inflacionaria, endurecimiento financiero y deterioro del empleo o beneficios.</li></ul><p>Son condiciones hipotéticas, no probabilidades calculadas.</p><h2>Cobertura y calidad de datos</h2>{data_quality_summary(data, sec, len(market_news) if market_news is not None else len(news), sec_status)}<p>{esc(warnings)}</p>{methodology_note()}<p style="font-size:12px;color:#555">Informe informativo; no es recomendación personalizada. Los datos se presentan con su fecha de observación. La disponibilidad y puntualidad dependen de las fuentes públicas.</p></body></html>"""
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Radar diario de Wall Street</title></head><body style="font:15px/1.55 Arial,sans-serif;color:#172334;max-width:900px;margin:auto;padding:24px"><h1>RADAR DE WALL STREET</h1><p><strong>Edición:</strong> {esc(edition_label(sec or {}))}. Las secciones sin fuentes verificadas se muestran como no disponibles.<br><strong>Fecha de elaboración (Venezuela):</strong> {esc(now)}<br><strong>Fuente de datos:</strong> archivo existente del Observatorio RM, FRED y fuentes originales indicadas en el tablero.</p><h2>Resumen ejecutivo</h2>{executive_summary(data,history,market_news)}<h2>Próxima semana en Wall Street</h2>{render_week_ahead(week_ahead)}{top_news_section}<h2>Pulso de mercados: riesgo, energía y activos de referencia</h2>{market_diagnosis(data)}{render_market_references(refs or {},history,chart_keys)}<h2>Macroeconomía: señales y consecuencias para el mercado</h2>{macro_story(data)}{macro_asset_chart(history,chart_keys)}<p><a href="https://fred.stlouisfed.org/">FRED</a> · <a href="https://www.federalreserve.gov/">Reserva Federal</a> · <a href="https://www.bls.gov/">BLS</a> · <a href="https://www.bea.gov/">BEA</a></p><h2>Índices: tendencia, gráficos y confirmación</h2>{render_index_cards(history,chart_keys)}{index_breadth(data)}<p>Gráficos históricos de índices publicados en FRED, con fecha de cada cierre. Nasdaq Composite es distinto de Nasdaq 100. No se inventan cotizaciones o soportes cuando la fuente no está disponible.</p>{render_stock_breadth(breadth or {})}<h2>Acciones: qué pasó ayer, esta semana y qué puede cambiar</h2><p>Tabla comparativa de cierres, tendencia y fuerza relativa. Las fichas ampliadas se reservan para movimientos que requieren revisión.</p>{companies}{legacy_news_section}<h2>Escenarios</h2>{scenario_analysis()}<h2>Calidad y límites de la información</h2>{data_confidence_section(data, sec, len(market_news) if market_news is not None else len(news), sec_status, warnings)}{methodology_note()}</body></html>"""
 def essential_macro_coverage(data):
     """Requiere al menos tres de cuatro series esenciales con lecturas vigentes."""
     expected = {"inflation": 75, "payrolls": 75, "treasury10y": 7, "vix": 7}
