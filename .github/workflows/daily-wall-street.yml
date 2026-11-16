@@ -1,7 +1,11 @@
 name: Radar diario Wall Street (Gmail)
 on:
   workflow_dispatch:
-    # Las ejecuciones manuales siempre son una vista previa: no pueden enviar correo.
+    inputs:
+      send_test_email:
+        description: 'Enviar una sola prueba real por correo (desactivado por defecto)'
+        type: boolean
+        default: false
   schedule:
     # Venezuela UTC-4 todo el año: 07:00 = 11:00 UTC. Cron envia correo real.
     - cron: '0 11 * * *'
@@ -53,10 +57,9 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           REPORT_TO: ${{ secrets.REPORT_TO }}
-          # Solo el programador diario puede activar el transporte SMTP. Esto evita
-          # que una prueba manual entregue correos si GitHub interpreta un input de
-          # formulario de forma inesperada.
-          RADAR_DRY_RUN: ${{ github.event_name == 'schedule' && '0' || '1' }}
+          # El cron diario envía. Una ejecución manual solo puede hacerlo mediante
+          # el interruptor explícito send_test_email, cuyo valor por defecto es falso.
+          RADAR_DRY_RUN: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.send_test_email == true)) && '0' || '1' }}
         run: python scripts/daily_wall_street.py
       - name: Conservar informe como artefacto
         if: always()

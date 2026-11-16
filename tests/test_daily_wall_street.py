@@ -46,6 +46,8 @@ class ReportTests(unittest.TestCase):
         self.assertIn("scripts/update_wall_street_data.py", testing)
         self.assertIn("workflow_dispatch:", scheduled)
         self.assertIn("github.event_name == 'schedule'", scheduled)
+        self.assertIn("inputs.send_test_email == true", scheduled)
+        self.assertIn("default: false", scheduled)
         self.assertIn("RADAR_DRY_RUN", scheduled)
         self.assertNotIn("inputs.preview_only", scheduled)
         self.assertIn("cron: '0 11 * * *'", scheduled)
