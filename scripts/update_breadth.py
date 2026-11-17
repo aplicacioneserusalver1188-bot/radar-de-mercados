@@ -39,21 +39,27 @@ def parse_nasdaq(content):
 
 def parse_sp500(content):
     text=text_content(content)
-    raw_date=re.search(r"as of market close,\s+([A-Z][a-z]{2} \d{1,2}, 20\d\d)",text)
-    if not raw_date:raise ValueError("Fecha de cierre S&P 500 no identificada")
-    date=datetime.strptime(raw_date.group(1),"%b %d, %Y").date().isoformat()
     # Buscar el resumen compacto de 20/50/200 SMA, no textos sueltos que podrían tener otro periodo.
     patterns=[
-      r"200d\s+([\d.]+)%\s*50d\s+([\d.]+)%\s*20d\s+([\d.]+)%",
-      r"20d\s+([\d.]+)%\s*50d\s+([\d.]+)%\s*200d\s+([\d.]+)%",
+      r"200d\s+([\d.]+)%\s*50d\s+([\d.]+)%\s*20d\s+([\d.]+)%\s*([A-Z][a-z]{2} \d{1,2}, 20\d\d)?",
+      r"20d\s+([\d.]+)%\s*50d\s+([\d.]+)%\s*200d\s+([\d.]+)%\s*([A-Z][a-z]{2} \d{1,2}, 20\d\d)?",
     ]
     match=re.search(patterns[0],text,re.I)
     if match:
-        ma200,ma50,ma20=map(float,match.groups())
+        ma200,ma50,ma20=map(float,match.groups()[:3])
     else:
         match=re.search(patterns[1],text,re.I)
         if not match:raise ValueError("S&P 500 sin trío SMA 20/50/200 verificable")
-        ma20,ma50,ma200=map(float,match.groups())
+        ma20,ma50,ma200=map(float,match.groups()[:3])
+    # Chartrow antes mostraba "as of market close". Ahora muestra la fecha
+    # consolidada junto al trío de medias y una hora intradía distinta arriba.
+    # Preferimos la fecha del trío: representa el cierre utilizado en el cálculo.
+    raw_date=match.group(4) or None
+    if not raw_date:
+        legacy_date=re.search(r"as of market close,\s+([A-Z][a-z]{2} \d{1,2}, 20\d\d)",text)
+        raw_date=legacy_date.group(1) if legacy_date else None
+    if not raw_date:raise ValueError("Fecha de cierre S&P 500 no identificada")
+    date=datetime.strptime(raw_date,"%b %d, %Y").date().isoformat()
     return {"date":date,"ma20":ma20,"ma50":ma50,"ma200":ma200,
             "method":"SMA, universo de miembros cubiertos por el proveedor"}
 
