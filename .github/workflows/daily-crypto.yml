@@ -4,8 +4,9 @@ on:
     paths:
       - 'ops/trigger-crypto-email.txt'
   schedule:
-    # 07:00 hora de Venezuela = 11:00 UTC, todos los días.
-    - cron: '0 11 * * *'
+    # Respaldo: Cloudflare inicia a las 07:00 VET. GitHub revisa a las 07:30
+    # y solo envía si no hay una ejecución externa exitosa de esta edición.
+    - cron: '30 11 * * *'
   workflow_dispatch:
     inputs:
       send_test_email:
@@ -14,11 +15,40 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: radar-diario-cripto
   cancel-in-progress: false
 jobs:
+  comprobar-respaldo:
+    runs-on: ubuntu-latest
+    outputs:
+      enviar_respaldo: ${{ steps.verificar.outputs.enviar_respaldo }}
+    steps:
+      - id: verificar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            echo "enviar_respaldo=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          hoy_vet=$(TZ=America/Caracas date +%F)
+          exitosas=$(gh api \
+            "/repos/$REPOSITORY/actions/workflows/daily-crypto.yml/runs?event=workflow_dispatch&per_page=50" \
+            --jq ".workflow_runs | map(select(.conclusion == \"success\" and (.created_at | startswith(\"$hoy_vet\")))) | length")
+          if [ "$exitosas" -gt 0 ]; then
+            echo "Cloudflare ya inició y completó el informe de hoy; respaldo omitido."
+            echo "enviar_respaldo=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "No hay informe externo exitoso hoy; se activa el respaldo GitHub."
+            echo "enviar_respaldo=true" >> "$GITHUB_OUTPUT"
+          fi
   radar-cripto:
+    needs: comprobar-respaldo
+    if: ${{ always() && (github.event_name != 'schedule' || needs.comprobar-respaldo.outputs.enviar_respaldo == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
