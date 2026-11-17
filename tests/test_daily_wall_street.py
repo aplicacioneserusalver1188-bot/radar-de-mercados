@@ -52,7 +52,9 @@ class ReportTests(unittest.TestCase):
         self.assertIn("default: false", scheduled)
         self.assertIn("RADAR_DRY_RUN", scheduled)
         self.assertNotIn("inputs.preview_only", scheduled)
-        self.assertIn("cron: '0 11 * * *'", scheduled)
+        # Cloudflare es el disparador principal a las 07:00 VET; GitHub queda
+        # como respaldo a las 07:30 para no competir ni duplicar el correo.
+        self.assertIn("cron: '30 11 * * *'", scheduled)
         self.assertNotIn("RADAR_ENABLE_EMAIL", scheduled)
         self.assertNotIn("python scripts/update_data.py", scheduled)
 
