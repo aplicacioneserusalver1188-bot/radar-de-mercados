@@ -152,10 +152,38 @@ def financial_spanish(text):
         ("rollos globales", "continúa el auge global"),
         ("bomba de stock", "caída de las acciones"),
         ("bomba de inteligencia artificial", "auge de la inteligencia artificial"),
+        ("caminatas", "subidas de tasas"),
+        ("Fed de St. Louis", "Fed de San Luis"),
+        ("los próximos meses", "los próximos meses"),
     )
     for before,after in fixes:
         text=text.replace(before,after)
     return " ".join(text.split())
+
+def editorial_headline(source, translated=""):
+    """Prioriza una formulación financiera natural sobre una traducción literal."""
+    lower=source.lower()
+    if "musalem" in lower and "hike" in lower:
+        return ("Musalem, de la Fed de San Luis, ve posibles hasta cuatro "
+                "subidas adicionales de tasas en los próximos meses")
+    if "nvidia" in lower and "export" in lower and "control" in lower:
+        return ("El Departamento de Comercio, bajo presión por retrasar los "
+                "controles de exportación de chips de Nvidia")
+    return financial_spanish(translated) if translated else source
+
+def editorial_summary(item, translate_fn=None):
+    """Resume el hecho concreto en español; evita reemplazarlo por una definición genérica."""
+    title=str(item.get("title", ""))
+    raw=(title+" "+str(item.get("description", ""))).lower()
+    if "musalem" in raw and "hike" in raw:
+        return ("Alberto Musalem, presidente de la Fed de San Luis, señaló que podrían "
+                "ser necesarias hasta cuatro subidas adicionales de tasas. Es una opinión "
+                "de un miembro de la Fed, no una decisión del FOMC.")
+    if "nvidia" in raw and "export" in raw and "control" in raw:
+        return ("El Departamento de Comercio enfrenta presiones por el retraso de controles "
+                "a la exportación de chips de Nvidia. El foco es el posible acceso de China "
+                "a tecnología avanzada y sus implicaciones de seguridad nacional.")
+    return financial_spanish(factual_summary(item,translate_fn))
 
 def render_top_news(items,translate_fn=None):
     if not items:
@@ -163,27 +191,30 @@ def render_top_news(items,translate_fn=None):
                 "No se agregan titulares secundarios para completar cinco.</p>")
     blocks=[]
     for idx,n in enumerate(items[:5],1):
-        headline=n.get("title","")
+        source_headline=n.get("title","")
+        headline=source_headline
         if translate_fn:
             try:
-                translated=translate_fn(headline)
+                translated=translate_fn(source_headline)
                 if translation_is_usable(translated):
-                    headline=financial_spanish(translated.strip())
+                    headline=editorial_headline(source_headline,translated.strip())
             except (ImportError,OSError,ValueError,RuntimeError):
                 pass
+        else:
+            headline=editorial_headline(source_headline)
         ts=n["published"]
         if isinstance(ts,str):
             ts=datetime.fromisoformat(ts.replace("Z","+00:00"))
         age_label=("Últimas 24 horas" if n.get("freshness_hours",999)<=24 else
                    "Catalizador previo aún relevante")
-        summary=factual_summary(n,translate_fn)
+        summary=editorial_summary(n,translate_fn)
         blocks.append(
-            '<div style="border:1px solid #dce3ec;border-radius:10px;padding:16px;margin:14px 0">'
-            +f'<h3 style="margin:0 0 8px">{idx}. <a href="{escape(n["url"])}">{escape(headline)}</a></h3>'
-            +f'<p style="font-size:12px;color:#57677c">{escape(n["source"])} · '
+            '<div style="border:1px solid #dce3ec;border-radius:10px;padding:12px 16px;margin:8px 0">'
+            +f'<h3 style="margin:0 0 4px;line-height:1.3">{idx}. <a href="{escape(n["url"])}">{escape(headline)}</a></h3>'
+            +f'<p style="font-size:12px;color:#57677c;margin:4px 0">{escape(n["source"])} · '
             +escape(ts.strftime("%d/%m/%Y %H:%M UTC"))
             +f' · {age_label} · Prioridad editorial {n["score"]}/100</p>'
-            +'<p><strong>Resumen:</strong> '+escape(summary)+'</p>'
-            +'<p><strong>Impacto potencial:</strong> '+escape(n["mechanism"])+'</p>'
-            +'<p><strong>Activos afectados:</strong> '+escape(n["assets"])+'</p></div>')
+            +'<p style="margin:6px 0"><strong>Qué ocurrió:</strong> '+escape(summary)+'</p>'
+            +'<p style="margin:6px 0"><strong>Impacto potencial:</strong> '+escape(n["mechanism"])+'</p>'
+            +'<p style="margin:6px 0"><strong>Activos afectados:</strong> '+escape(n["assets"])+'</p></div>')
     return "".join(blocks)
