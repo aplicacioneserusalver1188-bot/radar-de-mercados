@@ -89,6 +89,28 @@ def angle(title):
         return "Evaluar si el desarrollo afecta adopción, oferta o liquidez del activo; el titular por sí solo no prueba efecto en precio."
     return "Es un posible catalizador; comprobar magnitud, confirmación independiente y reacción del precio antes de tomar decisiones."
 
+def reader_context(title):
+    """Explica el concepto financiero de la noticia sin inferir una recomendación."""
+    t=title.lower()
+    if any(x in t for x in ("etf","fund flows","inflows","outflows","salidas","entradas")):
+        return ("Un ETF de bitcoin permite obtener exposición al activo mediante participaciones cotizadas. "
+                "Las entradas indican creación neta de participaciones y las salidas, rescates netos; ayudan a "
+                "medir demanda institucional, pero una sola sesión no determina el próximo precio de BTC.")
+    if any(x in t for x in ("liquidat","leverage","apalanc","futures")):
+        return ("En derivados, el apalancamiento multiplica tanto ganancias como pérdidas. Cuando una posición no "
+                "puede cubrir sus garantías, se liquida de forma automática y puede acelerar temporalmente la caída o el rebote.")
+    if any(x in t for x in ("fed","inflation","rates","inflación","dólar")):
+        return ("Los tipos de interés cambian el coste de financiarse y el atractivo relativo de activos sin rendimiento, "
+                "como bitcoin. Tipos más altos suelen reducir el apetito por riesgo, aunque la reacción depende de las expectativas.")
+    if any(x in t for x in ("sec","regula","congress","senate","ley ")):
+        return ("Las normas determinan quién puede ofrecer, custodiar o negociar un activo. Una noticia regulatoria "
+                "puede afectar expectativas y liquidez, pero conviene separar una propuesta de una regla ya aprobada.")
+    if any(x in t for x in ("ethereum","ether","eth","solana","xrp")):
+        return ("En criptoactivos distintos de bitcoin, el precio suele depender de uso de la red, actividad de desarrolladores, "
+                "liquidez y competencia. El anuncio es contexto; no demuestra por sí solo un cambio de valor o tendencia.")
+    return ("La noticia es información de contexto. Para usarla en una decisión conviene contrastarla con el precio, volumen, "
+            "liquidez y otras fuentes antes de asumir que cambiará la tendencia.")
+
 def render(items,prices,errors,price_error):
     now=datetime.now(ZoneInfo("America/Caracas")).strftime("%d/%m/%Y %H:%M VET")
     e=html.escape
@@ -111,6 +133,7 @@ def render(items,prices,errors,price_error):
     for i,item in enumerate(items,1):
         parts.append(f'<article><h3>{i}. {e(item["title"])}</h3><small>{e(item["source"])} · {e(item["date"])}</small>')
         if item["description"]: parts.append(f'<p><strong>Resumen publicado:</strong> {e(item["description"])}</p>')
+        parts.append(f'<p><strong>Cómo leer esta noticia:</strong> {e(reader_context(item["title"]))}</p>')
         parts.append(f'<p><strong>Por qué importa:</strong> {e(angle(item["title"]))}</p>')
         parts.append(f'<p><a href="{e(item["url"],quote=True)}">Leer noticia y verificar fuente</a></p></article>')
     parts.append('<h2>Diagnóstico y escenarios 24–72 horas</h2>')
