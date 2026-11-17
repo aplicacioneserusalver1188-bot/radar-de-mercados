@@ -84,6 +84,14 @@ class TopNewsTests(unittest.TestCase):
         self.assertIn("US inflation CPI surprises investors",text)
         self.assertNotIn("URL structure",text)
 
+    def test_editorial_summary_explains_musalem_rate_hike_story_in_spanish(self):
+        news=top.rank_news([item("St. Louis Fed's Musalem says up to four more hikes may be needed in coming months")],now=NOW)
+        text=top.render_top_news(news,translate_fn=lambda _:"Musalem de St. Louis Fed dice cuatro caminatas más")
+        self.assertIn("subidas adicionales de tasas",text)
+        self.assertIn("Alberto Musalem",text)
+        self.assertIn("Qué ocurrió:",text)
+        self.assertNotIn("caminatas",text)
+
     @patch.object(radar,"official_news",return_value=[])
     def test_report_top_news_is_unique_and_near_front(self,_news):
         headlines=top.rank_news([item("Inflation CPI surprises investors")],now=NOW)
