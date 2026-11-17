@@ -459,6 +459,14 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(s["ma20"],67)
         self.assertEqual(s["ma50"],72)
         self.assertEqual(s["ma200"],64)
+        # Formato actual de Chartrow: la fecha del cierre figura después de
+        # las tres medias, no en la frase "as of market close".
+        current_sp="<p>200d 60%50d 65%20d 55% Nov 16, 2026</p>"
+        current=update_breadth.parse_sp500(current_sp)
+        self.assertEqual(current["date"],"2026-11-16")
+        self.assertEqual(current["ma20"],55)
+        self.assertEqual(current["ma50"],65)
+        self.assertEqual(current["ma200"],60)
         report=radar.render_stock_breadth({"indices":{
             "sp500":{"source":"https://example.com","date":"2026-11-13",**s},
             "nasdaq100":{"source":"https://example.com","date":"2026-11-13",**n}}})
